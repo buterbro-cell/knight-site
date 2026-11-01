@@ -83,7 +83,9 @@ async function checkModel() {
     if (availableModels.includes(MODEL)) { console.log('Модель найдена:', MODEL); return loadModelInfo(); }
     const low = availableModels.map(x => x.toLowerCase());
     for (const pref of MODEL_PREFS) {
-      const i = low.findIndex(x => x.includes(pref.toLowerCase()));
+      const pl = pref.toLowerCase();
+      let i = low.indexOf(pl);
+      if (i < 0) i = low.findIndex(x => x.includes(pl) && !x.includes('abliterated'));
       if (i >= 0 && !/abliterated/i.test(availableModels[i])) { console.log(`Модели ${MODEL} нет, беру ${availableModels[i]}`); MODEL = availableModels[i]; return loadModelInfo(); }
     }
     console.log(`Модели ${MODEL} нет, беру первую доступную: ${availableModels[0]}`); MODEL = availableModels[0]; loadModelInfo();
