@@ -237,7 +237,7 @@
       vIntro:'Сервер сайта сам запросил у NEAR AI отчёт аттестации со свежим случайным числом (nonce) и проверил его так, как описано в документации NEAR AI. Подделать или подсунуть старый отчёт нельзя.',
       vModel:'Модель', vTime:'Проверено', vNonce:'Nonce', vGateway:'Шлюз NEAR AI', vGpuModel:'Модель на видеокарте', vSigner:'Ключ подписи', vAgain:'Проверить заново', vClose:'Закрыть',
       vAnswer:'Последний ответ', vNoStore:'🔒 Сервер этого сайта ничего не сохраняет: ни вопросы, ни ответы, ни документы, ни голос. Только счётчики токенов для расходов.',
-      vInfo:'справочно', vThrottled:'Повторная проверка — не чаще нескольких раз в час, показан последний результат.', vSelf:'Как проверить самому, не доверяя этому сайту', vSelfText:'1) Скачайте исходный отчёт аттестации — в нём nonce и подписанные доказательства Intel и NVIDIA. 2) Проверьте его официальным инструментом NEAR AI: github.com/nearai/nearai-cloud-verifier. 3) Подпись ответа выше проверяется так: ethers.verifyMessage(signed_text, signature) должен вернуть signing_address, а этот адрес — совпасть с ключом из отчёта.', vRaw:'Скачать исходный отчёт', proofOk:'🔏 Ответ подписан внутри TEE — проверено', proofFail:'⚠️ Подпись ответа не подтвердилась — подробнее',
+      vInfo:'справочно', vThrottled:'Повторная проверка — не чаще нескольких раз в час, показан последний результат.', vSelf:'Как проверить самому, не доверяя этому сайту', vSelfText:'1) Скачайте исходный отчёт аттестации — в нём nonce и подписанные доказательства Intel и NVIDIA. 2) Проверьте его официальным инструментом NEAR AI: github.com/nearai/nearai-cloud-verifier. 3) Подпись ответа выше проверяется так: ethers.verifyMessage(signed_text, signature) должен вернуть signing_address, а этот адрес — совпасть с ключом из отчёта.', vRaw:'Скачать исходный отчёт', vCh:'Проверьте сами: своё число', vChText:'Придумайте любое число или слово. Мы попросим железо NEAR AI вписать его (в виде sha256) внутрь отчёта, подписанного Intel. Заранее такой отчёт не подготовить — значит, проверка идёт вживую.', vChPh:'например 58371', vChBtn:'Проверить', vChWait:'Запрашиваю отчёт у NEAR AI… (10–30 сек)', vChOk:'✅ Ваше число найдено внутри отчёта, подписанного Intel', vChBad:'❌ Ваше число в отчёте не найдено', vChErr:'Не получилось — попробуйте чуть позже (не чаще пары раз в несколько минут).', vChWord:'Ваше слово', vChHash:'sha256 → nonce', vChRaw:'Скачать этот отчёт', proofOk:'🔏 Ответ подписан внутри TEE — проверено', proofFail:'⚠️ Подпись ответа не подтвердилась — подробнее',
       dTitle:'Документ', dSub:'Рыцарь приватно разберёт выписку, чеки или договор: файл читается в браузере, уходит только в защищённую среду и нигде не сохраняется.', dUpload:'📁 Загрузить свой файл', dUploadS:'TXT, CSV, MD, JSON или PDF', dSamples:'Или вымышленный пример (для проверки):', dClose:'Закрыть',
       docAsk:'Разбери этот документ: что в нём главное и что выглядит необычно или подозрительно?', docAttached:'Документ прикреплён. Сейчас разберу!', docErr:'Не получилось прочитать файл.', docBig:'Файл большой — я прочитаю первые 20 тысяч символов.',
       transcribing:'Распознаю речь (Whisper в TEE)…', noteWhisper:'Голос распознаёт Whisper внутри защищённой среды NEAR AI, ответы — модель в TEE. Сервер сайта ничего не сохраняет. Нажми «TEE ✓» вверху, чтобы увидеть доказательство.',
@@ -264,7 +264,7 @@
       vIntro:'This site’s server requested a NEAR AI attestation report with a fresh random nonce and verified it as the NEAR AI verification docs describe. An old or forged report cannot pass.',
       vModel:'Model', vTime:'Checked', vNonce:'Nonce', vGateway:'NEAR AI gateway', vGpuModel:'Model on GPU', vSigner:'Signing key', vAgain:'Verify again', vClose:'Close',
       vAnswer:'Last answer', vNoStore:'🔒 This server keeps nothing: no questions, answers, documents or voice. Only token counters for cost.',
-      vInfo:'info', vThrottled:'Re-verification is limited to a few times per hour — showing the latest result.', vSelf:'Verify it yourself, without trusting this site', vSelfText:'1) Download the raw attestation report — it contains the nonce and the signed Intel and NVIDIA evidence. 2) Check it with NEAR AI’s official tool: github.com/nearai/nearai-cloud-verifier. 3) The answer signature above: ethers.verifyMessage(signed_text, signature) must return signing_address, and that address must match a key in the report.', vRaw:'Download raw report', proofOk:'🔏 Answer signed inside the TEE — verified', proofFail:'⚠️ Answer signature not confirmed — details',
+      vInfo:'info', vThrottled:'Re-verification is limited to a few times per hour — showing the latest result.', vSelf:'Verify it yourself, without trusting this site', vSelfText:'1) Download the raw attestation report — it contains the nonce and the signed Intel and NVIDIA evidence. 2) Check it with NEAR AI’s official tool: github.com/nearai/nearai-cloud-verifier. 3) The answer signature above: ethers.verifyMessage(signed_text, signature) must return signing_address, and that address must match a key in the report.', vRaw:'Download raw report', vCh:'Check it yourself: your own number', vChText:'Type any number or word. We ask NEAR AI hardware to put it (as sha256) inside the Intel-signed report. Such a report cannot be prepared in advance — so the check is live.', vChPh:'e.g. 58371', vChBtn:'Verify', vChWait:'Requesting a report from NEAR AI… (10–30 s)', vChOk:'✅ Your number was found inside the Intel-signed report', vChBad:'❌ Your number was not found in the report', vChErr:'Failed — try again a bit later (a couple of times per few minutes).', vChWord:'Your word', vChHash:'sha256 → nonce', vChRaw:'Download this report', proofOk:'🔏 Answer signed inside the TEE — verified', proofFail:'⚠️ Answer signature not confirmed — details',
       dTitle:'Document', dSub:'The knight privately reviews a statement, receipts or a contract: the file is read in your browser, sent only into the enclave and never stored.', dUpload:'📁 Upload your file', dUploadS:'TXT, CSV, MD, JSON or PDF', dSamples:'Or a fictional sample (for testing):', dClose:'Close',
       docAsk:'Review this document: what matters most and what looks unusual or suspicious?', docAttached:'Document attached. Let me take a look!', docErr:'Could not read the file.', docBig:'Large file — I will read the first 20 thousand characters.',
       transcribing:'Transcribing (Whisper in TEE)…', noteWhisper:'Speech is transcribed by Whisper inside a NEAR AI enclave, answers come from a model in a TEE. This server stores nothing. Tap “TEE ✓” on top for the proof.',
@@ -706,7 +706,7 @@
 
 
   // ---------------- Proof of each answer + Verified panel ----------------
-  let lastProof=null, lastAtt=null;
+  let lastProof=null, lastAtt=null, chWord='', chBusy=false, chRes=null;
   const proofEl=$('proof');
   function hideProof(){ proofEl.classList.add('hidden'); }
   function showProof(p){
@@ -734,12 +734,37 @@
     }
     if(lastProof){ h+=`<h3>${t('vAnswer')}</h3>${ckList(lastProof.checks||[])}`;
       const ev=lastProof.evidence; if(ev) h+=`<div class="sub" style="font-family:ui-monospace,monospace;font-size:11px;margin-top:6px">chat_id: ${esc(ev.chat_id)}<br>signed_text: ${esc(ev.signed_text)}<br>signature: ${esc(ev.signature)}<br>signing_address: ${esc(ev.signing_address)}</div>`; }
+    h+=`<h3>${t('vCh')}</h3><div class="sub">${t('vChText')}</div><div class="btns"><input id="vChIn" maxlength="64" placeholder="${t('vChPh')}" value="${esc(chWord)}" style="flex:2;min-width:0;border-radius:14px;padding:12px;border:1px solid #3a4f8f;background:#0d1733;color:#fff;font-size:16px"><button class="primary" id="vChGo" ${chBusy?'disabled':''}>${t('vChBtn')}</button></div><div id="vChOut">${chHtml()}</div>`;
     if(a&&a.nonce){ h+=`<h3>${t('vSelf')}</h3><div class="sub">${t('vSelfText')}</div><div class="btns"><a href="api/attestation/raw" download style="flex:1;text-align:center;text-decoration:none;border-radius:14px;padding:12px;font-weight:800;background:#1d356f;color:#fff">⬇️ ${t('vRaw')}</a></div>`; }
     h+=`<div class="sub" style="margin-top:14px">${t('vNoStore')}</div>`;
     h+=`<div class="btns"><button id="vAgain">${t('vAgain')}</button><button class="primary" id="vClose">${t('vClose')}</button></div>`;
     $('vsheet').innerHTML=h;
     $('vClose').onclick=()=>$('vmodal').classList.add('hidden');
     $('vAgain').onclick=()=>loadAttestation(true);
+    $('vChGo').onclick=runChallenge; const dl=$('vChDl'); if(dl) dl.onclick=downloadCh;
+    $('vChIn').addEventListener('keydown',e=>{ if(e.key==='Enter') runChallenge(); });
+  }
+  function chHtml(){
+    if(chBusy) return `<div class="sub">⏳ ${t('vChWait')}</div>`;
+    if(!chRes) return '';
+    if(chRes.error) return `<div class="sub">❗ ${t('vChErr')}</div>`;
+    const c=chRes.challenge, m=(chRes.models||[])[0];
+    let h=`<div class="big" style="font-size:16px;margin-top:8px">${c.found?t('vChOk'):t('vChBad')}</div>`;
+    h+=`<div class="sub" style="font-family:ui-monospace,monospace;font-size:11px;margin-top:6px">${t('vChWord')}: ${esc(c.word)}<br>${t('vChHash')}: ${esc(c.nonce)}<br>${t('vTime')}: ${new Date(chRes.checkedAt).toLocaleString()}</div>`;
+    if(m) h+=ckList(m.checks);
+    if(chRes.rawReport) h+=`<div class="btns"><button id="vChDl">⬇️ ${t('vChRaw')}</button></div>`;
+    return h;
+  }
+  async function runChallenge(){
+    const w=($('vChIn').value||'').trim(); if(!w||chBusy) return;
+    chWord=w; chBusy=true; chRes=null; renderVerified();
+    try{ const r=await fetch('api/attestation/challenge?word='+encodeURIComponent(w)); chRes=r.ok?await r.json():{error:true}; }catch(e){ chRes={error:true}; }
+    chBusy=false; renderVerified();
+  }
+  function downloadCh(){ {
+      const blob=new Blob([JSON.stringify({model:chRes.model,word:chRes.challenge.word,nonce:chRes.challenge.nonce,checkedAt:chRes.checkedAt,signing_algo:'ecdsa',report:chRes.rawReport},null,2)],{type:'application/json'});
+      const u=URL.createObjectURL(blob), a=document.createElement('a'); a.href=u; a.download='near-ai-attestation-'+chRes.challenge.nonce.slice(0,8)+'.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(u),5000);
+    }
   }
   function openVerified(){ renderVerified(); $('vmodal').classList.remove('hidden'); }
   $('vbtn').addEventListener('click',openVerified);

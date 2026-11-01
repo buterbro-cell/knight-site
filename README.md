@@ -85,6 +85,12 @@ Docker / Northflank: the included `Dockerfile` builds everything; set `NEAR_AI_K
 2. Tap **TEE ✓** in the header → the Verified panel.
 3. Tap 📄 → **Bank statement — October 2026** (fictional). The knight lists spending categories and flags the duplicate charge, the 03:47 overseas purchase, the unknown payee and the night ATM withdrawals.
 4. Ask by voice: "What looks suspicious in the receipts?" — the line under the answer shows that it was signed inside the TEE.
+5. **Prove it is live, not a recording:** in the Verified panel type *your own* number or word under "Check it yourself" and tap **Verify**. The server sends `nonce = sha256(your word)` to NEAR AI; the panel shows that this exact value sits inside `report_data` of the Intel-signed TDX quote (and in the NVIDIA GPU evidence). Nobody could have prepared that report in advance. Download it and re-check with [nearai-cloud-verifier](https://github.com/nearai/nearai-cloud-verifier), or run `echo -n "your word" | sha256sum` to confirm the nonce. Endpoint: `GET /api/attestation/challenge?word=…` (the word is used for that one request and never stored).
+6. **Don't trust this site at all:** clone the repo, put your own key in `.env`, run `npm run verify` — it talks to NEAR AI directly with its own random nonce.
+
+## What attestation does and does not prove
+
+It proves the **model and the NEAR AI gateway** run inside genuine Intel TDX + NVIDIA confidential-computing hardware and that each answer was signed there. Our own Node relay (on Northflank) is **not** in a TEE: the "nothing is stored" claim for it rests on this open-source code, not on cryptography.
 
 ## Files
 

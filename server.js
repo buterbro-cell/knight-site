@@ -383,6 +383,21 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, attestation || { ok: false, error: 'not_ready' });
   }
 
+  // Visitor's own challenge: they type any word/number, nonce = sha256(word).
+  // The hardware must put exactly that value inside the Intel-signed quote, so the report
+  // cannot be pre-recorded. The word is used only for this request and never stored.
+  if (url.pathname === '/api/attestation/challenge') {
+    const word = String(url.searchParams.get('word') || '').trim().slice(0, 64);
+    if (!word) return send(res, 400, { error: 'empty' });
+    if (allow(req, 0.25)) return send(res, 429, { error: 'too_often' });
+    const nonce = /^[0-9a-fA-F]{64}$/.test(word) ? word.toLowerCase() : crypto.createHash('sha256').update(word, 'utf8').digest('hex');
+    try {
+      const a = await attest(MODEL, { nonce });
+      const found = a.models.length > 0 && a.models.every(m => m.checks.some(c => c.id === 'nonce' && c.ok));
+      return send(res, 200, { ...a, challenge: { word, nonce, found }, rawReport: a.raw });
+    } catch (e) { return send(res, 502, { error: 'attestation_error' }); }
+  }
+
   // Raw attestation report of the latest check + its nonce: judges can re-verify it themselves
   // with the official tool (github.com/nearai/nearai-cloud-verifier). Hardware evidence only.
   if (url.pathname === '/api/attestation/raw') {
