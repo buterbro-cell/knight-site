@@ -177,6 +177,7 @@
       note:'Голос распознаёт браузер (в Chrome — через Google). Для полной приватности пиши текстом. Ответы генерирует модель в защищённой среде NEAR AI.',
       demoNote:'Демо-режим: ответы заготовлены, микрофон здесь не работает. На настоящем сайте отвечает нейросеть NEAR AI и работает голос.',
       noVoice:'В этом браузере нет голоса — открой сайт в Chrome, чтобы услышать рыцаря',
+      searchFiller:'Секунду, сейчас проверю.', searching:'Ищу свежую информацию…',
       speech:'ru-RU'
     },
     en: {
@@ -195,6 +196,7 @@
       note:'Speech is recognized by your browser (Chrome uses Google). For full privacy, type instead. Answers come from a model running in NEAR AI secure enclaves.',
       demoNote:'Demo mode: no server connected, answers are pre-written. On the real site NEAR AI answers.',
       noVoice:'No voice in this browser — open the site in Chrome to hear the knight',
+      searchFiller:'One moment, let me check.', searching:'Looking up fresh info…',
       speech:'en-US'
     }
   };
@@ -545,7 +547,7 @@
   async function streamAnswer(r,myAsk){
     const reader=r.body.getReader(), dec=new TextDecoder();
     const src=makeSource(); src.fullText='';
-    let pending='', full='', speaking=null, id=null;
+    let pending='', full='', speaking=null, id=null, searching=false;
     const flush=(final)=>{
       // Режем на фразы: первая — как можно раньше (после первого знака препинания), дальше — по предложениям
       while(true){
@@ -562,7 +564,15 @@
       const {value,done}=await reader.read();
       if(myAsk!==askId){ try{reader.cancel();}catch(e){} break; }
       if(done) break;
-      const piece=dec.decode(value,{stream:true});
+      let piece=dec.decode(value,{stream:true});
+      if(piece.includes('\u0007')){ // рыцарь пошёл искать информацию
+        piece=piece.split('\u0007').join('');
+        if(!searching){ searching=true;
+          if(!src.chunks.length && !pending.trim()){ const f=t('searchFiller'); full+=f+' '; src.push(f); }
+          else { src.push(pending); pending=''; }
+          flush(false); setStatus(t('searching'));
+        }
+      }
       full+=piece; pending+=piece; src.fullText=full;
       if(speaking && id===speakId){ bubble.textContent=full; }
       flush(false);

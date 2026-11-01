@@ -58,6 +58,10 @@ const MAX_ANSWER_TOKENS = 700; // с запасом: «думающие» мод
 const TRUST_PROXY = process.env.TRUST_PROXY === '1';                   // включить, если сайт за nginx/Caddy
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const { TOOLS, runTool, webSearchEnabled, loadDocIndex } = require('./tools');
+let toolsOn = process.env.USE_TOOLS !== '0';   // самостоятельный поиск информации
+const MAX_TOOL_ROUNDS = 3;
+const SEARCH_MARK = '\u0007';                    // сигнал браузеру: «рыцарь ищет информацию»
 const KNOWLEDGE = fs.readFileSync(path.join(__dirname, 'knowledge.md'), 'utf8');
 
 const SYSTEM_PROMPT = `Ты — ${CHAR_NAME}, весёлый, добрый и умный рыцарь-талисман сайта про NEAR. Ты говоришь голосом, поэтому:
@@ -72,6 +76,13 @@ const SYSTEM_PROMPT = `Ты — ${CHAR_NAME}, весёлый, добрый и у
 - Если человеку тяжело или у него жизненные трудности — ответь тепло и по-человечески, поддержи, предложи один-два конкретных шага. Если звучит серьёзная опасность для здоровья или жизни — мягко посоветуй обратиться к близким или к специалисту.
 - Не давай финансовых советов и не предсказывай цены токенов.
 - Если просят что-то вредное или незаконное — вежливо откажись.
+
+Как искать информацию:
+- Сначала смотри шпаргалку ниже — если ответ там есть, отвечай сразу, без поиска.
+- Если в шпаргалке ответа нет или нужны свежие данные (цена NEAR, текущие цифры сети, новости, новые версии, точные инструкции из документации) — сам найди и проверь с помощью инструментов: near_live для цены и состояния сети, near_docs_search и затем read_page для документации NEAR и NEAR AI${webSearchEnabled ? ', web_search для новостей и всего остального' : ''}.
+- Ищи коротко: обычно один-два вызова, максимум три. Не выдумывай то, что не нашёл.
+- В ответе голосом коротко назови источник, например: «по данным документации NEAR» или «по CoinGecko на сейчас».
+- Цену называй как факт на текущий момент, без прогнозов и советов покупать или продавать.
 
 `;
 const SYSTEM_PROMPT_KB = `ШПАРГАЛКА ПРО NEAR:
@@ -176,65 +187,93 @@ async function askModel(messages) {
 // чтобы рыцарь начинал говорить с первой фразы, не дожидаясь конца ответа.
 async function askModelStream(messages, res) {
   await slot();
-  let started = false, usage = null, firstMs = null;
+  let started = false, firstMs = null, usedTools = false;
+  const usageSum = { prompt_tokens: 0, completion_tokens: 0, prompt_tokens_details: { cached_tokens: 0 } };
   const t0 = Date.now();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 75e3);
+  res.on('close', () => { if (!res.writableEnded) ctrl.abort(); });
+  const begin = () => { if (!started) { started = true; res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' }); } };
+  let full = '';
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 60e3);
-    res.on('close', () => { if (!res.writableEnded) ctrl.abort(); });
-    const r = await fetch(API_URL, {
-      method: 'POST', signal: ctrl.signal,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${KEY}` },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [{ role: 'system', content: SYSTEM_PROMPT + SYSTEM_PROMPT_KB }, ...messages],
-        max_tokens: MAX_ANSWER_TOKENS, temperature: 0.6, stream: true, stream_options: { include_usage: true },
-      }),
-    });
-    if (!r.ok) {
-      clearTimeout(timer);
-      const t = (await r.text()).slice(0, 300);
-      if ((r.status === 404 || /model/i.test(t)) && !askModel.retried) { askModel.retried = true; await checkModel(); }
-      throw new Error(`NEAR AI ответил ${r.status}: ${t}`);
-    }
-    let full = '', buf = '', raw = '', emitted = 0;
-    // Что можно показать: без «мыслей» <think>…</think> рассуждающих моделей и без разметки
-    const visible = () => {
-      let v = raw.replace(/<think>[\s\S]*?<\/think>/g, '');
-      const open = v.indexOf('<think>'); if (open >= 0) v = v.slice(0, open);
-      const lt = v.lastIndexOf('<'); if (lt >= 0 && v.length - lt < 8 && '<think>'.startsWith(v.slice(lt))) v = v.slice(0, lt);
-      return v.replace(/[*_#`>]+/g, '').replace(/^\s+/, '');
-    };
-    const out = delta => {
-      raw += delta;
-      const v = visible();
-      if (v.length <= emitted) return;
-      const t = v.slice(emitted); emitted = v.length;
-      if (!started) {
-        started = true;
-        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' });
+    const convo = [{ role: 'system', content: SYSTEM_PROMPT + SYSTEM_PROMPT_KB }, ...messages];
+    for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+      const withTools = toolsOn && round < MAX_TOOL_ROUNDS;
+      const r = await fetch(API_URL, {
+        method: 'POST', signal: ctrl.signal,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${KEY}` },
+        body: JSON.stringify({
+          model: MODEL, messages: convo,
+          max_tokens: MAX_ANSWER_TOKENS, temperature: 0.6, stream: true, stream_options: { include_usage: true },
+          ...(withTools ? { tools: TOOLS, tool_choice: 'auto' } : {}),
+        }),
+      });
+      if (!r.ok) {
+        const t = (await r.text()).slice(0, 300);
+        // Модель не умеет инструменты — отключаем их и пробуем ещё раз без них
+        if (withTools && r.status === 400 && /tool|function/i.test(t)) { console.log('Модель не поддерживает инструменты, отключаю поиск'); toolsOn = false; round--; continue; }
+        if ((r.status === 404 || /model/i.test(t)) && !askModel.retried) { askModel.retried = true; await checkModel(); }
+        throw new Error(`NEAR AI ответил ${r.status}: ${t}`);
       }
-      full += t; res.write(t);
-    };
-    const dec = new TextDecoder();
-    for await (const chunk of r.body) {
-      buf += dec.decode(chunk, { stream: true });
-      let nl;
-      while ((nl = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
-        if (!line.startsWith('data:')) continue;
-        const data = line.slice(5).trim();
-        if (data === '[DONE]') continue;
-        try { const j = JSON.parse(data); if (j.usage) usage = j.usage; const d = j.choices && j.choices[0] && j.choices[0].delta; if (d && d.content) { if (firstMs == null) firstMs = Date.now() - t0; out(d.content); } } catch {}
+      let buf = '', raw = '', emitted = 0;
+      const calls = [];
+      // Что можно показать: без «мыслей» <think>…</think> рассуждающих моделей и без разметки
+      const visible = () => {
+        let v = raw.replace(/<think>[\s\S]*?<\/think>/g, '');
+        const open = v.indexOf('<think>'); if (open >= 0) v = v.slice(0, open);
+        const lt = v.lastIndexOf('<'); if (lt >= 0 && v.length - lt < 8 && '<think>'.startsWith(v.slice(lt))) v = v.slice(0, lt);
+        return v.replace(/[*_#`>]+/g, '').replace(/^\s+/, '');
+      };
+      const out = delta => {
+        raw += delta;
+        const v = visible();
+        if (v.length <= emitted) return;
+        const t = v.slice(emitted); emitted = v.length;
+        begin(); if (firstMs == null) firstMs = Date.now() - t0;
+        full += t; res.write(t);
+      };
+      const dec = new TextDecoder();
+      for await (const chunk of r.body) {
+        buf += dec.decode(chunk, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+          if (!line.startsWith('data:')) continue;
+          const data = line.slice(5).trim();
+          if (data === '[DONE]') continue;
+          let j; try { j = JSON.parse(data); } catch { continue; }
+          if (j.usage) { usageSum.prompt_tokens += j.usage.prompt_tokens || 0; usageSum.completion_tokens += j.usage.completion_tokens || 0; usageSum.prompt_tokens_details.cached_tokens += j.usage.prompt_tokens_details?.cached_tokens || j.usage.prompt_cache_hit_tokens || 0; }
+          const d = j.choices && j.choices[0] && j.choices[0].delta;
+          if (!d) continue;
+          if (d.content) out(d.content);
+          for (const tc of d.tool_calls || []) {   // вызовы инструментов приходят кусочками — собираем
+            const i = tc.index ?? 0;
+            const c = calls[i] || (calls[i] = { id: '', type: 'function', function: { name: '', arguments: '' } });
+            if (tc.id) c.id = tc.id;
+            if (tc.function?.name) c.function.name += tc.function.name;
+            if (tc.function?.arguments) c.function.arguments += tc.function.arguments;
+          }
+        }
       }
+      const real = calls.filter(c => c && c.function.name);
+      if (!real.length) break;           // ответ готов
+      // Рыцарь ищет информацию: сообщаем браузеру, выполняем инструменты и продолжаем
+      usedTools = true;
+      begin(); res.write(SEARCH_MARK);
+      real.forEach((c, i) => { if (!c.id) c.id = 'call_' + round + '_' + i; });
+      convo.push({ role: 'assistant', content: raw || null, tool_calls: real });
+      const results = await Promise.all(real.map(c => runTool(c.function.name, c.function.arguments)));
+      real.forEach((c, i) => convo.push({ role: 'tool', tool_call_id: c.id, content: results[i] }));
+      console.log(new Date().toISOString(), 'Инструменты:', real.map(c => c.function.name).join(', '));
     }
     clearTimeout(timer);
-    if (!started) throw new Error('пустой ответ');
+    if (!full.trim()) throw new Error('пустой ответ');
     res.end();
-    recordUsage(usage, Date.now() - t0, firstMs);
-    return full.trim();
+    recordUsage(usageSum, Date.now() - t0, firstMs);
+    return { text: full.trim(), usedTools };
   } catch (e) {
-    if (started) { try { res.end(); } catch {} }
+    clearTimeout(timer);
+    if (started) { try { res.write(full.trim() ? '' : ' '); res.end(); } catch {} }
     e.started = started; throw e;
   } finally { release(); }
 }
@@ -317,9 +356,9 @@ const server = http.createServer(async (req, res) => {
 
     if (body.stream) {
       try {
-        const answer = await askModelStream(msgs, res);
+        const { text: answer, usedTools } = await askModelStream(msgs, res);
         lastError = null; askModel.retried = false;
-        if (firstQuestion && answer) { if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value); cache.set(firstQuestion, answer); }
+        if (firstQuestion && answer && !usedTools) { if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value); cache.set(firstQuestion, answer); }
       } catch (e) {
         lastError = new Date().toISOString() + ' ' + e.message; stats.errors++;
         console.error(new Date().toISOString(), 'Ошибка нейросети:', e.message);
@@ -371,7 +410,7 @@ const server = http.createServer(async (req, res) => {
 
   // Страница проверки: откройте /api/health в браузере, чтобы увидеть, что не так
   if (url.pathname === '/api/health') return send(res, 200, {
-    ok: true, key: !!KEY, model: MODEL, modelChecked, lastError,
+    ok: true, key: !!KEY, model: MODEL, modelChecked, lastError, tools: toolsOn, webSearch: webSearchEnabled,
     modelInfo, models: availableModels, tts: { ru: ttsReady('ru'), en: ttsReady('en') },
   });
 
@@ -404,8 +443,10 @@ const server = http.createServer(async (req, res) => {
 });
 
 checkModel();
+if (toolsOn) loadDocIndex().then(x => console.log('Оглавление документации:', x.length, 'страниц')).catch(() => {});
 server.listen(PORT, () => {
   console.log(`Рыцарь на посту: http://localhost:${PORT}`);
   console.log(`Модель: ${MODEL}. Ключ NEAR AI: ${KEY ? 'есть' : 'НЕ ЗАДАН — ответы работать не будут'}`);
+  console.log(`Самостоятельный поиск: ${toolsOn ? 'включён' : 'выключен'}, интернет-поиск: ${webSearchEnabled ? 'есть' : 'нет (нужен TAVILY_API_KEY)'}`);
   console.log(`Голос на сервере: RU ${ttsReady('ru') ? 'есть' : 'нет'}, EN ${ttsReady('en') ? 'есть' : 'нет'}`);
 });
