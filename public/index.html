@@ -237,7 +237,7 @@
       vIntro:'Сервер сайта сам запросил у NEAR AI отчёт аттестации со свежим случайным числом (nonce) и проверил его так, как описано в документации NEAR AI. Подделать или подсунуть старый отчёт нельзя.',
       vModel:'Модель', vTime:'Проверено', vNonce:'Nonce', vGateway:'Шлюз NEAR AI', vGpuModel:'Модель на видеокарте', vSigner:'Ключ подписи', vAgain:'Проверить заново', vClose:'Закрыть',
       vAnswer:'Последний ответ', vNoStore:'🔒 Сервер этого сайта ничего не сохраняет: ни вопросы, ни ответы, ни документы, ни голос. Только счётчики токенов для расходов.',
-      vInfo:'справочно', proofOk:'🔏 Ответ подписан внутри TEE — проверено', proofFail:'⚠️ Подпись ответа не подтвердилась — подробнее',
+      vInfo:'справочно', vThrottled:'Повторная проверка — не чаще нескольких раз в час, показан последний результат.', vSelf:'Как проверить самому, не доверяя этому сайту', vSelfText:'1) Скачайте исходный отчёт аттестации — в нём nonce и подписанные доказательства Intel и NVIDIA. 2) Проверьте его официальным инструментом NEAR AI: github.com/nearai/nearai-cloud-verifier. 3) Подпись ответа выше проверяется так: ethers.verifyMessage(signed_text, signature) должен вернуть signing_address, а этот адрес — совпасть с ключом из отчёта.', vRaw:'Скачать исходный отчёт', proofOk:'🔏 Ответ подписан внутри TEE — проверено', proofFail:'⚠️ Подпись ответа не подтвердилась — подробнее',
       dTitle:'Документ', dSub:'Рыцарь приватно разберёт выписку, чеки или договор: файл читается в браузере, уходит только в защищённую среду и нигде не сохраняется.', dUpload:'📁 Загрузить свой файл', dUploadS:'TXT, CSV, MD, JSON или PDF', dSamples:'Или вымышленный пример (для проверки):', dClose:'Закрыть',
       docAsk:'Разбери этот документ: что в нём главное и что выглядит необычно или подозрительно?', docAttached:'Документ прикреплён. Сейчас разберу!', docErr:'Не получилось прочитать файл.', docBig:'Файл большой — я прочитаю первые 20 тысяч символов.',
       transcribing:'Распознаю речь (Whisper в TEE)…', noteWhisper:'Голос распознаёт Whisper внутри защищённой среды NEAR AI, ответы — модель в TEE. Сервер сайта ничего не сохраняет. Нажми «TEE ✓» вверху, чтобы увидеть доказательство.',
@@ -264,7 +264,7 @@
       vIntro:'This site’s server requested a NEAR AI attestation report with a fresh random nonce and verified it as the NEAR AI verification docs describe. An old or forged report cannot pass.',
       vModel:'Model', vTime:'Checked', vNonce:'Nonce', vGateway:'NEAR AI gateway', vGpuModel:'Model on GPU', vSigner:'Signing key', vAgain:'Verify again', vClose:'Close',
       vAnswer:'Last answer', vNoStore:'🔒 This server keeps nothing: no questions, answers, documents or voice. Only token counters for cost.',
-      vInfo:'info', proofOk:'🔏 Answer signed inside the TEE — verified', proofFail:'⚠️ Answer signature not confirmed — details',
+      vInfo:'info', vThrottled:'Re-verification is limited to a few times per hour — showing the latest result.', vSelf:'Verify it yourself, without trusting this site', vSelfText:'1) Download the raw attestation report — it contains the nonce and the signed Intel and NVIDIA evidence. 2) Check it with NEAR AI’s official tool: github.com/nearai/nearai-cloud-verifier. 3) The answer signature above: ethers.verifyMessage(signed_text, signature) must return signing_address, and that address must match a key in the report.', vRaw:'Download raw report', proofOk:'🔏 Answer signed inside the TEE — verified', proofFail:'⚠️ Answer signature not confirmed — details',
       dTitle:'Document', dSub:'The knight privately reviews a statement, receipts or a contract: the file is read in your browser, sent only into the enclave and never stored.', dUpload:'📁 Upload your file', dUploadS:'TXT, CSV, MD, JSON or PDF', dSamples:'Or a fictional sample (for testing):', dClose:'Close',
       docAsk:'Review this document: what matters most and what looks unusual or suspicious?', docAttached:'Document attached. Let me take a look!', docErr:'Could not read the file.', docBig:'Large file — I will read the first 20 thousand characters.',
       transcribing:'Transcribing (Whisper in TEE)…', noteWhisper:'Speech is transcribed by Whisper inside a NEAR AI enclave, answers come from a model in a TEE. This server stores nothing. Tap “TEE ✓” on top for the proof.',
@@ -728,11 +728,13 @@
     if(!a){ h+=`<div class="sub">${t('vWait')}</div>`; }
     else{
       h+=`<div class="big">${a.ok?t('vOkBig'):t('vFailBig')}</div><div class="sub">${t('vIntro')}</div>`;
-      h+=`<div class="sub" style="margin-top:8px">${t('vModel')}: <b>${esc(a.model)}</b><br>${t('vTime')}: ${a.checkedAt?new Date(a.checkedAt).toLocaleString():'—'}${a.nonce?`<br>${t('vNonce')}: ${esc(a.nonce)}`:''}${a.error?`<br>❗ ${esc(a.error)}`:''}</div>`;
+      h+=`<div class="sub" style="margin-top:8px">${t('vModel')}: <b>${esc(a.model)}</b><br>${t('vTime')}: ${a.checkedAt?new Date(a.checkedAt).toLocaleString():'—'}${a.nonce?`<br>${t('vNonce')}: ${esc(a.nonce)}`:''}${a.error?`<br>❗ ${esc(a.error)}`:''}${a.throttled?`<br>⏳ ${t('vThrottled')}`:''}</div>`;
       (a.models||[]).forEach((m,i)=>{ h+=`<h3>${t('vGpuModel')}${a.models.length>1?' #'+(i+1):''}</h3><div class="sub">${t('vSigner')}: ${esc(m.signing_address)}</div>${ckList(m.checks)}`; });
       if(a.gateway){ h+=`<h3>${t('vGateway')}</h3><div class="sub">${t('vSigner')}: ${esc(a.gateway.signing_address)}</div>${ckList(a.gateway.checks)}`; }
     }
-    if(lastProof){ h+=`<h3>${t('vAnswer')}</h3>${ckList(lastProof.checks||[])}`; }
+    if(lastProof){ h+=`<h3>${t('vAnswer')}</h3>${ckList(lastProof.checks||[])}`;
+      const ev=lastProof.evidence; if(ev) h+=`<div class="sub" style="font-family:ui-monospace,monospace;font-size:11px;margin-top:6px">chat_id: ${esc(ev.chat_id)}<br>signed_text: ${esc(ev.signed_text)}<br>signature: ${esc(ev.signature)}<br>signing_address: ${esc(ev.signing_address)}</div>`; }
+    if(a&&a.nonce){ h+=`<h3>${t('vSelf')}</h3><div class="sub">${t('vSelfText')}</div><div class="btns"><a href="api/attestation/raw" download style="flex:1;text-align:center;text-decoration:none;border-radius:14px;padding:12px;font-weight:800;background:#1d356f;color:#fff">⬇️ ${t('vRaw')}</a></div>`; }
     h+=`<div class="sub" style="margin-top:14px">${t('vNoStore')}</div>`;
     h+=`<div class="btns"><button id="vAgain">${t('vAgain')}</button><button class="primary" id="vClose">${t('vClose')}</button></div>`;
     $('vsheet').innerHTML=h;

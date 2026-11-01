@@ -183,7 +183,7 @@ async function proveAnswer({ chatId, requestBody, responseText }) {
     if (a.ok) res = await verifyResponseSignature({ chatId, model: MODEL, requestBody, responseText, attestedSigners: a.signers });
   }
   res.ok ? stats.signedOk++ : stats.signedFail++;
-  return { ok: res.ok, signer: res.signer, checks: res.checks, model: MODEL, attestedAt: attestation?.checkedAt };
+  return { ok: res.ok, signer: res.signer, checks: res.checks, evidence: res.evidence, model: MODEL, attestedAt: attestation?.checkedAt };
 }
 
 // ---------- Streaming answer with tools and proof ----------
@@ -377,10 +377,18 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/attestation') {
     const force = url.searchParams.get('fresh') === '1';
     if (force || !attestation || Date.now() - Date.parse(attestation.checkedAt) > 5 * 60e3) {
-      if (force && allow(req, 0.25)) return send(res, 429, { error: 'too_often', ...attestation });
+      if (force && allow(req, 0.25)) return send(res, 200, { ...attestation, throttled: true });
       await runAttestation();
     }
     return send(res, 200, attestation || { ok: false, error: 'not_ready' });
+  }
+
+  // Raw attestation report of the latest check + its nonce: judges can re-verify it themselves
+  // with the official tool (github.com/nearai/nearai-cloud-verifier). Hardware evidence only.
+  if (url.pathname === '/api/attestation/raw') {
+    if (!attestation || !attestation.raw) return send(res, 404, { error: 'not_ready' });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': 'attachment; filename="near-ai-attestation.json"', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({ model: attestation.model, nonce: attestation.nonce, checkedAt: attestation.checkedAt, signing_algo: 'ecdsa', report: attestation.raw }, null, 2));
   }
 
   if (url.pathname === '/api/tts' && req.method === 'POST') {
