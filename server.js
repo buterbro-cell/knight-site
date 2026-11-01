@@ -133,6 +133,71 @@ async function askModel(messages) {
   } finally { release(); }
 }
 
+// Потоковый ответ: текст приходит кусочками, и мы сразу пересылаем их браузеру,
+// чтобы рыцарь начинал говорить с первой фразы, не дожидаясь конца ответа.
+async function askModelStream(messages, res) {
+  await slot();
+  let started = false;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 60e3);
+    res.on('close', () => { if (!res.writableEnded) ctrl.abort(); });
+    const r = await fetch(API_URL, {
+      method: 'POST', signal: ctrl.signal,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${KEY}` },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
+        max_tokens: MAX_ANSWER_TOKENS, temperature: 0.6, stream: true,
+      }),
+    });
+    if (!r.ok) {
+      clearTimeout(timer);
+      const t = (await r.text()).slice(0, 300);
+      if ((r.status === 404 || /model/i.test(t)) && !askModel.retried) { askModel.retried = true; await checkModel(); }
+      throw new Error(`NEAR AI ответил ${r.status}: ${t}`);
+    }
+    let full = '', buf = '', raw = '', emitted = 0;
+    // Что можно показать: без «мыслей» <think>…</think> рассуждающих моделей и без разметки
+    const visible = () => {
+      let v = raw.replace(/<think>[\s\S]*?<\/think>/g, '');
+      const open = v.indexOf('<think>'); if (open >= 0) v = v.slice(0, open);
+      const lt = v.lastIndexOf('<'); if (lt >= 0 && v.length - lt < 8 && '<think>'.startsWith(v.slice(lt))) v = v.slice(0, lt);
+      return v.replace(/[*_#`>]+/g, '').replace(/^\s+/, '');
+    };
+    const out = delta => {
+      raw += delta;
+      const v = visible();
+      if (v.length <= emitted) return;
+      const t = v.slice(emitted); emitted = v.length;
+      if (!started) {
+        started = true;
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' });
+      }
+      full += t; res.write(t);
+    };
+    const dec = new TextDecoder();
+    for await (const chunk of r.body) {
+      buf += dec.decode(chunk, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (data === '[DONE]') continue;
+        try { const j = JSON.parse(data); const d = j.choices && j.choices[0] && j.choices[0].delta; if (d && d.content) out(d.content); } catch {}
+      }
+    }
+    clearTimeout(timer);
+    if (!started) throw new Error('пустой ответ');
+    res.end();
+    return full.trim();
+  } catch (e) {
+    if (started) { try { res.end(); } catch {} }
+    e.started = started; throw e;
+  } finally { release(); }
+}
+
 // ---------- Голос на сервере (Piper) ----------
 // Нужен для браузеров, которые сами не умеют говорить (встроенный браузер Telegram, приложения на Android).
 // Установка описана в README. Если Piper не установлен — эти посетители увидят ответ текстом.
@@ -209,6 +274,18 @@ const server = http.createServer(async (req, res) => {
     if (blocked === 'daily') return send(res, 429, { error: 'daily_limit' });
     if (!KEY) return send(res, 500, { error: 'no_key' });
 
+    if (body.stream) {
+      try {
+        const answer = await askModelStream(msgs, res);
+        lastError = null; askModel.retried = false;
+        if (firstQuestion && answer) { if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value); cache.set(firstQuestion, answer); }
+      } catch (e) {
+        lastError = new Date().toISOString() + ' ' + e.message;
+        console.error(new Date().toISOString(), 'Ошибка нейросети:', e.message);
+        if (!e.started && !res.headersSent) send(res, 502, { error: 'ai_error' });
+      }
+      return;
+    }
     try {
       const answer = await askModel(msgs);
       if (!answer) throw new Error('пустой ответ');

@@ -374,28 +374,32 @@
       src.start(0);
     });
   }
-  async function speakServer(chunks,id,waveFirst){
+  async function speakServer(src,id,waveFirst){
+    const chunks=src.chunks;
+    if(!await hasNext(src,0,id)) return true;
     let next=fetchAudio(chunks[0]);
-    for(let i=0;i<chunks.length;i++){
+    for(let i=0;;i++){
       let buf; try{ buf=await next; }catch(e){ return false; }
       if(id!==speakId) return true;
-      if(i+1<chunks.length) next=fetchAudio(chunks[i+1]); // заранее готовим следующую фразу
+      const more=await Promise.race([hasNext(src,i+1,id), new Promise(r=>setTimeout(()=>r(null),0))]);
+      if(more) next=fetchAudio(chunks[i+1]); // заранее готовим следующую фразу
+      else next=null;
       scrollBubble(chunks,i);
       if(waveFirst && i===0){ charEl.className='char wave'+(VID.on?' video':''); show('wave'); await playBufferStill(buf); }
       else { charEl.className='char talk'+(VID.on?' video':''); await playBuffer(buf,id); }
       if(id!==speakId) return true;
+      if(!next){ if(!await hasNext(src,i+1,id)) return true; next=fetchAudio(chunks[i+1]); }
     }
-    return true;
   }
   function playBufferStill(buffer){ // для приветствия: машет рукой, рот не трогаем
     return new Promise(resolve=>{ const s=audioCtx.createBufferSource(); s.buffer=buffer; s.playbackRate.value=1.0; s.connect(audioCtx.destination); curSource=s; s.onended=()=>{ if(curSource===s) curSource=null; resolve(); }; s.start(0); });
   }
-  function speakSilent(chunks,id,waveFirst){ // звука нет совсем — анимируем по длине текста
+  function speakSilent(src,id,waveFirst){ // звука нет совсем — анимируем по длине текста
+    const chunks=src.chunks;
     return new Promise(resolve=>{
       let i=0;
-      const step=()=>{
-        if(id!==speakId) return resolve();
-        if(i>=chunks.length) return resolve();
+      const step=async()=>{
+        if(!await hasNext(src,i,id)) return resolve();
         scrollBubble(chunks,i); const c=chunks[i], wave=waveFirst&&i===0; i++;
         if(wave){ charEl.className='char wave'+(VID.on?' video':''); show('wave'); } else { charEl.className='char talk'+(VID.on?' video':''); mouthStart(); }
         silentTalk=true;
@@ -424,22 +428,37 @@
     return out;
   }
   let speakId=0;
+  // Источник фраз: для готового текста — сразу все, для потокового ответа — пополняется на лету
+  function makeSource(chunks=[],done=false){
+    const src={chunks,done,w:[],
+      push(c){ if(c&&c.trim()){ src.chunks.push(c.trim()); src.wake(); } },
+      end(){ src.done=true; src.wake(); },
+      wake(){ const w=src.w; src.w=[]; w.forEach(f=>f()); },
+      next(){ return new Promise(r=>src.w.push(r)); }};
+    return src;
+  }
+  // Ждём следующую фразу: true — есть, false — ответ закончился
+  async function hasNext(src,i,id){ while(i>=src.chunks.length && !src.done && id===speakId) await src.next(); return id===speakId && i<src.chunks.length; }
   const waitVoices=()=>new Promise(r=>{ if(!synth||voices.length) return r(); let n=0; const iv=setInterval(()=>{ loadVoices(); if(voices.length||++n>8){ clearInterval(iv); r(); } },100); });
   function scrollBubble(chunks,i){ const before=chunks.slice(0,i).join(' ').length, total=chunks.join(' ').length||1; bubble.scrollTop=(before/total)*(bubble.scrollHeight-bubble.clientHeight); }
-  async function speak(text, {after='idle', face=null, intro=null}={}){
-    const id=++speakId;
+  async function speak(text, {after='idle', face=null, intro=null, id:givenId=null}={}){
+    const id=givenId||++speakId;
     if(synth) synth.cancel(); if(curSource){ try{curSource.stop();}catch(e){} curSource=null; }
-    say(intro ? intro+' '+text : text); bubble.scrollTop=0;
-    const chunks=(intro?[intro]:[]).concat(splitText(text));
+    let src;
+    if(typeof text==='string'){
+      say(intro ? intro+' '+text : text);
+      src=makeSource((intro?[intro]:[]).concat(splitText(text)),true);
+    } else { src=text; say(src.fullText||''); }
+    bubble.scrollTop=0;
     setMode('talk'); setStatus(t('speaking'));
     await waitVoices();
     if(id!==speakId) return;
     const voice=synth?pickVoice():null;
-    if(voice) await speakBrowser(chunks,id,!!intro,voice);
+    if(voice) await speakBrowser(src,id,!!intro,voice);
     else {
       let ok=false;
-      if(serverTTS[lang] && audioCtx){ ok=await speakServer(chunks,id,!!intro); }
-      if(!ok && id===speakId){ voiceless=true; setStatus(t('noVoice')); await speakSilent(chunks,id,!!intro); }
+      if(serverTTS[lang] && audioCtx){ ok=await speakServer(src,id,!!intro); }
+      if(!ok && id===speakId){ voiceless=true; setStatus(t('noVoice')); await speakSilent(src,id,!!intro); }
     }
     if(id!==speakId) return;
     mouthStop(); setMode(after);
@@ -447,12 +466,13 @@
     setStatus(voiceless?t('noVoice'):t('ready'));
   }
   let voiceless=false;
-  function speakBrowser(chunks,id,waveFirst,voice){
+  function speakBrowser(src,id,waveFirst,voice){
+    const chunks=src.chunks;
     return new Promise(resolve=>{
       let i=0, watchdog=null;
-      const next=()=>{
+      const next=async()=>{
         clearTimeout(watchdog);
-        if(id!==speakId || i>=chunks.length) return resolve();
+        if(!await hasNext(src,i,id)) return resolve();
         const waving = waveFirst && i===0; // первая фраза приветствия — машет рукой
         scrollBubble(chunks,i);
         const u=new SpeechSynthesisUtterance(chunks[i++]);
@@ -488,24 +508,69 @@
     question=question.trim(); if(!question) return;
     stopSpeaking();
     say(question,{user:true}); setMode('think'); setStatus(t('thinking'));
-    await new Promise(r=>setTimeout(r,650));
-    say('',{dots:true});
+    const myAsk=++askId;
+    const dotsTimer=setTimeout(()=>{ if(myAsk===askId && mode==='think') say('',{dots:true}); },400);
     history.push({role:'user',content:question});
-    let answer;
+    let answer=null;
     if(!demo){
       try{
-        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6)})});
+        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6),stream:true})});
         if(r.status===404||r.status===405) throw new Error('no-server');
-        const data=await r.json().catch(()=>({}));
-        if(r.status===429) answer = data.error==='daily_limit'?t('limitDay'):t('limitUser');
-        else if(!r.ok) answer=t('error');
-        else answer=data.answer;
-      }catch(e){ enableDemo(); }
+        if(myAsk!==askId) return;
+        if(r.ok && (r.headers.get('content-type')||'').includes('text/plain') && r.body){
+          // Потоковый ответ: начинаем говорить, как только пришла первая фраза
+          answer=await streamAnswer(r,myAsk);
+          clearTimeout(dotsTimer);
+        } else {
+          const data=await r.json().catch(()=>({}));
+          if(r.status===429) answer = data.error==='daily_limit'?t('limitDay'):t('limitUser');
+          else if(!r.ok) answer=t('error');
+          else answer=data.answer;
+        }
+      }catch(e){ if(e&&e.message==='no-server') enableDemo(); else if(answer==null) answer=t('error'); }
     }
-    if(demo) { await new Promise(r=>setTimeout(r,500)); answer=demoAnswer(question); }
+    clearTimeout(dotsTimer);
+    if(myAsk!==askId) return;
+    if(demo) { await new Promise(r=>setTimeout(r,300)); answer=demoAnswer(question); }
+    if(typeof answer==='object' && answer){ // уже озвучивается потоком
+      history.push({role:'assistant',content:answer.text});
+      if(history.length>12) history.splice(0,history.length-12);
+      await answer.done; return;
+    }
     history.push({role:'assistant',content:answer});
     if(history.length>12) history.splice(0,history.length-12);
     await speak(answer);
+  }
+  let askId=0;
+  async function streamAnswer(r,myAsk){
+    const reader=r.body.getReader(), dec=new TextDecoder();
+    const src=makeSource(); src.fullText='';
+    let pending='', full='', speaking=null, id=null;
+    const flush=(final)=>{
+      // Режем на фразы: первая — как можно раньше (после первого знака препинания), дальше — по предложениям
+      while(true){
+        const minLen=src.chunks.length?40:8;
+        const m=pending.slice(minLen).search(/[.!?…](\s|$)/);
+        if(m<0) break;
+        const cut=minLen+m+1; src.push(pending.slice(0,cut)); pending=pending.slice(cut);
+      }
+      if(!final && pending.length>220){ const c=pending.lastIndexOf(',',200); if(c>40){ src.push(pending.slice(0,c+1)); pending=pending.slice(c+1); } }
+      if(final){ src.push(pending); pending=''; }
+      if(src.chunks.length && !speaking && myAsk===askId){ id=++speakId; speaking=speak(src,{id}); }
+    };
+    while(true){
+      const {value,done}=await reader.read();
+      if(myAsk!==askId){ try{reader.cancel();}catch(e){} break; }
+      if(done) break;
+      const piece=dec.decode(value,{stream:true});
+      full+=piece; pending+=piece; src.fullText=full;
+      if(speaking && id===speakId){ bubble.textContent=full; }
+      flush(false);
+    }
+    flush(true); src.end();
+    if(speaking && id===speakId) bubble.textContent=full;
+    if(!speaking){ return full.trim()||t('error'); }
+    return {text:full.trim(), done:speaking};
   }
   function enableDemo(){ demo=true; $('demo').classList.add('show'); $('note').textContent=t('demoNote'); }
 
