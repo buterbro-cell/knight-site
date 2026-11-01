@@ -345,7 +345,7 @@
   function playBuffer(buffer,id){
     return new Promise(resolve=>{
       const src=audioCtx.createBufferSource(); src.buffer=buffer;
-      src.playbackRate.value=1.13; // голос чуть выше и бодрее — мультяшный
+      src.playbackRate.value=1.0; // естественный голос, без ускорения
       const an=audioCtx.createAnalyser(); an.fftSize=512; const data=new Uint8Array(an.fftSize);
       src.connect(an); an.connect(audioCtx.destination);
       curSource=src; let raf=0, last=0;
@@ -376,7 +376,7 @@
     return true;
   }
   function playBufferStill(buffer){ // для приветствия: машет рукой, рот не трогаем
-    return new Promise(resolve=>{ const s=audioCtx.createBufferSource(); s.buffer=buffer; s.playbackRate.value=1.13; s.connect(audioCtx.destination); curSource=s; s.onended=()=>{ if(curSource===s) curSource=null; resolve(); }; s.start(0); });
+    return new Promise(resolve=>{ const s=audioCtx.createBufferSource(); s.buffer=buffer; s.playbackRate.value=1.0; s.connect(audioCtx.destination); curSource=s; s.onended=()=>{ if(curSource===s) curSource=null; resolve(); }; s.start(0); });
   }
   function speakSilent(chunks,id,waveFirst){ // звука нет совсем — анимируем по длине текста
     return new Promise(resolve=>{
@@ -444,7 +444,7 @@
         scrollBubble(chunks,i);
         const u=new SpeechSynthesisUtterance(chunks[i++]);
         u.lang=t('speech'); u.voice=voice;
-        u.pitch=1.55; u.rate=1.04; u.volume=1;
+        u.pitch=1.0; u.rate=1.0; u.volume=1;
         if(waving){ charEl.className='char wave'+(VID.on?' video':''); show('wave'); } else charEl.className='char talk'+(VID.on?' video':'');
         let started=false;
         u.onstart=()=>{ started=true; if(id===speakId && !waving) mouthStart(); };
