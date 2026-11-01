@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Спроси рыцаря NEAR</title>
+<meta name="description" content="Говорящий рыцарь отвечает голосом на вопросы про NEAR, NEAR AI и приватность">
+<style>
+  :root{
+    --bg1:#0b1530; --bg2:#13265a; --accent:#3b82f6; --accent2:#60a5fa;
+    --text:#eef4ff; --muted:#9db3df; --bubble:#ffffff; --bubbleText:#14213d;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg1);color:var(--text);
+    font-family:ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+  body{overflow:hidden}
+  .app{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;
+    padding:env(safe-area-inset-top) 16px calc(env(safe-area-inset-bottom) + 14px);
+    background:radial-gradient(120% 70% at 50% 100%, #1f3f8f 0%, transparent 60%),
+               radial-gradient(80% 50% at 50% 0%, #1a2f6b 0%, transparent 70%),
+               linear-gradient(180deg,var(--bg1),var(--bg2))}
+  .bgimg{position:absolute;left:50%;top:0;transform:translateX(-50%);max-width:none;pointer-events:none;opacity:0;transition:opacity .6s}
+  .bgimg.on{opacity:1}
+  .bgimg{-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+  .bgblur{position:absolute;inset:-40px;background:url(img/bg.webp) center/cover;filter:blur(24px) brightness(.55);opacity:0;transition:opacity .6s;pointer-events:none}
+  .app.hasbg .bgblur{opacity:1}
+  .shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(6,12,30,.55) 0%,rgba(6,12,30,0) 22%,rgba(6,12,30,0) 70%,rgba(6,12,30,.65) 86%,#0a1430 100%)}
+  .app.hasbg .stars{display:none}
+  .stars{position:absolute;inset:0;pointer-events:none;opacity:.55;
+    background-image:radial-gradient(1.5px 1.5px at 12% 18%,#fff,transparent),radial-gradient(1px 1px at 30% 8%,#cfe0ff,transparent),
+      radial-gradient(1.5px 1.5px at 78% 14%,#fff,transparent),radial-gradient(1px 1px at 90% 30%,#cfe0ff,transparent),
+      radial-gradient(1px 1px at 60% 22%,#fff,transparent),radial-gradient(1.5px 1.5px at 6% 40%,#cfe0ff,transparent),
+      radial-gradient(1px 1px at 94% 52%,#fff,transparent),radial-gradient(1px 1px at 45% 5%,#fff,transparent)}
+  header{position:relative;width:100%;max-width:560px;display:flex;align-items:center;justify-content:space-between;padding:12px 0 0}
+  .brand{font-weight:800;letter-spacing:.2px;font-size:17px}
+  .brand small{display:block;font-weight:600;color:var(--muted);font-size:12px;margin-top:2px}
+  .lang{display:flex;background:rgba(255,255,255,.08);border-radius:999px;padding:3px}
+  .lang button{border:0;background:transparent;color:var(--muted);font:inherit;font-weight:700;font-size:13px;
+    padding:6px 11px;border-radius:999px;cursor:pointer}
+  .lang button.on{background:var(--accent);color:#fff}
+
+  .stage{position:relative;flex:1;width:100%;max-width:560px;display:flex;align-items:flex-end;justify-content:center;min-height:0}
+  .floor{position:absolute;bottom:2%;left:50%;width:62%;height:7%;transform:translateX(-50%);
+    background:radial-gradient(closest-side,rgba(0,0,0,.45),transparent);filter:blur(2px)}
+  .glow{position:absolute;bottom:4%;left:50%;width:86%;aspect-ratio:1;transform:translateX(-50%);
+    background:radial-gradient(closest-side,rgba(96,165,250,.28),transparent 70%);transition:opacity .4s, transform .4s}
+  .stage.listening .glow{opacity:1;animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{50%{transform:translateX(-50%) scale(1.08)}}
+
+  .char{position:relative;height:68%;max-height:560px;aspect-ratio:640/900;margin-bottom:3%;cursor:pointer;
+    transform-origin:50% 100%;animation:breathe 3.2s ease-in-out infinite;user-select:none;-webkit-user-select:none}
+  .char img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;visibility:hidden;pointer-events:none;
+    -webkit-user-drag:none}
+  .char img.show{visibility:visible}
+  @keyframes breathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.008,1.018)}}
+  .char.wave{animation:wave .5s ease-in-out infinite alternate}
+  @keyframes wave{from{transform:rotate(-2.2deg)}to{transform:rotate(2.2deg)}}
+  .char.listen{animation:listen 2.4s ease-in-out infinite}
+  @keyframes listen{0%,100%{transform:rotate(-3deg) translateY(0)}50%{transform:rotate(-3.5deg) translateY(-4px)}}
+  .char.think{animation:think 1.6s ease-in-out infinite}
+  @keyframes think{0%,100%{transform:rotate(1.5deg)}50%{transform:rotate(-1.5deg) translateY(-3px)}}
+  .char.talk{animation:talk .9s ease-in-out infinite}
+  @keyframes talk{0%,100%{transform:scale(1,1)}50%{transform:scale(1.01,1.025) translateY(-2px)}}
+  .char.poke{animation:poke .45s ease-out}
+  /* Видео-режим: живая анимация из роликов, без «кукольного» покачивания */
+  .char canvas{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .38s ease-in-out;pointer-events:none}
+  .char.video{aspect-ratio:702/1060}
+  .char.video img{display:none}
+  .char.video, .char.video.wave, .char.video.listen, .char.video.think, .char.video.talk{animation:none}
+  .char.video.poke{animation:poke .45s ease-out}
+  @keyframes poke{0%{transform:scale(1)}25%{transform:scale(1.06,.93)}55%{transform:scale(.97,1.05)}100%{transform:scale(1)}}
+
+  .bubble{position:absolute;top:2%;left:50%;transform:translateX(-50%) scale(.92);opacity:0;
+    width:min(94%,460px);background:var(--bubble);color:var(--bubbleText);border-radius:20px;padding:12px 16px;
+    font-size:16px;line-height:1.35;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.35);
+    transition:opacity .25s, transform .25s;z-index:5;max-height:29%;overflow:auto;scroll-behavior:smooth}
+  .bubble.show{opacity:1;transform:translateX(-50%) scale(1)}
+  .bubble.user{background:#2b4a94;color:#fff;font-weight:600}
+  .bubble .dots span{display:inline-block;width:8px;height:8px;margin:0 3px;border-radius:50%;background:#7a8bb0;animation:dot 1s infinite}
+  .bubble .dots span:nth-child(2){animation-delay:.15s}.bubble .dots span:nth-child(3){animation-delay:.3s}
+  @keyframes dot{50%{transform:translateY(-6px);opacity:.5}}
+
+  .controls{position:relative;width:100%;max-width:560px;display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:6px}
+  .status{min-height:20px;font-size:14px;color:var(--muted);font-weight:600;text-align:center}
+  .row{display:flex;align-items:center;gap:14px}
+  .mic{width:78px;height:78px;border-radius:50%;border:0;cursor:pointer;color:#fff;
+    background:linear-gradient(180deg,var(--accent2),var(--accent));box-shadow:0 8px 24px rgba(59,130,246,.55), inset 0 -3px 0 rgba(0,0,0,.15);
+    display:grid;place-items:center;transition:transform .15s}
+  .mic:active{transform:scale(.94)}
+  .mic svg{width:34px;height:34px}
+  .mic.rec{background:linear-gradient(180deg,#f87171,#ef4444);box-shadow:0 0 0 0 rgba(239,68,68,.6);animation:rec 1.2s infinite}
+  @keyframes rec{70%{box-shadow:0 0 0 18px rgba(239,68,68,0)}}
+  .mic[disabled]{opacity:.5}
+  .small{width:48px;height:48px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:var(--text);cursor:pointer;display:grid;place-items:center}
+  .small svg{width:22px;height:22px}
+  .start{border:0;border-radius:999px;padding:16px 26px;font:inherit;font-weight:800;font-size:17px;color:#fff;cursor:pointer;
+    background:linear-gradient(180deg,var(--accent2),var(--accent));box-shadow:0 8px 24px rgba(59,130,246,.55);animation:bob 1.6s ease-in-out infinite}
+  @keyframes bob{50%{transform:translateY(-4px)}}
+  form.text{display:none;width:100%;gap:8px}
+  form.text.show{display:flex}
+  form.text input{flex:1;min-width:0;border:0;border-radius:999px;padding:14px 18px;font:inherit;font-size:16px;background:rgba(255,255,255,.12);color:#fff;outline:none}
+  form.text input::placeholder{color:#8fa4cf}
+  form.text button{border:0;border-radius:999px;padding:0 18px;font:inherit;font-weight:800;background:var(--accent);color:#fff;cursor:pointer}
+  .note{font-size:11.5px;color:#7f93bf;text-align:center;max-width:460px;line-height:1.35}
+  .badge{display:none;font-size:11px;font-weight:800;background:#f59e0b;color:#2b1700;border-radius:999px;padding:3px 9px}
+  .badge.show{display:inline-block}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="bgblur"></div>
+  <img class="bgimg" id="bgimg" src="img/bg.webp" alt="">
+  <div class="shade"></div>
+  <div class="stars"></div>
+  <header>
+    <div class="brand" id="title">Спроси рыцаря NEAR<small id="subtitle">Приватный ИИ на NEAR AI</small></div>
+    <div class="lang" role="group" aria-label="Язык">
+      <button data-l="ru" class="on">RU</button><button data-l="en">EN</button>
+    </div>
+  </header>
+
+  <div class="stage" id="stage">
+    <div class="glow" style="opacity:0" id="glow"></div>
+    <div class="floor"></div>
+    <div class="bubble" id="bubble" aria-live="polite"></div>
+    <div class="char" id="char" role="img" aria-label="Рыцарь">
+      <img data-f="idle"  src="img/idle.webp"  alt="" class="show">
+      <img data-f="blink" src="img/blink.webp" alt="">
+      <img data-f="talk1" src="img/talk1.webp" alt="">
+      <img data-f="talk2" src="img/talk2.webp" alt="">
+      <img data-f="laugh" src="img/laugh.webp" alt="">
+      <img data-f="wave"  src="img/wave.webp"  alt="">
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="status"><span id="status"></span> <span class="badge" id="demo">ДЕМО</span></div>
+    <button class="start" id="start">Поздороваться с рыцарем</button>
+    <div class="row hidden" id="row">
+      <button class="small" id="kbd" aria-label="Написать текстом">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
+      </button>
+      <button class="mic" id="mic" aria-label="Задать вопрос голосом">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>
+      </button>
+      <button class="small" id="hush" aria-label="Замолчать">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m23 9-6 6M17 9l6 6"/></svg>
+      </button>
+    </div>
+    <form class="text" id="form" autocomplete="off">
+      <input id="q" maxlength="400" placeholder="Напиши вопрос…" enterkeyhint="send">
+      <button type="submit" id="sendBtn">Спросить</button>
+    </form>
+    <div class="note" id="note"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  // ---------------- Тексты ----------------
+  const T = {
+    ru: {
+      title:'Спроси рыцаря NEAR', subtitle:'Приватный ИИ на NEAR AI', start:'Поздороваться с рыцарем',
+      hello:'Привет, путник!',
+      greetRest:'Я Сэр Ниар, рыцарь NEAR. Нажми на кнопку с микрофоном и спроси меня о чём угодно: про NEAR, приватность или искусственный интеллект!',
+      listening:'Слушаю…', thinking:'Думаю…', speaking:'Говорю… (нажми на микрофон, чтобы перебить)',
+      ready:'Нажми на микрофон и задай вопрос', placeholder:'Напиши вопрос…', send:'Спросить',
+      noHear:'Я ничего не расслышал. Попробуй ещё раз, погромче!',
+      micDenied:'Браузер не дал доступ к микрофону. Разреши микрофон в настройках сайта или напиши вопрос текстом.',
+      noStt:'Твой браузер не умеет распознавать голос. Напиши вопрос текстом — я отвечу голосом!',
+      limitUser:'Уф, ты задал много вопросов! Дай рыцарю передохнуть и возвращайся чуть позже.',
+      limitDay:'На сегодня мой запас ответов закончился. Приходи завтра, путник!',
+      error:'Мой оракул задумался и не ответил. Спроси ещё раз, пожалуйста.',
+      tickle:['Ха-ха-ха! Щекотно!','Эй, осторожнее с доспехами!','Ой! Я рыцарь, а не барабан!','Хи-хи! Ещё раз — и вызову на дуэль!'],
+      note:'Голос распознаёт браузер (в Chrome — через Google). Для полной приватности пиши текстом. Ответы генерирует модель в защищённой среде NEAR AI.',
+      demoNote:'Демо-режим: ответы заготовлены, микрофон здесь не работает. На настоящем сайте отвечает нейросеть NEAR AI и работает голос.',
+      noVoice:'В этом браузере нет голоса — открой сайт в Chrome, чтобы услышать рыцаря',
+      speech:'ru-RU'
+    },
+    en: {
+      title:'Ask the NEAR Knight', subtitle:'Private AI powered by NEAR AI', start:'Say hi to the knight',
+      hello:'Hello, traveler!',
+      greetRest:"I'm Sir Near, the NEAR knight. Tap the microphone and ask me anything about NEAR, privacy or artificial intelligence!",
+      listening:'Listening…', thinking:'Thinking…', speaking:'Speaking… (tap the mic to interrupt)',
+      ready:'Tap the mic and ask a question', placeholder:'Type a question…', send:'Ask',
+      noHear:"I didn't catch that. Try again, a bit louder!",
+      micDenied:'The browser blocked the microphone. Allow it in site settings or type your question.',
+      noStt:"Your browser can't recognize speech. Type your question and I'll answer out loud!",
+      limitUser:"Phew, that's a lot of questions! Let the knight rest and come back a bit later.",
+      limitDay:"I'm out of answers for today. Come back tomorrow, traveler!",
+      error:"My oracle got lost in thought. Please ask again.",
+      tickle:['Ha-ha-ha! That tickles!','Hey, careful with the armor!','Ouch! I am a knight, not a drum!'],
+      note:'Speech is recognized by your browser (Chrome uses Google). For full privacy, type instead. Answers come from a model running in NEAR AI secure enclaves.',
+      demoNote:'Demo mode: no server connected, answers are pre-written. On the real site NEAR AI answers.',
+      noVoice:'No voice in this browser — open the site in Chrome to hear the knight',
+      speech:'en-US'
+    }
+  };
+  let lang = (navigator.language||'ru').toLowerCase().startsWith('ru') ? 'ru' : 'en';
+  try { const s = localStorage.getItem('knight-lang'); if (s) lang = s; } catch(e){}
+  const t = k => T[lang][k];
+
+  // ---------------- Элементы ----------------
+  const $ = id => document.getElementById(id);
+  const charEl=$('char'), bubble=$('bubble'), statusEl=$('status'), stage=$('stage'), glow=$('glow');
+  const startBtn=$('start'), row=$('row'), mic=$('mic'), kbd=$('kbd'), hush=$('hush'), form=$('form'), q=$('q');
+  const frames={}; charEl.querySelectorAll('img').forEach(i=>frames[i.dataset.f]=i);
+  let current='idle';
+  function show(f){
+    if(VID.on){ VID.want(f==='idle'||f==='blink'?baseClip():'talk'); }
+    if(f===current) return; frames[current].classList.remove('show'); frames[f].classList.add('show'); current=f; }
+
+  // ---------------- Живая видео-анимация ----------------
+  // Ролики хранят картинку слева и прозрачность справа; WebGL склеивает их в рыцаря без фона.
+  const VID=(()=>{
+    const api={on:false,want(){}};
+    const make=(src,canvas)=>{
+      const v=document.createElement('video'); v.src=(v.canPlayType('video/webm; codecs="vp9"')?src+'.webm':src+'.mp4'); v.muted=true; v.loop=true; v.playsInline=true; v.setAttribute('playsinline',''); v.preload='auto'; v.crossOrigin='anonymous';
+      const gl=canvas.getContext('webgl',{premultipliedAlpha:true,alpha:true,antialias:false});
+      if(!gl) return null;
+      const sh=(t,c)=>{const o=gl.createShader(t);gl.shaderSource(o,c);gl.compileShader(o);return o;};
+      const pr=gl.createProgram();
+      gl.attachShader(pr,sh(gl.VERTEX_SHADER,'attribute vec2 p;varying vec2 u;void main(){u=vec2((p.x+1.)/2.,(1.-p.y)/2.);gl_Position=vec4(p,0.,1.);}'));
+      gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,'precision mediump float;varying vec2 u;uniform sampler2D t;void main(){vec3 c=texture2D(t,vec2(u.x*.5,u.y)).rgb;float a=texture2D(t,vec2(.5+u.x*.5,u.y)).r;gl_FragColor=vec4(c,a);}'));
+      gl.linkProgram(pr); gl.useProgram(pr);
+      const b=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,b); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+      const loc=gl.getAttribLocation(pr,'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+      const tex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,tex);
+      [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T].forEach(k=>gl.texParameteri(gl.TEXTURE_2D,k,gl.CLAMP_TO_EDGE));
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+      const draw=()=>{
+        if(v.readyState<2) return;
+        const w=v.videoWidth/2, h=v.videoHeight;
+        if(canvas.width!==w){ canvas.width=w; canvas.height=h; gl.viewport(0,0,w,h); }
+        gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,v);
+        gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+      };
+      return {v,canvas,draw,ready:new Promise((res,rej)=>{ v.addEventListener('canplaythrough',res,{once:true}); v.addEventListener('error',rej,{once:true}); setTimeout(()=>rej('timeout'),25000); })};
+    };
+    // Ролики: стоит, говорит, слушает. Добавить новый — положить файлы в vid/ и вписать сюда.
+    const C={};
+    try{ for(const n of ['idle','talk','listen']){ const cv=document.createElement('canvas'); charEl.appendChild(cv); const o=make('vid/'+n,cv); if(o) C[n]=o; } }catch(e){}
+    if(!C.idle||!C.talk) return api;
+    // Карта похожих поз: при переключении новый ролик начинается с позы, ближайшей к текущей — без рывка
+    const MAP={"idle2talk":[2,2,2,207,207,207,207,207,207,207,207,207,207,207,207,207,207,207,207,207,207,207,207,207,0,2,2,4,5,6,7,8,9,10,10,120,120,120,120,120,120,120,120,120,121,121,121,121,121,121,121,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,119,119,82,82,82,83,83,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84,84,83,82,82,82,17,12,146,146,148,22,206,206,205,204,204,203,203,203,203,204,2,3,4,4,4,4,4,4,3,3,2,2,2,1,207,207,207,207,207,1,1,2,2,2,3,3,3,4,4,4,3,205,205,205,205,205,205,205,205,205,205,205,205,205,205,205,205,205,205,205,205,205,205,205,205,205,205,205,204,204,204,204,3,3,3,3,3,3,3,3,3,2,2,2,2,2,2,2,2,2,2],"idle2listen":[220,221,222,223,224,224,224,224,224,224,224,224,224,224,224,224,224,224,224,224,224,224,224,224,200,203,64,64,63,63,63,63,63,63,63,63,63,63,63,63,63,120,120,120,120,122,122,122,122,122,122,120,120,120,120,120,120,120,120,120,63,63,63,63,63,63,63,63,64,64,64,63,63,63,63,58,58,61,58,58,58,58,58,58,58,58,58,58,58,58,58,58,58,58,58,58,58,58,56,57,57,57,57,57,57,58,58,55,55,185,185,186,186,224,2,2,3,4,167,168,5,116,116,67,67,67,67,215,216,216,216,218,218,219,220,220,220,220,220,221,209,1,2,178,177,175,175,175,177,177,178,180,181,182,182,182,182,182,182,182,182,182,182,182,182,183,183,183,182,182,182,182,182,182,182,182,182,181,180,177,175,175,175,175,177,177,178,180,181,214,215,216,216,217,217,217,217,218,218,219],"talk2idle":[23,24,141,187,187,28,28,29,30,31,33,33,105,105,105,105,105,105,105,105,106,107,107,108,29,30,31,32,33,33,33,33,33,33,33,33,32,32,32,33,33,33,33,33,33,33,107,107,108,108,108,108,108,108,108,29,30,31,32,33,33,106,106,106,107,107,107,107,107,107,107,107,107,107,107,107,107,107,107,106,105,105,75,75,75,72,142,126,115,115,115,115,115,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,125,72,73,34,107,108,108,108,108,107,106,106,105,105,105,104,104,104,104,104,104,104,104,105,105,105,106,106,106,106,107,107,107,107,107,107,107,107,107,107,107,107,107,107,31,30,29,28,186,119,118,117,115,115,115,115,115,115,115,115,115,116,115,115,115,115,115,115,115,115,116,115,115,115,116,116,115,115,115,115,115,116,116,117,183,183,5,9,22,22,22,22],"talk2listen":[224,224,0,212,179,64,63,63,62,62,62,60,58,58,57,57,57,57,57,57,57,57,57,55,55,55,55,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,55,57,57,57,57,58,58,60,60,60,57,55,57,57,58,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,58,61,62,62,63,63,178,3,2,82,81,80,80,87,86,71,82,69,68,68,4,4,4,68,68,68,68,68,4,4,68,68,68,68,68,68,68,4,3,65,63,62,58,61,61,51,53,55,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,57,57,57,57,57,55,57,57,57,57,57,57,57,57,57,57,57,57,57,60,61,62,65,4,84,155,164,164,164,164,164,165,165,165,165,165,165,165,165,165,165,165,165,165,164,165,164,165,165,165,164,164,164,164,164,165,165,165,169,5,5,224,224,224,224,224,224],"listen2idle":[197,198,142,142,143,144,145,145,144,144,144,144,143,142,141,141,141,141,141,141,141,141,141,141,141,141,141,142,119,119,119,119,119,119,119,119,119,119,119,119,144,144,144,144,145,145,143,143,142,189,190,130,130,130,129,129,129,129,129,129,130,130,26,26,26,190,190,189,189,189,194,195,196,196,196,196,196,197,197,197,199,199,199,197,197,140,140,140,140,140,140,140,140,196,196,196,195,195,194,194,193,193,192,192,192,191,191,191,191,191,191,191,191,191,191,191,191,191,191,191,191,191,191,191,191,191,191,192,192,192,192,192,192,193,193,193,194,194,194,194,196,139,140,140,140,140,140,140,140,141,141,141,141,141,141,141,141,142,142,142,142,143,143,143,143,143,143,144,144,144,144,144,144,144,144,144,144,143,143,187,188,188,189,190,195,195,196,197,197,197,197,197,199,199,199,199,199,199,197,197,197,197,197,197,196,196,195,195,194,194,190,190,190,191,191,191,193,195,195,195,196,196,197,197,197],"listen2talk":[2,2,2,2,3,3,3,3,3,3,3,2,2,2,0,208,208,207,207,207,207,207,207,207,207,206,206,206,206,206,206,206,206,206,206,206,206,206,206,206,2,2,3,3,3,3,3,3,3,3,3,2,2,2,2,2,2,2,2,2,2,3,3,3,4,3,3,3,3,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,4,4,4,3,3,3,3,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1]};
+    let state='idle', timer=null;
+    const apply=s=>{
+      if(!C[s]) s='idle';
+      if(s===state) return;
+      const from=state; state=s;
+      const on=C[s], off=C[from];
+      const map=MAP[from+'2'+s];
+      let done=false;
+      const go=()=>{ if(done) return; done=true; if(state!==s) return;
+        on.v.play().catch(()=>{}); on.canvas.style.opacity=1; off.canvas.style.opacity=0;
+        setTimeout(()=>{ for(const k in C) if(k!==state) C[k].v.pause(); },420); };
+      if(map){ const fr=Math.floor((off.v.currentTime||0)*24)%map.length; try{ on.v.currentTime=(map[fr]||0)/24+0.01; }catch(e){} }
+      on.v.addEventListener('seeked',go,{once:true}); setTimeout(go,200);
+    };
+    api.want=s=>{
+      clearTimeout(timer);
+      if(s==='idle') timer=setTimeout(()=>apply('idle'),450); // короткие паузы между словами не прерывают разговор
+      else apply(s);
+    };
+    const need=[C.idle.ready,C.talk.ready];
+    Promise.all(need).then(()=>{
+      api.on=true; charEl.classList.add('video');
+      C.idle.canvas.style.opacity=1; C.idle.v.play().catch(()=>{});
+      if(C.listen) C.listen.ready.catch(()=>{ delete C.listen; });
+      const loop=()=>{ for(const k in C){ const o=C[k]; if(!o.v.paused) o.draw(); } requestAnimationFrame(loop); };
+      requestAnimationFrame(loop);
+      if(mode==='talk') apply('talk');
+    }).catch(()=>{}); // не загрузилось — остаются картинки
+    return api;
+  })();
+
+  // ---------------- Состояния персонажа ----------------
+  let mode='idle'; // idle | wave | listen | think | talk
+  function baseClip(){ return (mode==='listen'||mode==='think')?'listen':'idle'; }
+  function setMode(m){
+    mode=m;
+    charEl.className='char'+(VID.on?' video':'')+(m==='idle'?'':' '+m);
+    if(VID.on) VID.want(m==='talk'?'talk':baseClip());
+    stage.classList.toggle('listening', m==='listen'); glow.style.opacity = m==='listen'?1:0;
+    if(m==='idle'||m==='listen'||m==='think') show('idle');
+    if(m==='wave') show('wave');
+  }
+  // Моргание
+  (function blinkLoop(){
+    setTimeout(()=>{
+      if((mode==='idle'||mode==='listen'||mode==='think') && current==='idle'){
+        show('blink'); setTimeout(()=>{ if(current==='blink') show('idle'); }, 130);
+        if(Math.random()<.2) setTimeout(()=>{ if(current==='idle'){ show('blink'); setTimeout(()=>current==='blink'&&show('idle'),110);} },300);
+      }
+      blinkLoop();
+    }, 2200+Math.random()*3800);
+  })();
+
+  // Движение рта во время речи
+  let mouthTimer=null, kick=0;
+  function mouthStart(){
+    mouthStop();
+    const seq=()=>{
+      const r=Math.random();
+      let f = kick>0 ? 'talk2' : (r<.38?'talk2':r<.78?'talk1':'idle');
+      kick=Math.max(0,kick-1);
+      show(f);
+      mouthTimer=setTimeout(seq, 80+Math.random()*90);
+    };
+    seq();
+  }
+  function mouthStop(){ clearTimeout(mouthTimer); mouthTimer=null; if(mode==='talk'||current.startsWith('talk')) show('idle'); }
+
+  // ---------------- Пузырь ----------------
+  function say(text, opts={}){
+    bubble.classList.toggle('user', !!opts.user);
+    if(opts.dots) bubble.innerHTML='<span class="dots"><span></span><span></span><span></span></span>';
+    else bubble.textContent=text;
+    bubble.classList.add('show');
+  }
+  const hideBubble=()=>bubble.classList.remove('show');
+  const setStatus=s=>statusEl.textContent=s||'';
+
+  // ---------------- Озвучка ----------------
+  // 1) голос браузера (бесплатно); 2) если браузер не умеет (Telegram, приложения) — голос с сервера;
+  // 3) если и сервера нет — рыцарь «говорит» текстом в пузыре.
+  let serverTTS={ru:false,en:false}, audioCtx=null, curSource=null;
+  function unlockAudio(){
+    try{
+      if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC) audioCtx=new AC(); }
+      if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
+      if(audioCtx){ const b=audioCtx.createBuffer(1,1,22050), s=audioCtx.createBufferSource(); s.buffer=b; s.connect(audioCtx.destination); s.start(0); }
+    }catch(e){}
+  }
+  document.addEventListener('pointerdown',unlockAudio,{passive:true});
+  async function fetchAudio(text){
+    const r=await fetch('api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,lang})});
+    if(!r.ok) throw new Error('tts '+r.status);
+    const buf=await r.arrayBuffer();
+    return await new Promise((res,rej)=>audioCtx.decodeAudioData(buf,res,rej));
+  }
+  // Проигрывает звук и двигает ртом в такт громкости
+  function playBuffer(buffer,id){
+    return new Promise(resolve=>{
+      const src=audioCtx.createBufferSource(); src.buffer=buffer;
+      src.playbackRate.value=1.13; // голос чуть выше и бодрее — мультяшный
+      const an=audioCtx.createAnalyser(); an.fftSize=512; const data=new Uint8Array(an.fftSize);
+      src.connect(an); an.connect(audioCtx.destination);
+      curSource=src; let raf=0, last=0;
+      const loop=(ts)=>{
+        if(ts-last>60){ last=ts;
+          an.getByteTimeDomainData(data); let sum=0; for(const v of data){ const x=(v-128)/128; sum+=x*x; }
+          const rms=Math.sqrt(sum/data.length);
+          show(rms>0.11?'talk2':rms>0.035?'talk1':'idle');
+        }
+        raf=requestAnimationFrame(loop);
+      };
+      raf=requestAnimationFrame(loop);
+      src.onended=()=>{ cancelAnimationFrame(raf); if(curSource===src) curSource=null; show('idle'); resolve(); };
+      src.start(0);
+    });
+  }
+  async function speakServer(chunks,id,waveFirst){
+    let next=fetchAudio(chunks[0]);
+    for(let i=0;i<chunks.length;i++){
+      let buf; try{ buf=await next; }catch(e){ return false; }
+      if(id!==speakId) return true;
+      if(i+1<chunks.length) next=fetchAudio(chunks[i+1]); // заранее готовим следующую фразу
+      scrollBubble(chunks,i);
+      if(waveFirst && i===0){ charEl.className='char wave'+(VID.on?' video':''); show('wave'); await playBufferStill(buf); }
+      else { charEl.className='char talk'+(VID.on?' video':''); await playBuffer(buf,id); }
+      if(id!==speakId) return true;
+    }
+    return true;
+  }
+  function playBufferStill(buffer){ // для приветствия: машет рукой, рот не трогаем
+    return new Promise(resolve=>{ const s=audioCtx.createBufferSource(); s.buffer=buffer; s.playbackRate.value=1.13; s.connect(audioCtx.destination); curSource=s; s.onended=()=>{ if(curSource===s) curSource=null; resolve(); }; s.start(0); });
+  }
+  function speakSilent(chunks,id,waveFirst){ // звука нет совсем — анимируем по длине текста
+    return new Promise(resolve=>{
+      let i=0;
+      const step=()=>{
+        if(id!==speakId) return resolve();
+        if(i>=chunks.length) return resolve();
+        scrollBubble(chunks,i); const c=chunks[i], wave=waveFirst&&i===0; i++;
+        if(wave){ charEl.className='char wave'+(VID.on?' video':''); show('wave'); } else { charEl.className='char talk'+(VID.on?' video':''); mouthStart(); }
+        setTimeout(()=>{ mouthStop(); setTimeout(step,150); }, Math.min(9000,500+c.length*60));
+      };
+      step();
+    });
+  }
+
+  const synth = window.speechSynthesis;
+  let voices=[];
+  function loadVoices(){ voices = synth ? synth.getVoices() : []; }
+  if(synth){ loadVoices(); synth.onvoiceschanged=loadVoices; }
+  function pickVoice(){
+    const code=t('speech'), base=code.slice(0,2);
+    const list=voices.filter(v=>v.lang && v.lang.replace('_','-').toLowerCase().startsWith(base));
+    const pref=['google','milena','yuri','microsoft','samantha','daniel'];
+    for(const p of pref){ const v=list.find(v=>v.name.toLowerCase().includes(p)); if(v) return v; }
+    return list[0]||null;
+  }
+  function splitText(text){
+    const parts=text.replace(/\s+/g,' ').match(/[^.!?…]+[.!?…]*\s*/g)||[text];
+    const out=[]; let buf='';
+    for(const p of parts){ if((buf+p).length>170 && buf){ out.push(buf.trim()); buf=p; } else buf+=p; }
+    if(buf.trim()) out.push(buf.trim());
+    return out;
+  }
+  let speakId=0;
+  const waitVoices=()=>new Promise(r=>{ if(!synth||voices.length) return r(); let n=0; const iv=setInterval(()=>{ loadVoices(); if(voices.length||++n>8){ clearInterval(iv); r(); } },100); });
+  function scrollBubble(chunks,i){ const before=chunks.slice(0,i).join(' ').length, total=chunks.join(' ').length||1; bubble.scrollTop=(before/total)*(bubble.scrollHeight-bubble.clientHeight); }
+  async function speak(text, {after='idle', face=null, intro=null}={}){
+    const id=++speakId;
+    if(synth) synth.cancel(); if(curSource){ try{curSource.stop();}catch(e){} curSource=null; }
+    say(intro ? intro+' '+text : text); bubble.scrollTop=0;
+    const chunks=(intro?[intro]:[]).concat(splitText(text));
+    setMode('talk'); setStatus(t('speaking'));
+    await waitVoices();
+    if(id!==speakId) return;
+    const voice=synth?pickVoice():null;
+    if(voice) await speakBrowser(chunks,id,!!intro,voice);
+    else {
+      let ok=false;
+      if(serverTTS[lang] && audioCtx){ ok=await speakServer(chunks,id,!!intro); }
+      if(!ok && id===speakId){ voiceless=true; setStatus(t('noVoice')); await speakSilent(chunks,id,!!intro); }
+    }
+    if(id!==speakId) return;
+    mouthStop(); setMode(after);
+    if(face){ show(face); setTimeout(()=>current===face&&show('idle'),900); }
+    setStatus(voiceless?t('noVoice'):t('ready'));
+  }
+  let voiceless=false;
+  function speakBrowser(chunks,id,waveFirst,voice){
+    return new Promise(resolve=>{
+      let i=0, watchdog=null;
+      const next=()=>{
+        clearTimeout(watchdog);
+        if(id!==speakId || i>=chunks.length) return resolve();
+        const waving = waveFirst && i===0; // первая фраза приветствия — машет рукой
+        scrollBubble(chunks,i);
+        const u=new SpeechSynthesisUtterance(chunks[i++]);
+        u.lang=t('speech'); u.voice=voice;
+        u.pitch=1.55; u.rate=1.04; u.volume=1;
+        if(waving){ charEl.className='char wave'+(VID.on?' video':''); show('wave'); } else charEl.className='char talk'+(VID.on?' video':'');
+        let started=false;
+        u.onstart=()=>{ started=true; if(id===speakId && !waving) mouthStart(); };
+        u.onboundary=()=>{ kick=1; };
+        u.onend=()=>{ if(id!==speakId) return resolve(); mouthStop(); setTimeout(next,120); };
+        u.onerror=()=>{ if(id!==speakId) return resolve(); mouthStop(); next(); };
+        synth.speak(u);
+        // страховка: если браузер так и не начал говорить — анимируем по длине текста
+        watchdog=setTimeout(()=>{ if(id===speakId && !started && !synth.speaking){ if(!waving) mouthStart(); setTimeout(()=>{ if(id===speakId){ mouthStop(); next(); } }, Math.min(8000,500+u.text.length*55)); } }, 1500);
+      };
+      next();
+    });
+  }
+  function stopSpeaking(){ speakId++; if(synth) synth.cancel(); if(curSource){ try{curSource.stop();}catch(e){} curSource=null; } mouthStop(); if(mode==='talk') setMode('idle'); }
+
+  // ---------------- Общение с сервером ----------------
+  let demo=false;
+  const history=[];
+  async function ask(question){
+    question=question.trim(); if(!question) return;
+    stopSpeaking();
+    say(question,{user:true}); setMode('think'); setStatus(t('thinking'));
+    await new Promise(r=>setTimeout(r,650));
+    say('',{dots:true});
+    history.push({role:'user',content:question});
+    let answer;
+    if(!demo){
+      try{
+        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6)})});
+        if(r.status===404||r.status===405) throw new Error('no-server');
+        const data=await r.json().catch(()=>({}));
+        if(r.status===429) answer = data.error==='daily_limit'?t('limitDay'):t('limitUser');
+        else if(!r.ok) answer=t('error');
+        else answer=data.answer;
+      }catch(e){ enableDemo(); }
+    }
+    if(demo) { await new Promise(r=>setTimeout(r,500)); answer=demoAnswer(question); }
+    history.push({role:'assistant',content:answer});
+    if(history.length>12) history.splice(0,history.length-12);
+    await speak(answer);
+  }
+  function enableDemo(){ demo=true; $('demo').classList.add('show'); $('note').textContent=t('demoNote'); }
+
+  // Заготовленные ответы для демо-режима (когда нет сервера)
+  function demoAnswer(qs){
+    const s=qs.toLowerCase(), ru=lang==='ru';
+    const has=(...w)=>w.some(x=>s.includes(x));
+    if(has('tee','ти и','анклав','enclave','сейф')) return ru?'TEE — это как запечатанный сейф внутри процессора и видеокарты. Даже владелец сервера не может заглянуть внутрь, а железо выдаёт подписанное доказательство, что всё честно. Клянусь своим щитом!':'A TEE is like a sealed safe inside the processor and GPU. Even the server owner cannot look inside, and the hardware signs a proof that everything is legit. On my shield!';
+    if(has('приват','privacy','private','данн','видит','sees')) return ru?'В NEAR AI Cloud нейросеть работает внутри защищённой среды TEE: вопросы расшифровываются только внутри неё, и их не видит никто, даже сама NEAR. А проверить это может любой — по криптографической аттестации.':'In NEAR AI Cloud the model runs inside a TEE: your questions are decrypted only inside it, and nobody, not even NEAR, can see them. Anyone can verify this with cryptographic attestation.';
+    if(has('intent','интент')) return ru?'NEAR Intents — это когда ты говоришь, что хочешь получить, например обменять биткоин на доллары, а исполнители соревнуются, кто сделает это выгоднее. Работает с десятками блокчейнов.':'With NEAR Intents you say what you want, like swapping bitcoin for dollars, and solvers compete to do it best. It works across dozens of chains.';
+    if(has('signature','подпис')) return ru?'Chain Signatures позволяют аккаунту NEAR подписывать транзакции в других сетях: Bitcoin, Ethereum, Solana и не только. Ключ разделён между многими узлами, и ни у одного нет его целиком.':'Chain Signatures let a NEAR account sign transactions on other chains like Bitcoin, Ethereum and Solana. The key is split across many nodes, and no single node holds it.';
+    if(has('near','нир','блокчейн','blockchain')) return ru?'NEAR — быстрый блокчейн с шардингом: блоки примерно каждые 0,6 секунды, а финальность около секунды. Адреса там человеческие, вроде alice.near, а комиссии — доли цента.':'NEAR is a fast sharded blockchain: blocks every 0.6 seconds and finality in about a second. Addresses are human-readable like alice.near, and fees are fractions of a cent.';
+    if(has('кто ты','тебя зовут','who are you','your name')) return ru?'Я Сэр Ниар, рыцарь NEAR! Охраняю приватность и рассказываю про технологии NEAR простыми словами.':"I'm Sir Near, the NEAR knight! I guard privacy and explain NEAR tech in plain words.";
+    if(has('привет','здравств','hello','hi ','hey')) return ru?'И тебе привет, путник! Спроси меня про NEAR, приватность или TEE.':'Hello to you too, traveler! Ask me about NEAR, privacy or TEEs.';
+    return ru?'Это демо-версия, тут у меня только заготовки. На настоящем сайте я отвечу на любой вопрос с помощью нейросети NEAR AI. Попробуй спросить про TEE или приватность!':"This is a demo with pre-written answers. On the real site I answer anything using NEAR AI. Try asking about TEEs or privacy!";
+  }
+
+  // ---------------- Распознавание голоса ----------------
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec=null, recognizing=false, gotFinal=false;
+  function startListening(){
+    if(!SR){ showText(true); speak(t('noStt')); return; }
+    stopSpeaking();
+    rec=new SR(); rec.lang=t('speech'); rec.interimResults=true; rec.continuous=false; rec.maxAlternatives=1;
+    let finalText='', lastInterim=''; gotFinal=false;
+    rec.onstart=()=>{ recognizing=true; mic.classList.add('rec'); setMode('listen'); setStatus(t('listening')); say('…',{user:true}); };
+    rec.onresult=e=>{
+      let interim='';
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const r=e.results[i]; if(r.isFinal){ finalText+=r[0].transcript; gotFinal=true; } else interim+=r[0].transcript;
+      }
+      lastInterim=interim;
+      say((finalText+interim).trim()||'…',{user:true});
+    };
+    rec.onerror=e=>{
+      if(e.error==='not-allowed'||e.error==='service-not-allowed'){ showText(true); speak(t('micDenied')); }
+      else if(e.error==='no-speech'){ speak(t('noHear')); }
+    };
+    rec.onend=()=>{
+      recognizing=false; mic.classList.remove('rec');
+      const text=(finalText||lastInterim).trim();
+      if(text) ask(text);
+      else if(mode==='listen'){ setMode('idle'); hideBubble(); setStatus(t('ready')); }
+    };
+    try{ rec.start(); }catch(e){ showText(true); }
+  }
+  function stopListening(){ if(rec&&recognizing) rec.stop(); }
+
+  // ---------------- Кнопки ----------------
+  function showText(on){ form.classList.toggle('show',on); if(on) setTimeout(()=>q.focus(),50); }
+  mic.addEventListener('click',()=>{ recognizing?stopListening():startListening(); });
+  kbd.addEventListener('click',()=>showText(!form.classList.contains('show')));
+  hush.addEventListener('click',()=>{ stopSpeaking(); hideBubble(); setStatus(t('ready')); });
+  form.addEventListener('submit',e=>{ e.preventDefault(); const v=q.value; q.value=''; ask(v); });
+
+  let tickleIdx=0, started=false;
+  charEl.addEventListener('click',()=>{
+    if(!started) return begin();
+    if(mode!=='idle') return;
+    charEl.classList.remove('poke'); void charEl.offsetWidth; charEl.classList.add('poke');
+    show('laugh');
+    const phrase=T[lang].tickle[tickleIdx++ % T[lang].tickle.length];
+    setTimeout(()=>speak(phrase,{face:'laugh'}),250);
+  });
+
+  function begin(){
+    if(started) return; started=true;
+    startBtn.classList.add('hidden'); row.classList.remove('hidden');
+    if(!SR) showText(true);
+    // Приветствие голосом: на первой фразе машет рукой, дальше говорит
+    speak(t('greetRest'),{intro:t('hello')});
+  }
+  startBtn.addEventListener('click',begin);
+
+  // ---------------- Язык ----------------
+  function applyLang(){
+    document.documentElement.lang=lang;
+    document.querySelectorAll('.lang button').forEach(b=>b.classList.toggle('on',b.dataset.l===lang));
+    $('title').firstChild.textContent=t('title'); $('subtitle').textContent=t('subtitle');
+    startBtn.textContent=t('start'); q.placeholder=t('placeholder'); $('sendBtn').textContent=t('send');
+    $('note').textContent=demo?t('demoNote'):t('note');
+    if(started) setStatus(t('ready'));
+  }
+  document.querySelectorAll('.lang button').forEach(b=>b.addEventListener('click',()=>{
+    lang=b.dataset.l; try{localStorage.setItem('knight-lang',lang);}catch(e){}
+    stopSpeaking(); applyLang(); if(!started){ say(t('hello')); }
+  }));
+
+
+  // ---------------- Фон: светящийся круг ровно под ногами рыцаря ----------------
+  const bgImg=$('bgimg'), appEl=document.querySelector('.app');
+  const RING={x:0.5,y:0.858}; // где на картинке фона находится круг (доли ширины и высоты)
+  function layoutBg(){
+    if(!bgImg.naturalWidth) return;
+    const app=appEl.getBoundingClientRect(), ch=charEl.getBoundingClientRect();
+    const W=app.width, iw=bgImg.naturalWidth, ih=bgImg.naturalHeight;
+    const feetY=ch.bottom-app.top-ch.height*0.025, feetX=ch.left-app.left+ch.width*0.5;
+    const H=app.height;
+    let sc=feetY/(ih*RING.y);           // масштаб по высоте: круг всегда одного размера относительно рыцаря
+    if(iw*sc<W*0.6) sc=W*0.6/iw;
+    const w=iw*sc, h=ih*sc;
+    bgImg.style.width=w+'px'; bgImg.style.height=h+'px';
+    // если фон уже экрана — края не нужно растворять
+    const m=w>W*1.02?'none':''; bgImg.style.webkitMaskImage=m; bgImg.style.maskImage=m;
+    bgImg.style.top=(feetY-h*RING.y)+'px';
+    bgImg.style.left=(feetX-w*RING.x+w/2)+'px';
+  }
+  bgImg.addEventListener('load',()=>{ appEl.classList.add('hasbg'); bgImg.classList.add('on'); layoutBg(); });
+  if(bgImg.complete && bgImg.naturalWidth){ appEl.classList.add('hasbg'); bgImg.classList.add('on'); }
+  window.addEventListener('resize',layoutBg);
+  if(window.ResizeObserver) new ResizeObserver(layoutBg).observe(charEl);
+  setTimeout(layoutBg,50);
+
+  // ---------------- Старт ----------------
+  applyLang();
+  // Пока посетитель не нажал кнопку, браузер не разрешает говорить вслух — просто машем и показываем приветствие
+  Promise.all(Object.values(frames).map(i=>i.decode?i.decode().catch(()=>{}):0)).then(()=>{
+    setMode('wave'); say(t('hello'));
+    setTimeout(()=>{ if(!started) setMode('idle'); }, 2600);
+  });
+  // Проверяем, подключён ли сервер (иначе демо-режим)
+  fetch('api/health').then(r=>{ if(!r.ok) throw 0; return r.json(); }).then(d=>{ if(!d.ok) throw 0; if(d.tts) serverTTS=d.tts; }).catch(enableDemo);
+})();
+</script>
+</body>
+</html>
