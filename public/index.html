@@ -63,7 +63,7 @@
   @keyframes talk{0%,100%{transform:scale(1,1)}50%{transform:scale(1.01,1.025) translateY(-2px)}}
   .char.poke{animation:poke .45s ease-out}
   /* Видео-режим: живая анимация из роликов, без «кукольного» покачивания */
-  .char canvas{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .38s ease-in-out;pointer-events:none}
+  .char canvas{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .22s ease-out;pointer-events:none}
   .char.video{aspect-ratio:702/1060}
   .char.video img{display:none}
   .char.video, .char.video.wave, .char.video.listen, .char.video.think, .char.video.talk{animation:none}
@@ -255,15 +255,19 @@
       let done=false;
       const go=()=>{ if(done) return; done=true; if(state!==s) return;
         on.v.play().catch(()=>{}); on.canvas.style.opacity=1; off.canvas.style.opacity=0;
-        setTimeout(()=>{ for(const k in C) if(k!==state) C[k].v.pause(); },420); };
+        setTimeout(()=>{ for(const k in C) if(k!==state) C[k].v.pause(); },300); };
       if(map){ const fr=Math.floor((off.v.currentTime||0)*24)%map.length; try{ on.v.currentTime=(map[fr]||0)/24+0.01; }catch(e){} }
       on.v.addEventListener('seeked',go,{once:true}); setTimeout(go,200);
     };
+    let pending=null;
     api.want=s=>{
-      clearTimeout(timer);
-      if(s==='idle') timer=setTimeout(()=>apply('idle'),450); // короткие паузы между словами не прерывают разговор
-      else apply(s);
+      if(s==='talk'||s==='listen'){ clearTimeout(timer); pending=null; if(s!==state) apply(s); return; }
+      if(state==='talk'){ // рот закрываем после короткой паузы, чтобы не моргать между словами
+        if(pending===s) return; clearTimeout(timer); pending=s;
+        timer=setTimeout(()=>{ pending=null; apply(s); },230);
+      } else { clearTimeout(timer); pending=null; apply(s); }
     };
+    Object.defineProperty(api,'state',{get:()=>state});
     const need=[C.idle.ready,C.talk.ready];
     Promise.all(need).then(()=>{
       api.on=true; charEl.classList.add('video');
@@ -282,7 +286,7 @@
   function setMode(m){
     mode=m;
     charEl.className='char'+(VID.on?' video':'')+(m==='idle'?'':' '+m);
-    if(VID.on) VID.want(m==='talk'?'talk':baseClip());
+    if(VID.on && m!=='talk') VID.want(baseClip()); // «говорит» включает только настоящая речь
     stage.classList.toggle('listening', m==='listen'); glow.style.opacity = m==='listen'?1:0;
     if(m==='idle'||m==='listen'||m==='think') show('idle');
     if(m==='wave') show('wave');
@@ -386,7 +390,8 @@
         if(i>=chunks.length) return resolve();
         scrollBubble(chunks,i); const c=chunks[i], wave=waveFirst&&i===0; i++;
         if(wave){ charEl.className='char wave'+(VID.on?' video':''); show('wave'); } else { charEl.className='char talk'+(VID.on?' video':''); mouthStart(); }
-        setTimeout(()=>{ mouthStop(); setTimeout(step,150); }, Math.min(9000,500+c.length*60));
+        silentTalk=true;
+        setTimeout(()=>{ silentTalk=false; mouthStop(); setTimeout(step,150); }, Math.min(9000,500+c.length*60));
       };
       step();
     });
@@ -447,10 +452,10 @@
         u.pitch=1.0; u.rate=1.0; u.volume=1;
         if(waving){ charEl.className='char wave'+(VID.on?' video':''); show('wave'); } else charEl.className='char talk'+(VID.on?' video':'');
         let started=false;
-        u.onstart=()=>{ started=true; if(id===speakId && !waving) mouthStart(); };
+        u.onstart=()=>{ started=true; uttActive=true; if(id===speakId && !waving) mouthStart(); };
         u.onboundary=()=>{ kick=1; };
-        u.onend=()=>{ if(id!==speakId) return resolve(); mouthStop(); setTimeout(next,120); };
-        u.onerror=()=>{ if(id!==speakId) return resolve(); mouthStop(); next(); };
+        u.onend=()=>{ uttActive=false; if(id!==speakId) return resolve(); mouthStop(); setTimeout(next,120); };
+        u.onerror=()=>{ uttActive=false; if(id!==speakId) return resolve(); mouthStop(); next(); };
         synth.speak(u);
         // страховка: если браузер так и не начал говорить — анимируем по длине текста
         watchdog=setTimeout(()=>{ if(id===speakId && !started && !synth.speaking){ if(!waving) mouthStart(); setTimeout(()=>{ if(id===speakId){ mouthStop(); next(); } }, Math.min(8000,500+u.text.length*55)); } }, 1500);
@@ -458,7 +463,15 @@
       next();
     });
   }
-  function stopSpeaking(){ speakId++; if(synth) synth.cancel(); if(curSource){ try{curSource.stop();}catch(e){} curSource=null; } mouthStop(); if(mode==='talk') setMode('idle'); }
+  function stopSpeaking(){ speakId++; uttActive=false; silentTalk=false; if(synth) synth.cancel(); if(curSource){ try{curSource.stop();}catch(e){} curSource=null; } mouthStop(); if(mode==='talk') setMode('idle'); }
+  // Рот в живой анимации двигается ровно пока звучит речь: замолчал — закрыл, продолжил — открыл
+  let uttActive=false, silentTalk=false;
+  setInterval(()=>{
+    if(!VID.on) return;
+    const talking = uttActive || !!curSource || silentTalk;
+    if(talking) VID.want('talk');
+    else if(VID.state==='talk') VID.want(baseClip());
+  },80);
 
   // ---------------- Общение с сервером ----------------
   let demo=false;
