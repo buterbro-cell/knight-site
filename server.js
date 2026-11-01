@@ -8,14 +8,17 @@ const path = require('path');
 // ---------- Настройки (можно менять через переменные окружения) ----------
 const PORT = Number(process.env.PORT || 3000);
 const KEY = process.env.NEAR_AI_KEY || '';
-const MODEL = process.env.MODEL || 'Qwen/Qwen3-30B-A3B-Instruct-2507';
+let MODEL = process.env.MODEL || 'Qwen/Qwen3-30B-A3B-Instruct-2507';
+// Если такой модели нет у NEAR AI — сервер сам выберет похожую из этого списка (по порядку)
+const MODEL_PREFS = ['Qwen3-30B-A3B-Instruct', 'Qwen3-30B', 'gpt-oss-120b', 'Qwen3.5-122B', 'DeepSeek-V3', 'GLM-5'];
+let lastError = null, modelChecked = false, availableModels = [];
 const API_URL = process.env.API_URL || 'https://cloud-api.near.ai/v1/chat/completions';
 const CHAR_NAME = process.env.CHAR_NAME || 'Сэр Ниар';
 const PER_USER_LIMIT = Number(process.env.PER_USER_LIMIT || 20);      // вопросов на человека...
 const PER_USER_WINDOW_MIN = Number(process.env.PER_USER_WINDOW_MIN || 60); // ...за столько минут
 const DAILY_LIMIT = Number(process.env.DAILY_LIMIT || 3000);          // всего вопросов в сутки на весь сайт
 const MAX_QUESTION_CHARS = 400;
-const MAX_ANSWER_TOKENS = 350;
+const MAX_ANSWER_TOKENS = 700; // с запасом: «думающие» модели тратят часть токенов на размышления
 const TRUST_PROXY = process.env.TRUST_PROXY === '1';                   // включить, если сайт за nginx/Caddy
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -64,6 +67,26 @@ let active = 0; const queue = [];
 const slot = () => new Promise(res => { if (active < MAX_PARALLEL) { active++; res(); } else queue.push(res); });
 const release = () => { const next = queue.shift(); next ? next() : active--; };
 
+// Проверяем, какие модели доступны по ключу, и выбираем подходящую
+async function checkModel() {
+  if (!KEY) return;
+  try {
+    const r = await fetch(API_URL.replace(/\/chat\/completions$/, '/models'), { headers: { Authorization: `Bearer ${KEY}` } });
+    if (!r.ok) { lastError = `Список моделей: NEAR AI ответил ${r.status}: ${(await r.text()).slice(0, 200)}`; console.error(lastError); return; }
+    const data = await r.json();
+    availableModels = (data.data || data.models || []).map(m => m.id || m.name || m).filter(x => typeof x === 'string');
+    if (!availableModels.length) return;
+    modelChecked = true;
+    if (availableModels.includes(MODEL)) { console.log('Модель найдена:', MODEL); return; }
+    const low = availableModels.map(x => x.toLowerCase());
+    for (const pref of MODEL_PREFS) {
+      const i = low.findIndex(x => x.includes(pref.toLowerCase()));
+      if (i >= 0) { console.log(`Модели ${MODEL} нет, беру ${availableModels[i]}`); MODEL = availableModels[i]; return; }
+    }
+    console.log(`Модели ${MODEL} нет, беру первую доступную: ${availableModels[0]}`); MODEL = availableModels[0];
+  } catch (e) { lastError = 'Не удалось получить список моделей: ' + e.message; console.error(lastError); }
+}
+
 async function askModel(messages) {
   await slot();
   try {
@@ -80,7 +103,11 @@ async function askModel(messages) {
         temperature: 0.6,
       }),
     }).finally(() => clearTimeout(timer));
-    if (!r.ok) throw new Error(`NEAR AI ответил ${r.status}: ${(await r.text()).slice(0, 300)}`);
+    if (!r.ok) {
+      const t = (await r.text()).slice(0, 300);
+      if ((r.status === 404 || /model/i.test(t)) && !askModel.retried) { askModel.retried = true; await checkModel(); }
+      throw new Error(`NEAR AI ответил ${r.status}: ${t}`);
+    }
     const data = await r.json();
     let text = data?.choices?.[0]?.message?.content || '';
     text = text.replace(/<think>[\s\S]*?<\/think>/g, '')      // убираем «мысли» у рассуждающих моделей
@@ -168,9 +195,11 @@ const server = http.createServer(async (req, res) => {
     try {
       const answer = await askModel(msgs);
       if (!answer) throw new Error('пустой ответ');
+      lastError = null; askModel.retried = false;
       if (firstQuestion) { if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value); cache.set(firstQuestion, answer); }
       return send(res, 200, { answer });
     } catch (e) {
+      lastError = new Date().toISOString() + ' ' + e.message;
       console.error(new Date().toISOString(), 'Ошибка нейросети:', e.message); // текст вопроса не пишем в лог
       return send(res, 502, { error: 'ai_error' });
     }
@@ -196,7 +225,11 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  if (url.pathname === '/api/health') return send(res, 200, { ok: true, model: MODEL, key: !!KEY, tts: { ru: ttsReady('ru'), en: ttsReady('en') } });
+  // Страница проверки: откройте /api/health в браузере, чтобы увидеть, что не так
+  if (url.pathname === '/api/health') return send(res, 200, {
+    ok: true, key: !!KEY, model: MODEL, modelChecked, lastError,
+    models: availableModels.slice(0, 40), tts: { ru: ttsReady('ru'), en: ttsReady('en') },
+  });
 
   // Статика
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
@@ -226,6 +259,7 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
+checkModel();
 server.listen(PORT, () => {
   console.log(`Рыцарь на посту: http://localhost:${PORT}`);
   console.log(`Модель: ${MODEL}. Ключ NEAR AI: ${KEY ? 'есть' : 'НЕ ЗАДАН — ответы работать не будут'}`);
