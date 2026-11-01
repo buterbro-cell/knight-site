@@ -86,7 +86,8 @@ Docker / Northflank: the included `Dockerfile` builds everything; set `NEAR_AI_K
 3. Tap 📄 → **Bank statement — October 2026** (fictional). The knight lists spending categories and flags the duplicate charge, the 03:47 overseas purchase, the unknown payee and the night ATM withdrawals.
 4. Ask by voice: "What looks suspicious in the receipts?" — the line under the answer shows that it was signed inside the TEE.
 5. **Prove it is live, not a recording:** in the Verified panel type *your own* number or word under "Check it yourself" and tap **Verify**. The server sends `nonce = sha256(your word)` to NEAR AI; the panel shows that this exact value sits inside `report_data` of the Intel-signed TDX quote (and in the NVIDIA GPU evidence). Nobody could have prepared that report in advance. Download it and re-check with [nearai-cloud-verifier](https://github.com/nearai/nearai-cloud-verifier), or run `echo -n "your word" | sha256sum` to confirm the nonce. Endpoint: `GET /api/attestation/challenge?word=…` (the word is used for that one request and never stored).
-6. **Don't trust this site at all:** clone the repo, put your own key in `.env`, run `npm run verify` — it talks to NEAR AI directly with its own random nonce.
+6. **See the minimal script's output on the live server:** open `/api/selftest` — it runs exactly `node scripts/verify.js` (one completion + attestation with a fresh nonce + response signature) and prints the result as text. Limited to once a minute.
+7. **Don't trust this site at all:** clone the repo, put your own key in `.env`, run `npm run verify` — it talks to NEAR AI directly with its own random nonce.
 
 ## What attestation does and does not prove
 

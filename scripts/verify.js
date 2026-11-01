@@ -1,53 +1,9 @@
 #!/usr/bin/env node
-// Minimal end-to-end check, as the hackathon track asks:
-//   1) pick a TEE-hosted model from the models endpoint
-//   2) send ONE chat completion through the OpenAI-compatible API
-//   3) verify the response signature
-//   4) fetch the attestation report with a fresh random nonce and verify it
-// Usage:  node scripts/verify.js            (reads NEAR_AI_KEY from .env or the environment)
+// Minimal end-to-end check, as the hackathon track asks (logic in lib/selftest.js):
+//   pick a TEE model from /v1/models → one completion → attestation with a fresh nonce → response signature.
+// Usage:  node scripts/verify.js   (reads NEAR_AI_KEY from .env or the environment)
+// The same output is available on the live site at /api/selftest.
 'use strict';
 require('../lib/env');
-const { attest, verifyResponseSignature, libsReady } = require('../lib/attest');
-
-const BASE = (process.env.NEAR_AI_BASE || 'https://cloud-api.near.ai').replace(/\/v1\/?$/, '');
-const KEY = process.env.NEAR_AI_KEY || '';
-// Models NEAR AI hosts itself inside TEEs ("Private TEE" on near.ai/models)
-const TEE_PREFS = ['deepseek-ai/DeepSeek-V4.1-Flash-1017', 'Qwen/Qwen3.8-27B', 'zai-org/GLM-5.3-Flash'];
-
-const mark = ok => (ok ? '✅' : '❌');
-(async () => {
-  if (!KEY) { console.error('NEAR_AI_KEY is missing (put it in .env)'); process.exit(1); }
-  console.log('Libraries:', libsReady());
-
-  // 1) models endpoint → choose a TEE-hosted model
-  const models = await (await fetch(`${BASE}/v1/models`, { headers: { Authorization: `Bearer ${KEY}` } })).json();
-  const ids = (models.data || []).map(m => m.id);
-  const model = process.env.MODEL || TEE_PREFS.find(p => ids.includes(p)) || ids.find(id => /deepseek-ai|Qwen\/|zai-org/.test(id) && !/abliterated/i.test(id));
-  console.log(`\n1) Model: ${model}  (from ${ids.length} models on /v1/models)`);
-
-  // 2) one completion
-  const body = JSON.stringify({ model, messages: [{ role: 'user', content: 'In one short sentence: what is a TEE?' }], max_tokens: 120, stream: false });
-  const r = await fetch(`${BASE}/v1/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${KEY}` }, body });
-  const raw = await r.text();
-  if (!r.ok) { console.error('Completion failed:', r.status, raw.slice(0, 300)); process.exit(1); }
-  const data = JSON.parse(raw);
-  console.log(`\n2) Completion id: ${data.id}\n   Answer: ${data.choices?.[0]?.message?.content?.trim()}`);
-
-  // 4) attestation with a fresh nonce (done before 3 so we know the attested signers)
-  console.log('\n3) Attestation (fresh random nonce)…');
-  const a = await attest(model);
-  console.log(`   nonce: ${a.nonce}`);
-  for (const [name, part] of [['Gateway', a.gateway], ...a.models.map((m, i) => [`Model #${i + 1}`, m])]) {
-    if (!part) continue;
-    console.log(`\n   ${name} — signing address ${part.signing_address}`);
-    for (const c of part.checks) console.log(`     ${mark(c.ok)} ${c.label}${c.detail ? '  (' + c.detail + ')' : ''}${c.critical ? '' : '  [info]'}`);
-  }
-  console.log(`\n   Attestation overall: ${mark(a.ok)} ${a.ok ? 'VERIFIED' : 'NOT VERIFIED'}  (${a.ms} ms)`);
-
-  // 3) response signature
-  console.log('\n4) Response signature…');
-  const s = await verifyResponseSignature({ chatId: data.id, model, requestBody: body, responseText: JSON.stringify(data), attestedSigners: a.signers });
-  for (const c of s.checks) console.log(`     ${mark(c.ok)} ${c.label}${c.detail ? '  (' + c.detail + ')' : ''}`);
-  console.log(`\n   Signature overall: ${mark(s.ok)}`);
-  console.log('\nNothing was stored: this script only printed results.');
-})().catch(e => { console.error('Error:', e.message); process.exit(1); });
+const { selftest } = require('../lib/selftest');
+selftest(console.log).then(ok => process.exit(ok ? 0 : 1)).catch(e => { console.error('Error:', e.message); process.exit(1); });

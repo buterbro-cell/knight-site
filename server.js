@@ -17,6 +17,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { attest, verifyResponseSignature, libsReady } = require('./lib/attest');
+const { selftest } = require('./lib/selftest');
+const util = require('util');
 
 // ---------- Settings ----------
 const PORT = Number(process.env.PORT || 3000);
@@ -151,6 +153,7 @@ async function checkModel() {
 
 // ---------- Attestation (hardware evidence only — no user data) ----------
 let attestation = null, attesting = null;
+let selftestBusy = false, selftestAt = 0;
 async function runAttestation(signingAddress) {
   if (attesting && !signingAddress) return attesting;
   const p = (async () => {
@@ -381,6 +384,19 @@ const server = http.createServer(async (req, res) => {
       await runAttestation();
     }
     return send(res, 200, attestation || { ok: false, error: 'not_ready' });
+  }
+
+  // Same end-to-end check as `node scripts/verify.js`, run on this live server, output as plain text.
+  // One tiny completion + attestation; rate-limited; prints results only, stores nothing.
+  if (url.pathname === '/api/selftest') {
+    if (selftestBusy || Date.now() - selftestAt < 60e3 || allow(req, 0.25)) return send(res, 429, { error: 'too_often', retryInSec: 60 });
+    selftestBusy = true; selftestAt = Date.now();
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+    res.write(`$ node scripts/verify.js   (run live on this server, ${new Date().toISOString()})\n\n`);
+    try { await selftest((...a) => res.write(util.format(...a) + '\n')); }
+    catch (e) { res.write('Error: ' + e.message + '\n'); }
+    finally { selftestBusy = false; }
+    return res.end();
   }
 
   // Visitor's own challenge: they type any word/number, nonce = sha256(word).
