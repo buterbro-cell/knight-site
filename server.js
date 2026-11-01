@@ -8,11 +8,44 @@ const path = require('path');
 // ---------- Настройки (можно менять через переменные окружения) ----------
 const PORT = Number(process.env.PORT || 3000);
 const KEY = process.env.NEAR_AI_KEY || '';
-let MODEL = process.env.MODEL || 'Qwen/Qwen3-30B-A3B-Instruct-2507';
+// DeepSeek V4.1 Flash 1017 — «Private TEE» у NEAR AI: работает на их железе в защищённой среде.
+// Умная, недорогая, а повторяющаяся шпаргалка почти бесплатна благодаря кешу ($0.006 за 1M токенов).
+let MODEL = process.env.MODEL || 'deepseek-ai/DeepSeek-V4.1-Flash-1017';
+const DEV_KEY = process.env.DEV_KEY || '';   // код для режима разработчика (/dev.html)
+
+// Цены за 1M токенов: [вход, выход, вход из кеша] — с near.ai/models (ноябрь 2026)
+const PRICES = {
+  'deepseek-v4.1-flash-1017': [0.3, 1.2, 0.006],
+  'qwen3.8-27b': [0.04, 1.35, 0.018], 'qwen3-8-27b': [0.04, 1.35, 0.018],
+  'glm-5.3-flash': [0.08, 0.5, 0.012],
+  'qwen3.6-35b-a3b': [0.17, 1.1, 0.056],
+  'qwen3-vl-30b-a3b': [0.15, 0.55, 0.03],
+  'deepseek-v3.2': [1.1, 1.1, 0.55],
+  'glm-5.3': [1.8, 5.75, 0.45],
+  'kimi-k2.6': [0.81, 3.85, 0.41],
+  'qwen3.5-397b-a17b': [0.5, 3.3, 0.25],
+};
+const priceFor = m => { const k = m.toLowerCase(); let best = null; for (const key in PRICES) if (k.includes(key) && (!best || key.length > best.length)) best = key; return best ? PRICES[best] : null; };
+
+// Статистика расхода (без текстов вопросов — только числа)
+const stats = { since: new Date().toISOString(), answers: 0, fromCache: 0, errors: 0, inTokens: 0, cachedTokens: 0, outTokens: 0, costUsd: 0, days: {}, last: [] };
+function recordUsage(usage, ms, firstMs) {
+  const p = priceFor(MODEL);
+  const inT = usage?.prompt_tokens || 0, outT = usage?.completion_tokens || 0;
+  const cached = usage?.prompt_tokens_details?.cached_tokens || usage?.prompt_cache_hit_tokens || 0;
+  const cost = p ? ((inT - cached) * p[0] + cached * p[2] + outT * p[1]) / 1e6 : 0;
+  const day = new Date().toISOString().slice(0, 10);
+  const d = stats.days[day] || (stats.days[day] = { answers: 0, costUsd: 0, inTokens: 0, outTokens: 0 });
+  stats.answers++; stats.inTokens += inT; stats.cachedTokens += cached; stats.outTokens += outT; stats.costUsd += cost;
+  d.answers++; d.costUsd += cost; d.inTokens += inT; d.outTokens += outT;
+  stats.last.unshift({ time: new Date().toISOString(), model: MODEL, inTokens: inT, cachedTokens: cached, outTokens: outT, costUsd: +cost.toFixed(6), totalMs: ms, firstWordMs: firstMs });
+  stats.last.length = Math.min(stats.last.length, 30);
+  const days = Object.keys(stats.days).sort(); while (days.length > 31) delete stats.days[days.shift()];
+}
 // Если такой модели нет у NEAR AI — сервер сам выберет похожую из этого списка (по порядку)
 // Сначала — модели, которые NEAR AI запускает у себя в защищённой среде TEE (открытые модели),
 // а не модели OpenAI/Anthropic/Google, которые работают у тех компаний вне TEE.
-const MODEL_PREFS = ['deepseek-ai/DeepSeek-V4.1-Flash-1017', 'Qwen3-30B-A3B-Instruct', 'Qwen3-30B', 'gpt-oss-120b', 'Qwen3.5-122B', 'GLM-5', 'DeepSeek-V4', 'DeepSeek-V3'];
+const MODEL_PREFS = ['deepseek-ai/DeepSeek-V4.1-Flash-1017', 'Qwen3.8-27B', 'GLM-5.3-Flash', 'Qwen3.6-35B-A3B', 'Qwen3-VL-30B-A3B'];
 let modelInfo = null;
 let lastError = null, modelChecked = false, availableModels = [];
 const API_URL = process.env.API_URL || 'https://cloud-api.near.ai/v1/chat/completions';
@@ -106,6 +139,7 @@ async function loadModelInfo() {
 
 async function askModel(messages) {
   await slot();
+  const t0 = Date.now();
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 30e3);
@@ -126,6 +160,7 @@ async function askModel(messages) {
       throw new Error(`NEAR AI ответил ${r.status}: ${t}`);
     }
     const data = await r.json();
+    recordUsage(data.usage, Date.now() - t0, null);
     let text = data?.choices?.[0]?.message?.content || '';
     text = text.replace(/<think>[\s\S]*?<\/think>/g, '')      // убираем «мысли» у рассуждающих моделей
       .replace(/[*_#`>]+/g, '').replace(/\s+\n/g, '\n').trim();
@@ -137,7 +172,8 @@ async function askModel(messages) {
 // чтобы рыцарь начинал говорить с первой фразы, не дожидаясь конца ответа.
 async function askModelStream(messages, res) {
   await slot();
-  let started = false;
+  let started = false, usage = null, firstMs = null;
+  const t0 = Date.now();
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 60e3);
@@ -148,7 +184,7 @@ async function askModelStream(messages, res) {
       body: JSON.stringify({
         model: MODEL,
         messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
-        max_tokens: MAX_ANSWER_TOKENS, temperature: 0.6, stream: true,
+        max_tokens: MAX_ANSWER_TOKENS, temperature: 0.6, stream: true, stream_options: { include_usage: true },
       }),
     });
     if (!r.ok) {
@@ -185,12 +221,13 @@ async function askModelStream(messages, res) {
         if (!line.startsWith('data:')) continue;
         const data = line.slice(5).trim();
         if (data === '[DONE]') continue;
-        try { const j = JSON.parse(data); const d = j.choices && j.choices[0] && j.choices[0].delta; if (d && d.content) out(d.content); } catch {}
+        try { const j = JSON.parse(data); if (j.usage) usage = j.usage; const d = j.choices && j.choices[0] && j.choices[0].delta; if (d && d.content) { if (firstMs == null) firstMs = Date.now() - t0; out(d.content); } } catch {}
       }
     }
     clearTimeout(timer);
     if (!started) throw new Error('пустой ответ');
     res.end();
+    recordUsage(usage, Date.now() - t0, firstMs);
     return full.trim();
   } catch (e) {
     if (started) { try { res.end(); } catch {} }
@@ -267,7 +304,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 400, { error: 'empty' });
 
     const firstQuestion = msgs.length === 1 ? norm(msgs[0].content) : null;
-    if (firstQuestion && cache.has(firstQuestion)) return send(res, 200, { answer: cache.get(firstQuestion), cached: true });
+    if (firstQuestion && cache.has(firstQuestion)) { stats.fromCache++; return send(res, 200, { answer: cache.get(firstQuestion), cached: true }); }
 
     const blocked = allow(ip);
     if (blocked === 'user') return send(res, 429, { error: 'user_limit' });
@@ -280,7 +317,7 @@ const server = http.createServer(async (req, res) => {
         lastError = null; askModel.retried = false;
         if (firstQuestion && answer) { if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value); cache.set(firstQuestion, answer); }
       } catch (e) {
-        lastError = new Date().toISOString() + ' ' + e.message;
+        lastError = new Date().toISOString() + ' ' + e.message; stats.errors++;
         console.error(new Date().toISOString(), 'Ошибка нейросети:', e.message);
         if (!e.started && !res.headersSent) send(res, 502, { error: 'ai_error' });
       }
@@ -293,7 +330,7 @@ const server = http.createServer(async (req, res) => {
       if (firstQuestion) { if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value); cache.set(firstQuestion, answer); }
       return send(res, 200, { answer });
     } catch (e) {
-      lastError = new Date().toISOString() + ' ' + e.message;
+      lastError = new Date().toISOString() + ' ' + e.message; stats.errors++;
       console.error(new Date().toISOString(), 'Ошибка нейросети:', e.message); // текст вопроса не пишем в лог
       return send(res, 502, { error: 'ai_error' });
     }
@@ -317,6 +354,15 @@ const server = http.createServer(async (req, res) => {
       console.error(new Date().toISOString(), 'Ошибка озвучки:', e.message);
       return send(res, 502, { error: 'tts_error' });
     }
+  }
+
+  // Режим разработчика: расход и скорость. Доступ только по коду DEV_KEY (потом привяжем к кошельку)
+  if (url.pathname === '/api/stats') {
+    const given = String(req.headers['x-dev-key'] || '');
+    const ok = DEV_KEY && given.length === DEV_KEY.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(DEV_KEY));
+    if (!DEV_KEY) return send(res, 403, { error: 'no_dev_key' });
+    if (!ok) return send(res, 403, { error: 'bad_key' });
+    return send(res, 200, { ...stats, model: MODEL, price: priceFor(MODEL), lastError, dailyLimit: DAILY_LIMIT, todayCount: dayCount });
   }
 
   // Страница проверки: откройте /api/health в браузере, чтобы увидеть, что не так

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Рыцарь — режим разработчика</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0b1530;color:#eef4ff;font:15px/1.4 ui-rounded,"Segoe UI",system-ui,Roboto,sans-serif;padding:16px}
+  h1{font-size:20px;margin:4px 0 14px}
+  .card{background:#13265a;border-radius:16px;padding:14px 16px;margin-bottom:12px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .big{font-size:24px;font-weight:800}
+  .lbl{color:#9db3df;font-size:12.5px}
+  input{width:100%;padding:12px 14px;border-radius:12px;border:0;font:inherit;background:#1d356f;color:#fff}
+  button{margin-top:10px;width:100%;padding:12px;border:0;border-radius:12px;font:inherit;font-weight:800;background:#3b82f6;color:#fff}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  td,th{padding:6px 4px;border-bottom:1px solid #22407f;text-align:right}
+  td:first-child,th:first-child{text-align:left}
+  th{color:#9db3df;font-weight:600}
+  .err{color:#fca5a5;word-break:break-word}
+  a{color:#93c5fd}
+  .muted{color:#9db3df;font-size:12.5px}
+</style>
+</head>
+<body>
+<h1>🛡️ Режим разработчика</h1>
+
+<div class="card" id="login">
+  <div class="lbl">Код доступа (переменная DEV_KEY в Northflank)</div>
+  <input id="key" type="password" autocomplete="off" placeholder="Введите код">
+  <button id="go">Войти</button>
+  <div class="err" id="loginErr"></div>
+</div>
+
+<div id="panel" style="display:none">
+  <div class="card">
+    <div class="lbl">Модель</div>
+    <div style="font-weight:800" id="model"></div>
+    <div class="muted" id="price"></div>
+  </div>
+  <div class="grid">
+    <div class="card"><div class="lbl">Потрачено сегодня</div><div class="big" id="todayCost"></div><div class="muted" id="todayN"></div></div>
+    <div class="card"><div class="lbl">Всего с запуска</div><div class="big" id="allCost"></div><div class="muted" id="allN"></div></div>
+    <div class="card"><div class="lbl">Средняя цена ответа</div><div class="big" id="avg"></div><div class="muted" id="per10"></div></div>
+    <div class="card"><div class="lbl">Скорость</div><div class="big" id="speed"></div><div class="muted">до первого слова / весь ответ</div></div>
+  </div>
+  <div class="card">
+    <div class="lbl">Токены с запуска</div>
+    <div id="tokens"></div>
+    <div class="muted" id="cacheInfo"></div>
+  </div>
+  <div class="card">
+    <div class="lbl">Последние ответы (тексты вопросов не сохраняются)</div>
+    <table><thead><tr><th>Время</th><th>Вход</th><th>Кеш</th><th>Выход</th><th>Цена</th><th>Сек</th></tr></thead><tbody id="last"></tbody></table>
+  </div>
+  <div class="card">
+    <div class="lbl">По дням</div>
+    <table><thead><tr><th>День</th><th>Ответов</th><th>Цена</th></tr></thead><tbody id="days"></tbody></table>
+  </div>
+  <div class="card">
+    <div class="lbl">Последняя ошибка</div>
+    <div class="err" id="lastError">—</div>
+  </div>
+  <p class="muted">Это подсчёт сервера по токенам и ценам с near.ai/models. Счётчик обнуляется при перезапуске сервера.
+    Точный остаток баланса — на <a href="https://cloud.near.ai" target="_blank" rel="noopener">cloud.near.ai</a> во вкладке Credits.</p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let key=''; try{ key=localStorage.getItem('knight-dev')||''; }catch(e){}
+const usd=x=>'$'+(x<0.01?x.toFixed(4):x.toFixed(2));
+const sec=ms=>ms==null?'—':(ms/1000).toFixed(1);
+async function load(){
+  const r=await fetch('api/stats',{headers:{'x-dev-key':key}});
+  if(!r.ok){ const d=await r.json().catch(()=>({}));
+    $('panel').style.display='none'; $('login').style.display='';
+    $('loginErr').textContent = d.error==='no_dev_key' ? 'На сервере не задан DEV_KEY. Добавьте его в переменные Northflank.' : (key?'Неверный код':'');
+    return false; }
+  const s=await r.json();
+  $('login').style.display='none'; $('panel').style.display='';
+  $('model').textContent=s.model;
+  $('price').textContent=s.price?`Вход $${s.price[0]} · выход $${s.price[1]} · кеш $${s.price[2]} за 1M токенов`:'Цена этой модели не известна — подсчёт стоимости недоступен';
+  const today=new Date().toISOString().slice(0,10), d=s.days[today]||{answers:0,costUsd:0};
+  $('todayCost').textContent=usd(d.costUsd); $('todayN').textContent=`${d.answers} ответов · лимит ${s.todayCount}/${s.dailyLimit} в сутки`;
+  $('allCost').textContent=usd(s.costUsd); $('allN').textContent=`${s.answers} ответов, ${s.fromCache} из кеша, ${s.errors} ошибок`;
+  const avg=s.answers?s.costUsd/s.answers:0;
+  $('avg').textContent=usd(avg); $('per10').textContent=avg?`≈ ${Math.floor(10/avg).toLocaleString('ru')} ответов на $10`:'';
+  const L=s.last.filter(x=>x.totalMs);
+  const am=k=>{ const v=L.map(x=>x[k]).filter(x=>x!=null); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; };
+  $('speed').textContent=`${sec(am('firstWordMs'))} / ${sec(am('totalMs'))} с`;
+  $('tokens').textContent=`вход ${s.inTokens.toLocaleString('ru')} · выход ${s.outTokens.toLocaleString('ru')}`;
+  $('cacheInfo').textContent=s.inTokens?`из кеша ${Math.round(s.cachedTokens/s.inTokens*100)}% входа — шпаргалка почти бесплатна`:'';
+  $('last').innerHTML=s.last.map(x=>`<tr><td>${new Date(x.time).toLocaleTimeString('ru')}</td><td>${x.inTokens}</td><td>${x.cachedTokens}</td><td>${x.outTokens}</td><td>${usd(x.costUsd)}</td><td>${sec(x.firstWordMs)}/${sec(x.totalMs)}</td></tr>`).join('')||'<tr><td colspan="6">Пока пусто</td></tr>';
+  $('days').innerHTML=Object.keys(s.days).sort().reverse().map(k=>`<tr><td>${k}</td><td>${s.days[k].answers}</td><td>${usd(s.days[k].costUsd)}</td></tr>`).join('')||'<tr><td colspan="3">Пока пусто</td></tr>';
+  $('lastError').textContent=s.lastError||'—';
+  return true;
+}
+$('go').onclick=async()=>{ key=$('key').value.trim(); try{localStorage.setItem('knight-dev',key);}catch(e){} await load(); };
+$('key').addEventListener('keydown',e=>{ if(e.key==='Enter') $('go').click(); });
+load(); setInterval(()=>{ if($('panel').style.display!=='none') load(); },5000);
+</script>
+</body>
+</html>
