@@ -59,24 +59,48 @@ npm start                   # http://localhost:3000
 
 Docker / Northflank: the included `Dockerfile` builds everything; set `NEAR_AI_KEY` as a secret environment variable.
 
-### Example output of `npm run verify`
+### Real output (captured live on the deployed server via `/api/selftest`, Nov 1 2026)
 
 ```
-1) Model: deepseek-ai/DeepSeek-V4.1-Flash-1017  (from N models on /v1/models)
-2) Completion id: chatcmpl-…   Answer: A TEE is …
+$ node scripts/verify.js   (run live on this server, 2026-11-01T23:40:31.963Z)
+
+Libraries: { dcap: true, ethers: true }
+
+1) Model: deepseek-ai/DeepSeek-V4.1-Flash-1017  (from 64 models on /v1/models)
+
+2) Completion id: chatcmpl-2163a327-174d-4c4c-b26e-4d183f17a32d
+   Answer: A TEE (Trusted Execution Environment) is a secure, isolated processing area that protects sensitive code and data from the main operating system and other applications.
+
 3) Attestation (fresh random nonce)…
-   Model #1 — signing address 0x…
-     ✅ Intel TDX quote is genuine
-     ✅ Signing key is bound to this enclave
-     ✅ Report is fresh (our nonce inside the quote)
+   nonce: 7039cfc3a00b62a69ce1d816ff1fbe27a08ed6d39e40a6358531ce0d87950b5b
+
+   Gateway — signing address 0xb98a789cdc4817275f5155593ba73ef2a957e779
+     ✅ Intel TDX quote is genuine  (dcap-qvl status: UpToDate)
+     ✅ Signing key is bound to this enclave  (report_data[0..32] = signing address 0xb98a789cdc4817275f5155593ba73ef2a957e779)
+     ✅ Report is fresh (our nonce inside the quote)  (report_data[32..64] = 7039cfc3a00b62a6…)
+     ✅ Server echoed our nonce  [info]
+     ✅ Running code matches the attested manifest  (compose sha256 f571e5dafe8f96ba… = mr_config_id)  [info]
+
+   Model #1 — signing address 0xfe0071895500a9755c18044948ab4f4e1a7f337e
+     ✅ Intel TDX quote is genuine  (dcap-qvl status: UpToDate)
+     ✅ Signing key is bound to this enclave  (report_data[0..32] = signing address 0xfe0071895500a9755c18044948ab4f4e1a7f337e)
+     ✅ Report is fresh (our nonce inside the quote)  (report_data[32..64] = 7039cfc3a00b62a6…)
+     ✅ Server echoed our nonce  [info]
+     ✅ Running code matches the attested manifest  (compose sha256 ae66f844658a7aee… = mr_config_id)  [info]
      ✅ GPU evidence uses our nonce
-     ✅ NVIDIA GPU is in confidential-computing mode
-   Attestation overall: ✅ VERIFIED
+     ✅ NVIDIA GPU is in confidential-computing mode  (NVIDIA NRAS verdict: true)
+
+   Attestation overall: ✅ VERIFIED  (2054 ms)
+
 4) Response signature…
-     ✅ Question reached the enclave unchanged
-     ✅ Answer left the enclave unchanged
-     ✅ Signature is valid
-     ✅ Signer is an attested TEE key
+     ✅ Question reached the enclave unchanged  (SHA-256 of our request vs. the signed hash)
+     ✅ Answer left the enclave unchanged  (SHA-256 of the received answer vs. the signed hash)
+     ✅ Signature is valid  (signer 0xfe0071895500a9755c18044948ab4f4e1a7f337e)
+     ✅ Signer is an attested TEE key  (matches a verified enclave)
+
+   Signature overall: ✅
+
+Nothing was stored: this script only printed results.
 ```
 
 ## Try it as a judge
