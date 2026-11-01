@@ -10,7 +10,10 @@ const PORT = Number(process.env.PORT || 3000);
 const KEY = process.env.NEAR_AI_KEY || '';
 let MODEL = process.env.MODEL || 'Qwen/Qwen3-30B-A3B-Instruct-2507';
 // Если такой модели нет у NEAR AI — сервер сам выберет похожую из этого списка (по порядку)
-const MODEL_PREFS = ['Qwen3-30B-A3B-Instruct', 'Qwen3-30B', 'gpt-oss-120b', 'Qwen3.5-122B', 'DeepSeek-V3', 'GLM-5'];
+// Сначала — модели, которые NEAR AI запускает у себя в защищённой среде TEE (открытые модели),
+// а не модели OpenAI/Anthropic/Google, которые работают у тех компаний вне TEE.
+const MODEL_PREFS = ['deepseek-ai/DeepSeek-V4.1-Flash-1017', 'Qwen3-30B-A3B-Instruct', 'Qwen3-30B', 'gpt-oss-120b', 'Qwen3.5-122B', 'GLM-5', 'DeepSeek-V4', 'DeepSeek-V3'];
+let modelInfo = null;
 let lastError = null, modelChecked = false, availableModels = [];
 const API_URL = process.env.API_URL || 'https://cloud-api.near.ai/v1/chat/completions';
 const CHAR_NAME = process.env.CHAR_NAME || 'Сэр Ниар';
@@ -77,14 +80,26 @@ async function checkModel() {
     availableModels = (data.data || data.models || []).map(m => m.id || m.name || m).filter(x => typeof x === 'string');
     if (!availableModels.length) return;
     modelChecked = true;
-    if (availableModels.includes(MODEL)) { console.log('Модель найдена:', MODEL); return; }
+    if (availableModels.includes(MODEL)) { console.log('Модель найдена:', MODEL); return loadModelInfo(); }
     const low = availableModels.map(x => x.toLowerCase());
     for (const pref of MODEL_PREFS) {
       const i = low.findIndex(x => x.includes(pref.toLowerCase()));
-      if (i >= 0) { console.log(`Модели ${MODEL} нет, беру ${availableModels[i]}`); MODEL = availableModels[i]; return; }
+      if (i >= 0 && !/abliterated/i.test(availableModels[i])) { console.log(`Модели ${MODEL} нет, беру ${availableModels[i]}`); MODEL = availableModels[i]; return loadModelInfo(); }
     }
-    console.log(`Модели ${MODEL} нет, беру первую доступную: ${availableModels[0]}`); MODEL = availableModels[0];
+    console.log(`Модели ${MODEL} нет, беру первую доступную: ${availableModels[0]}`); MODEL = availableModels[0]; loadModelInfo();
   } catch (e) { lastError = 'Не удалось получить список моделей: ' + e.message; console.error(lastError); }
+}
+
+// Цена и сведения о выбранной модели — для страницы проверки
+async function loadModelInfo() {
+  try {
+    const r = await fetch(API_URL.replace(/\/v1\/chat\/completions$/, '/v1/model/list'), { headers: { Authorization: `Bearer ${KEY}` } });
+    if (!r.ok) return;
+    const data = await r.json();
+    const list = Array.isArray(data) ? data : (data.models || data.data || []);
+    const m = list.find(x => [x.modelId, x.id, x.name, x.model].includes(MODEL));
+    if (m) modelInfo = JSON.parse(JSON.stringify(m, (k, v) => (typeof v === 'string' && v.length > 300 ? v.slice(0, 300) + '…' : v)));
+  } catch {}
 }
 
 async function askModel(messages) {
@@ -228,7 +243,7 @@ const server = http.createServer(async (req, res) => {
   // Страница проверки: откройте /api/health в браузере, чтобы увидеть, что не так
   if (url.pathname === '/api/health') return send(res, 200, {
     ok: true, key: !!KEY, model: MODEL, modelChecked, lastError,
-    models: availableModels.slice(0, 40), tts: { ru: ttsReady('ru'), en: ttsReady('en') },
+    modelInfo, models: availableModels, tts: { ru: ttsReady('ru'), en: ttsReady('en') },
   });
 
   // Статика
