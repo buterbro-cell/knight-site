@@ -2,3 +2,5 @@
 piper
 cloudflared
 *.zip
+node_modules
+.env

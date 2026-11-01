@@ -7,8 +7,10 @@
 const dns = require('dns').promises;
 const net = require('net');
 
-const TAVILY = process.env.TAVILY_API_KEY || '';
-const BRAVE = process.env.BRAVE_API_KEY || '';
+// Web search sends a search phrase to a third party outside the TEE, so it is OFF unless ALLOW_WEB_SEARCH=1.
+const WEB_OK = process.env.ALLOW_WEB_SEARCH === '1';
+const TAVILY = WEB_OK ? (process.env.TAVILY_API_KEY || '') : '';
+const BRAVE = WEB_OK ? (process.env.BRAVE_API_KEY || '') : '';
 const UA = 'Mozilla/5.0 (compatible; NearKnightBot/1.0)';
 
 async function getText(url, { timeout = 10e3, max = 400e3, headers = {} } = {}) {

@@ -107,6 +107,36 @@
   .badge{display:none;font-size:11px;font-weight:800;background:#f59e0b;color:#2b1700;border-radius:999px;padding:3px 9px}
   .badge.show{display:inline-block}
   .hidden{display:none!important}
+  /* Verified panel */
+  .hdr-right{display:flex;align-items:center;gap:8px;flex:none}
+  .brand{min-width:0}
+  @media (max-width:430px){.brand{font-size:15px}.brand small{font-size:11px}.lang button{padding:6px 9px}}
+  .vbtn{border:1px solid rgba(160,200,255,.3);background:rgba(8,18,46,.45);color:#cfe0ff;font:inherit;font-weight:800;font-size:12.5px;
+    padding:6px 10px;border-radius:999px;cursor:pointer;display:flex;align-items:center;gap:6px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  .vbtn.ok{border-color:rgba(74,222,128,.6);color:#bbf7d0}
+  .vbtn.fail{border-color:rgba(248,113,113,.6);color:#fecaca}
+  .vbtn .dot{width:8px;height:8px;border-radius:50%;background:#94a3b8}
+  .vbtn.ok .dot{background:#4ade80;box-shadow:0 0 8px #4ade80}.vbtn.fail .dot{background:#f87171}
+  .vbtn.wait .dot{animation:pulseDot 1s infinite}@keyframes pulseDot{50%{opacity:.3}}
+  .modal{position:fixed;inset:0;z-index:50;background:rgba(2,6,20,.6);display:flex;align-items:flex-end;justify-content:center;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  .sheet{width:min(100%,560px);max-height:86vh;overflow:auto;background:#0d1a3d;border:1px solid rgba(160,200,255,.2);border-radius:22px 22px 0 0;
+    padding:18px 18px calc(18px + env(safe-area-inset-bottom));color:#eef4ff}
+  @media (min-width:700px){.modal{align-items:center}.sheet{border-radius:22px}}
+  .sheet h2{margin:0 0 4px;font-size:19px}.sheet h3{margin:16px 0 6px;font-size:14px;color:#9db3df;font-weight:700}
+  .sheet .sub{color:#9db3df;font-size:12.5px;line-height:1.45;word-break:break-all}
+  .sheet .big{font-size:16px;font-weight:800;margin:8px 0}
+  .ck{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid rgba(160,200,255,.1);font-size:14px}
+  .ck .i{width:20px;flex:none;text-align:center}.ck small{display:block;color:#8ea5d3;font-size:11.5px;word-break:break-all}
+  .sheet .btns{display:flex;gap:8px;margin-top:14px}
+  .sheet .btns button,.sheet .opt{flex:1;border:0;border-radius:14px;padding:12px;font:inherit;font-weight:800;background:#1d356f;color:#fff;cursor:pointer}
+  .sheet .btns button.primary{background:#3b82f6}
+  .sheet .opt{display:block;width:100%;text-align:left;margin-top:8px;font-weight:700}
+  .sheet .opt small{display:block;font-weight:500;color:#9db3df;font-size:12px;margin-top:2px}
+  .proof{font-size:12.5px;font-weight:700;color:#bbf7d0;cursor:pointer;text-align:center}
+  .proof.fail{color:#fecaca}
+  .docchip{display:flex;align-items:center;gap:8px;background:rgba(59,130,246,.22);border:1px solid rgba(147,197,253,.35);border-radius:999px;padding:6px 8px 6px 12px;font-size:13px;font-weight:700;max-width:100%}
+  .docchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .docchip button{border:0;background:rgba(255,255,255,.15);color:#fff;border-radius:50%;width:24px;height:24px;cursor:pointer;flex:none}
 </style>
 </head>
 <body>
@@ -117,8 +147,11 @@
   <div class="stars"></div>
   <header>
     <div class="brand" id="title">Спроси рыцаря NEAR<small id="subtitle">Приватный ИИ на NEAR AI</small></div>
-    <div class="lang" role="group" aria-label="Язык">
-      <button data-l="ru" class="on">RU</button><button data-l="en">EN</button>
+    <div class="hdr-right">
+      <button class="vbtn wait" id="vbtn" aria-label="Проверка TEE"><span class="dot"></span><span id="vtext">TEE…</span></button>
+      <div class="lang" role="group" aria-label="Язык">
+        <button data-l="ru" class="on">RU</button><button data-l="en">EN</button>
+      </div>
     </div>
   </header>
 
@@ -138,8 +171,13 @@
 
   <div class="controls">
     <div class="status"><span id="status"></span> <span class="badge" id="demo">ДЕМО</span></div>
+    <div class="proof hidden" id="proof"></div>
+    <div class="docchip hidden" id="docchip">📄 <span id="docname"></span><button id="docx" aria-label="Убрать документ">✕</button></div>
     <button class="start" id="start">Поздороваться с рыцарем</button>
     <div class="row hidden" id="row">
+      <button class="small" id="docbtn" aria-label="Документ">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>
+      </button>
       <button class="small" id="kbd" aria-label="Написать текстом">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
       </button>
@@ -157,6 +195,21 @@
     <div class="note" id="note"></div>
   </div>
 </div>
+
+<!-- Verified panel: attestation checked on the server with a fresh random nonce -->
+<div class="modal hidden" id="vmodal"><div class="sheet" id="vsheet"></div></div>
+<!-- Document picker -->
+<div class="modal hidden" id="dmodal"><div class="sheet">
+  <h2 id="dTitle">Документ</h2>
+  <div class="sub" id="dSub"></div>
+  <button class="opt" id="dUpload"><span id="dUploadT"></span><small id="dUploadS"></small></button>
+  <h3 id="dSamplesT"></h3>
+  <button class="opt" data-sample="bank-statement-oct-2026.csv">🏦 Bank statement — October 2026<small>CSV · fictional</small></button>
+  <button class="opt" data-sample="receipts-business-trip.txt">🧾 Business trip receipts<small>TXT · fictional</small></button>
+  <button class="opt" data-sample="apartment-lease-excerpt.txt">📜 Apartment lease excerpt<small>TXT · fictional</small></button>
+  <div class="btns"><button id="dClose"></button></div>
+  <input type="file" id="dFile" accept=".txt,.csv,.md,.json,.pdf,text/plain,text/csv,application/pdf" hidden>
+</div></div>
 
 <script>
 (() => {
@@ -180,6 +233,14 @@
       demoNote:'Демо-режим: ответы заготовлены, микрофон здесь не работает. На настоящем сайте отвечает нейросеть NEAR AI и работает голос.',
       noVoice:'В этом браузере нет голоса — открой сайт в Chrome, чтобы услышать рыцаря',
       searchFiller:'Секунду, сейчас проверю.', searching:'Ищу свежую информацию…',
+      vWait:'TEE…', vOk:'TEE ✓', vFail:'TEE ✗', vTitle:'Проверка приватности', vOkBig:'✅ Проверено: ответы считает нейросеть внутри защищённой среды (TEE)', vFailBig:'❌ Проверка не пройдена',
+      vIntro:'Сервер сайта сам запросил у NEAR AI отчёт аттестации со свежим случайным числом (nonce) и проверил его так, как описано в документации NEAR AI. Подделать или подсунуть старый отчёт нельзя.',
+      vModel:'Модель', vTime:'Проверено', vNonce:'Nonce', vGateway:'Шлюз NEAR AI', vGpuModel:'Модель на видеокарте', vSigner:'Ключ подписи', vAgain:'Проверить заново', vClose:'Закрыть',
+      vAnswer:'Последний ответ', vNoStore:'🔒 Сервер этого сайта ничего не сохраняет: ни вопросы, ни ответы, ни документы, ни голос. Только счётчики токенов для расходов.',
+      vInfo:'справочно', proofOk:'🔏 Ответ подписан внутри TEE — проверено', proofFail:'⚠️ Подпись ответа не подтвердилась — подробнее',
+      dTitle:'Документ', dSub:'Рыцарь приватно разберёт выписку, чеки или договор: файл читается в браузере, уходит только в защищённую среду и нигде не сохраняется.', dUpload:'📁 Загрузить свой файл', dUploadS:'TXT, CSV, MD, JSON или PDF', dSamples:'Или вымышленный пример (для проверки):', dClose:'Закрыть',
+      docAsk:'Разбери этот документ: что в нём главное и что выглядит необычно или подозрительно?', docAttached:'Документ прикреплён. Сейчас разберу!', docErr:'Не получилось прочитать файл.', docBig:'Файл большой — я прочитаю первые 20 тысяч символов.',
+      transcribing:'Распознаю речь (Whisper в TEE)…', noteWhisper:'Голос распознаёт Whisper внутри защищённой среды NEAR AI, ответы — модель в TEE. Сервер сайта ничего не сохраняет. Нажми «TEE ✓» вверху, чтобы увидеть доказательство.',
       speech:'ru-RU'
     },
     en: {
@@ -199,6 +260,14 @@
       demoNote:'Demo mode: no server connected, answers are pre-written. On the real site NEAR AI answers.',
       noVoice:'No voice in this browser — open the site in Chrome to hear the knight',
       searchFiller:'One moment, let me check.', searching:'Looking up fresh info…',
+      vWait:'TEE…', vOk:'TEE ✓', vFail:'TEE ✗', vTitle:'Privacy verification', vOkBig:'✅ Verified: answers are computed by a model inside a Trusted Execution Environment', vFailBig:'❌ Verification failed',
+      vIntro:'This site’s server requested a NEAR AI attestation report with a fresh random nonce and verified it as the NEAR AI verification docs describe. An old or forged report cannot pass.',
+      vModel:'Model', vTime:'Checked', vNonce:'Nonce', vGateway:'NEAR AI gateway', vGpuModel:'Model on GPU', vSigner:'Signing key', vAgain:'Verify again', vClose:'Close',
+      vAnswer:'Last answer', vNoStore:'🔒 This server keeps nothing: no questions, answers, documents or voice. Only token counters for cost.',
+      vInfo:'info', proofOk:'🔏 Answer signed inside the TEE — verified', proofFail:'⚠️ Answer signature not confirmed — details',
+      dTitle:'Document', dSub:'The knight privately reviews a statement, receipts or a contract: the file is read in your browser, sent only into the enclave and never stored.', dUpload:'📁 Upload your file', dUploadS:'TXT, CSV, MD, JSON or PDF', dSamples:'Or a fictional sample (for testing):', dClose:'Close',
+      docAsk:'Review this document: what matters most and what looks unusual or suspicious?', docAttached:'Document attached. Let me take a look!', docErr:'Could not read the file.', docBig:'Large file — I will read the first 20 thousand characters.',
+      transcribing:'Transcribing (Whisper in TEE)…', noteWhisper:'Speech is transcribed by Whisper inside a NEAR AI enclave, answers come from a model in a TEE. This server stores nothing. Tap “TEE ✓” on top for the proof.',
       speech:'en-US'
     }
   };
@@ -511,14 +580,14 @@
   async function ask(question){
     question=question.trim(); if(!question) return;
     stopSpeaking();
-    say(question,{user:true}); setMode('think'); setStatus(t('thinking'));
+    say(question,{user:true}); setMode('think'); setStatus(t('thinking')); hideProof();
     const myAsk=++askId;
     const dotsTimer=setTimeout(()=>{ if(myAsk===askId && mode==='think') say('',{dots:true}); },400);
     history.push({role:'user',content:question});
     let answer=null;
     if(!demo){
       try{
-        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6),stream:true})});
+        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6),stream:true,document:attachedDoc||undefined})});
         if(r.status===404||r.status===405) throw new Error('no-server');
         if(myAsk!==askId) return;
         if(r.ok && (r.headers.get('content-type')||'').includes('text/plain') && r.body){
@@ -549,7 +618,7 @@
   async function streamAnswer(r,myAsk){
     const reader=r.body.getReader(), dec=new TextDecoder();
     const src=makeSource(); src.fullText='';
-    let pending='', full='', speaking=null, id=null, searching=false;
+    let pending='', full='', speaking=null, id=null, searching=false, proofBuf=null;
     const flush=(final)=>{
       // Режем на фразы: первая — как можно раньше (после первого знака препинания), дальше — по предложениям
       while(true){
@@ -567,6 +636,9 @@
       if(myAsk!==askId){ try{reader.cancel();}catch(e){} break; }
       if(done) break;
       let piece=dec.decode(value,{stream:true});
+      if(proofBuf!==null){ proofBuf+=piece; continue; }
+      const pm=piece.indexOf('\u0002');   // after this mark the server sends the signature check of the answer
+      if(pm>=0){ proofBuf=piece.slice(pm+1); piece=piece.slice(0,pm); }
       if(piece.includes('\u0007')){ // рыцарь пошёл искать информацию
         piece=piece.split('\u0007').join('');
         if(!searching){ searching=true;
@@ -581,6 +653,7 @@
     }
     flush(true); src.end();
     if(speaking && id===speakId) bubble.textContent=full;
+    if(proofBuf){ try{ showProof(JSON.parse(proofBuf)); }catch(e){} }
     if(!speaking){ return full.trim()||t('error'); }
     return {text:full.trim(), done:speaking};
   }
@@ -631,9 +704,134 @@
   }
   function stopListening(){ if(rec&&recognizing) rec.stop(); }
 
+
+  // ---------------- Proof of each answer + Verified panel ----------------
+  let lastProof=null, lastAtt=null;
+  const proofEl=$('proof');
+  function hideProof(){ proofEl.classList.add('hidden'); }
+  function showProof(p){
+    lastProof=p;
+    proofEl.textContent=p.ok?t('proofOk'):t('proofFail');
+    proofEl.classList.toggle('fail',!p.ok); proofEl.classList.remove('hidden');
+  }
+  proofEl.addEventListener('click',()=>openVerified());
+  const esc=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const ckList=list=>list.map(c=>`<div class="ck"><span class="i">${c.ok?'✅':(c.critical===false?'ℹ️':'❌')}</span><div>${esc(c.label)}${c.critical===false?` <small style="display:inline">(${t('vInfo')})</small>`:''}<small>${esc(c.detail)}</small></div></div>`).join('');
+  function setVBtn(a){
+    const b=$('vbtn'); b.classList.remove('wait','ok','fail');
+    if(!a){ b.classList.add('wait'); $('vtext').textContent=t('vWait'); return; }
+    b.classList.add(a.ok?'ok':'fail'); $('vtext').textContent=a.ok?t('vOk'):t('vFail');
+  }
+  function renderVerified(){
+    const a=lastAtt;
+    let h=`<h2>${t('vTitle')}</h2>`;
+    if(!a){ h+=`<div class="sub">${t('vWait')}</div>`; }
+    else{
+      h+=`<div class="big">${a.ok?t('vOkBig'):t('vFailBig')}</div><div class="sub">${t('vIntro')}</div>`;
+      h+=`<div class="sub" style="margin-top:8px">${t('vModel')}: <b>${esc(a.model)}</b><br>${t('vTime')}: ${a.checkedAt?new Date(a.checkedAt).toLocaleString():'—'}${a.nonce?`<br>${t('vNonce')}: ${esc(a.nonce)}`:''}${a.error?`<br>❗ ${esc(a.error)}`:''}</div>`;
+      (a.models||[]).forEach((m,i)=>{ h+=`<h3>${t('vGpuModel')}${a.models.length>1?' #'+(i+1):''}</h3><div class="sub">${t('vSigner')}: ${esc(m.signing_address)}</div>${ckList(m.checks)}`; });
+      if(a.gateway){ h+=`<h3>${t('vGateway')}</h3><div class="sub">${t('vSigner')}: ${esc(a.gateway.signing_address)}</div>${ckList(a.gateway.checks)}`; }
+    }
+    if(lastProof){ h+=`<h3>${t('vAnswer')}</h3>${ckList(lastProof.checks||[])}`; }
+    h+=`<div class="sub" style="margin-top:14px">${t('vNoStore')}</div>`;
+    h+=`<div class="btns"><button id="vAgain">${t('vAgain')}</button><button class="primary" id="vClose">${t('vClose')}</button></div>`;
+    $('vsheet').innerHTML=h;
+    $('vClose').onclick=()=>$('vmodal').classList.add('hidden');
+    $('vAgain').onclick=()=>loadAttestation(true);
+  }
+  function openVerified(){ renderVerified(); $('vmodal').classList.remove('hidden'); }
+  $('vbtn').addEventListener('click',openVerified);
+  $('vmodal').addEventListener('click',e=>{ if(e.target.id==='vmodal') $('vmodal').classList.add('hidden'); });
+  async function loadAttestation(fresh){
+    if(demo) return;
+    setVBtn(null); if(!$('vmodal').classList.contains('hidden')) renderVerified();
+    try{ const r=await fetch('api/attestation'+(fresh?'?fresh=1':'')); const a=await r.json(); if(a&&('ok' in a)) lastAtt=a; }catch(e){}
+    setVBtn(lastAtt||{ok:false}); if(!$('vmodal').classList.contains('hidden')) renderVerified();
+  }
+
+  // ---------------- Documents (read in the browser, sent only with the question) ----------------
+  let attachedDoc=null;
+  function setDoc(name,text){
+    if(text.length>20000){ text=text.slice(0,20000); }
+    attachedDoc={name,text}; $('docname').textContent=name; $('docchip').classList.remove('hidden');
+  }
+  $('docx').addEventListener('click',()=>{ attachedDoc=null; $('docchip').classList.add('hidden'); });
+  function openDocs(){
+    $('dTitle').textContent=t('dTitle'); $('dSub').textContent=t('dSub'); $('dUploadT').textContent=t('dUpload'); $('dUploadS').textContent=t('dUploadS');
+    $('dSamplesT').textContent=t('dSamples'); $('dClose').textContent=t('dClose'); $('dmodal').classList.remove('hidden');
+  }
+  const closeDocs=()=>$('dmodal').classList.add('hidden');
+  $('docbtn').addEventListener('click',openDocs);
+  $('dClose').addEventListener('click',closeDocs);
+  $('dmodal').addEventListener('click',e=>{ if(e.target.id==='dmodal') closeDocs(); });
+  $('dUpload').addEventListener('click',()=>$('dFile').click());
+  async function pdfText(file){
+    if(!window.pdfjsLib){
+      await new Promise((ok,bad)=>{ const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'; sc.onload=ok; sc.onerror=bad; document.head.appendChild(sc); });
+      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+    const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise; let out='';
+    for(let i=1;i<=Math.min(pdf.numPages,30);i++){ const pg=await pdf.getPage(i); const tc=await pg.getTextContent(); out+=tc.items.map(x=>x.str).join(' ')+'\n'; if(out.length>20000) break; }
+    return out;
+  }
+  async function attachAndAsk(name,text){
+    closeDocs(); if(!started) begin();
+    setDoc(name,text);
+    ask(t('docAsk'));
+  }
+  $('dFile').addEventListener('change',async e=>{
+    const f=e.target.files[0]; e.target.value=''; if(!f) return;
+    try{ const text=/pdf$/i.test(f.name)||f.type==='application/pdf'?await pdfText(f):await f.text(); if(!text.trim()) throw 0; attachAndAsk(f.name,text); }
+    catch(err){ closeDocs(); speak(t('docErr')); }
+  });
+  document.querySelectorAll('[data-sample]').forEach(b=>b.addEventListener('click',async()=>{
+    try{ const name=b.dataset.sample; const text=await (await fetch('samples/'+name)).text(); attachAndAsk(name,text); }catch(e){ closeDocs(); speak(t('docErr')); }
+  }));
+
+  // ---------------- Voice via Whisper in a TEE (recorded here, transcribed inside the enclave) ----------------
+  let sttServer=false, recState=null;
+  const canRecord=()=>sttServer && window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+  async function startRecording(){
+    stopSpeaking();
+    let stream;
+    try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }
+    catch(e){ showText(true); speak(t('micDenied')); return; }
+    const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'].find(m=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m))||'';
+    const mr=new MediaRecorder(stream,mime?{mimeType:mime}:{}); const parts=[];
+    const AC=window.AudioContext||window.webkitAudioContext; const ac=new AC(); const srcN=ac.createMediaStreamSource(stream); const an=ac.createAnalyser(); an.fftSize=1024; srcN.connect(an);
+    const data=new Uint8Array(an.fftSize); let heard=false, lastLoud=performance.now(); const t0=performance.now();
+    recState={mr,stream,ac,stopped:false};
+    mr.ondataavailable=e=>{ if(e.data&&e.data.size) parts.push(e.data); };
+    mr.onstop=async()=>{
+      stream.getTracks().forEach(tr=>tr.stop()); try{ac.close();}catch(e){}
+      mic.classList.remove('rec'); recognizing=false; recState=null;
+      if(!heard){ if(mode==='listen'){ setMode('idle'); hideBubble(); } speak(t('noHear')); return; }
+      setStatus(t('transcribing')); setMode('think');
+      const blob=new Blob(parts,{type:mr.mimeType||'audio/webm'});
+      try{
+        const r=await fetch('api/stt?lang='+lang,{method:'POST',headers:{'Content-Type':blob.type},body:blob});
+        const d=await r.json().catch(()=>({}));
+        if(r.status===429){ speak(d.error==='daily_limit'?t('limitDay'):t('limitUser')); return; }
+        if(!r.ok||!d.text){ throw 0; }
+        ask(d.text);
+      }catch(e){ setMode('idle'); speak(t('noHear')); }
+    };
+    const tick=()=>{
+      if(!recState||recState.stopped) return;
+      an.getByteTimeDomainData(data); let sum=0; for(const v of data){ const x=(v-128)/128; sum+=x*x; }
+      const rms=Math.sqrt(sum/data.length), now=performance.now();
+      if(rms>0.035){ heard=true; lastLoud=now; }
+      if((heard&&now-lastLoud>1300)||now-t0>15000||(!heard&&now-t0>6000)) return stopRecording();
+      requestAnimationFrame(tick);
+    };
+    mr.start(250); recognizing=true; mic.classList.add('rec'); setMode('listen'); setStatus(t('listening')); say('…',{user:true});
+    requestAnimationFrame(tick);
+  }
+  function stopRecording(){ if(recState&&!recState.stopped){ recState.stopped=true; try{recState.mr.stop();}catch(e){} } }
+
   // ---------------- Кнопки ----------------
   function showText(on){ form.classList.toggle('show',on); if(on) setTimeout(()=>q.focus(),50); }
-  mic.addEventListener('click',()=>{ recognizing?stopListening():startListening(); });
+  mic.addEventListener('click',()=>{ if(canRecord()){ recognizing?stopRecording():startRecording(); } else { recognizing?stopListening():startListening(); } });
   kbd.addEventListener('click',()=>showText(!form.classList.contains('show')));
   hush.addEventListener('click',()=>{ stopSpeaking(); hideBubble(); setStatus(t('ready')); });
   form.addEventListener('submit',e=>{ e.preventDefault(); const v=q.value; q.value=''; ask(v); });
@@ -663,7 +861,8 @@
     document.querySelectorAll('.lang button').forEach(b=>b.classList.toggle('on',b.dataset.l===lang));
     $('title').firstChild.textContent=t('title'); $('subtitle').textContent=t('subtitle');
     startBtn.textContent=t('start'); q.placeholder=t('placeholder'); $('sendBtn').textContent=t('send');
-    $('note').textContent=demo?t('demoNote'):t('note');
+    $('note').textContent=demo?t('demoNote'):(typeof sttServer!=='undefined'&&sttServer?t('noteWhisper'):t('note'));
+    try{ setVBtn(lastAtt); if(lastProof) showProof(lastProof); }catch(e){}
     if(started) setStatus(t('ready'));
   }
   document.querySelectorAll('.lang button').forEach(b=>b.addEventListener('click',()=>{
@@ -704,7 +903,7 @@
     setTimeout(()=>{ if(!started) setMode('idle'); }, 2600);
   });
   // Проверяем, подключён ли сервер (иначе демо-режим)
-  fetch('api/health').then(r=>{ if(!r.ok) throw 0; return r.json(); }).then(d=>{ if(!d.ok) throw 0; if(d.tts) serverTTS=d.tts; }).catch(enableDemo);
+  fetch('api/health').then(r=>{ if(!r.ok) throw 0; return r.json(); }).then(d=>{ if(!d.ok) throw 0; if(d.tts) serverTTS=d.tts; sttServer=!!d.stt; if(sttServer) $('note').textContent=t('noteWhisper'); loadAttestation(false); }).catch(()=>{ enableDemo(); $('vbtn').classList.add('hidden'); });
 })();
 </script>
 </body>

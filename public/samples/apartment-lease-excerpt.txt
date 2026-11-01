@@ -1,0 +1,10 @@
+FICTIONAL SAMPLE — not real data. Excerpt of an apartment lease between Greenview Apartments LLC (landlord) and Alex Sample (tenant).
+
+1. Rent is 1,450 USD per month, due on the 1st day of each month.
+2. Security deposit: 2,900 USD, returned within 30 days after move-out minus documented damages.
+3. Late fee: 25 USD per day for every day the rent is late, without limit.
+4. The landlord may enter the apartment at any time without notice for "inspection purposes".
+5. Rent may be increased by the landlord at any time with 7 days notice.
+6. The tenant is responsible for all repairs, including the roof, plumbing inside walls and the heating system.
+7. The lease automatically renews for 24 months unless the tenant cancels 120 days before the end date.
+8. Pets are not allowed. Guests may stay no longer than 3 nights per month.

@@ -2,6 +2,9 @@
 FROM node:22-bookworm-slim
 
 WORKDIR /app
+# Libraries for attestation checks (Intel TDX quote verification, ECDSA signatures)
+COPY package.json ./
+RUN npm install --omit=dev --no-audit --no-fund
 COPY . .
 
 # Голос на сервере (Piper) для браузеров без своего голоса, например Telegram.

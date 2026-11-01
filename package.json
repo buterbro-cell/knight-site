@@ -1,0 +1,17 @@
+{
+  "name": "near-knight",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Voice AI knight on NEAR AI Cloud: private inference in TEE, verified attestation, nothing stored server-side",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "verify": "node scripts/verify.js"
+  },
+  "dependencies": {
+    "@phala/dcap-qvl-node": "^0.3.3",
+    "ethers": "^5.7.2"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}

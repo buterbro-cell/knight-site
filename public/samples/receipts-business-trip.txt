@@ -1,0 +1,28 @@
+FICTIONAL SAMPLE — not real data. Receipts from a business trip of Alex Sample, Oct 2026.
+
+RECEIPT #1  Hotel Riverside, Lisbon
+Check-in 15 Oct, check-out 18 Oct — 3 nights x 120.00 EUR = 360.00 EUR
+City tax 3 x 2.00 = 6.00 EUR
+Minibar 18 Oct 03:10 — 84.00 EUR
+TOTAL 450.00 EUR   Paid: card ****4410
+
+RECEIPT #2  Taxi Rápido
+16 Oct 08:40, Airport -> Hotel Riverside, 24.50 EUR, tip 2.00 EUR
+TOTAL 26.50 EUR
+
+RECEIPT #3  Restaurante Mar Azul
+16 Oct 21:05, Dinner for 2: 2 x main 18.00, wine 32.00, dessert 2 x 6.50
+Subtotal 81.00 EUR, service 10% 8.10 EUR, tip 40.00 EUR
+TOTAL 129.10 EUR
+
+RECEIPT #4  Restaurante Mar Azul
+16 Oct 21:05, Dinner for 2 — same order as above
+TOTAL 129.10 EUR   (second copy, card ****4410)
+
+RECEIPT #5  Conference "Future of Private AI"
+Ticket 299.00 EUR, VAT included
+TOTAL 299.00 EUR
+
+RECEIPT #6  Taxi Rápido
+17 Oct 23:55, Bar Alto -> Hotel Riverside, 18.00 EUR
+TOTAL 18.00 EUR

@@ -1,97 +1,96 @@
-# Говорящий рыцарь NEAR: как запустить
+# Sir Near — a private voice AI you can verify
 
-## Что в папке
-- `public/` — сам сайт: страница и кадры рыцаря.
-- `server.js` — сервер. Он отдаёт сайт, хранит ключ NEAR AI в секрете и следит за лимитами.
-- `knowledge.md` — шпаргалка рыцаря. Чтобы научить его новому, допишите сюда факты и перезапустите сервер.
+**Track: Privacy & Private AI (`privacy`)** · NEAR AI Cloud · TEE · Attestation
 
-## 1. Получите ключ NEAR AI
-1. Зайдите на cloud.near.ai и зарегистрируйтесь.
-2. В разделе **Credits** пополните баланс. Для начала хватит 5 $.
-3. В разделе **API Keys** создайте ключ и скопируйте его. Никому его не показывайте.
+Sir Near is an animated voice knight. You talk to him or hand him a sensitive document — a bank statement, receipts, a lease — and he answers out loud: what matters, what looks unusual, what is suspicious.
 
-## 2. Загрузите папку на сервер
-Загрузите всю папку `knight-site` на сервер, например в `/root/knight-site`. Подойдёт файловый менеджер в панели хостинга или любая программа вроде FileZilla или WinSCP.
+Everything that touches your data runs inside Trusted Execution Environments on **NEAR AI Cloud**, and the app **proves it**:
 
-## 3. Установите Node.js (один раз)
-Подключитесь к серверу по SSH и выполните:
+- 🎙️ **Voice → text:** Whisper Large v3, hosted by NEAR AI inside a TEE (Private TEE).
+- 🧠 **Thinking:** `deepseek-ai/DeepSeek-V4.1-Flash-1017`, hosted by NEAR AI inside a TEE (Private TEE).
+- 🔊 **Text → voice:** your own browser, on your device.
+- 🛡️ **Verified panel:** the server fetches the attestation report with a **fresh random nonce** and verifies it the way the NEAR AI verification docs describe. The panel lists every check.
+- 🔏 **Every answer is signed** inside the enclave; the app checks the signature and that the signer is an attested TEE key.
+- 🗑️ **Nothing is stored server-side.** See below.
+
+## Requirements → where they are
+
+| Requirement | Where |
+|---|---|
+| OpenAI-compatible API, base URL `https://cloud-api.near.ai/v1`, key in `.env` | `lib/env.js`, `.env.example`, `server.js` (`API_URL`) |
+| Choose a TEE-hosted model from the models endpoint | `server.js → checkModel()` reads `/v1/models`, prefers NEAR-hosted *Private TEE* models (`MODEL_PREFS`), never *Incognito* ones; same in `scripts/verify.js` |
+| Fetch attestation with a fresh random nonce and verify it as the docs describe | `lib/attest.js → attest()` (port of the official `nearai-cloud-verifier`, see checks below) |
+| Show a "Verified" panel listing what was checked | `public/index.html` → **TEE ✓** button in the header and the line under each answer |
+| Keep nothing server-side after a response returns | header comment of `server.js`, `/api/health → storesUserData:false`, section below |
+| Fictional sample documents | `public/samples/` (statement CSV, receipts, lease) — 📄 button → "Try a sample" |
+
+## What is verified
+
+For every attestation (`GET /v1/attestation/report?model=…&nonce=<32 random bytes>&signing_algo=ecdsa`):
+
+1. **Intel TDX quote is genuine** — verified with `@phala/dcap-qvl-node` against Intel's collateral (`UpToDate`/`OutOfDate` accepted, same rule as the official verifier).
+2. **Signing key is bound to the enclave** — `report_data[0..32]` equals the attested signing address.
+3. **Report is fresh** — `report_data[32..64]` equals *our* nonce.
+4. **NVIDIA GPU in confidential-computing mode** — GPU evidence carries our nonce; NVIDIA NRAS verdict is `true`.
+5. **Running code matches the attested manifest** — SHA-256 of the docker compose equals `mr_config_id` from the verified quote (informational).
+
+For every answer (`GET /v1/signature/{chat_id}`):
+
+6. SHA-256 of our exact request body and of the exact streamed response match the signed text.
+7. The ECDSA signature recovers to the signing address.
+8. That address belongs to an attestation we just verified (if another replica answered, that exact key is attested with a new nonce).
+
+## Nothing is kept server-side
+
+- No database, no files, no logs of content. Questions, answers, documents and voice recordings exist only in local variables of one request handler and are gone when the response ends.
+- No answer cache, no TTS cache, no conversation history on the server — the browser keeps the last few turns and sends them with the next question.
+- Documents are read **in the browser** (PDF via pdf.js) and sent only together with the question.
+- Kept in memory, without user content: salted hashes of IPs with timestamps (rate limiting; the salt changes on every restart), aggregate token/cost counters for the owner's `/dev.html`, and the latest attestation result (hardware evidence only).
+- Web search is **off** by default because it would send a query outside the TEE (`ALLOW_WEB_SEARCH=1` to enable). Tools that stay on read only public NEAR docs and public network data and never receive the user's document.
+
+## Run it
+
+```bash
+cp .env.example .env        # put your NEAR_AI_KEY inside
+npm install
+npm run verify              # minimal script: one completion + attestation + signature check
+npm start                   # http://localhost:3000
 ```
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
-sudo apt install -y nodejs
-sudo npm install -g pm2
+
+Docker / Northflank: the included `Dockerfile` builds everything; set `NEAR_AI_KEY` as a secret environment variable.
+
+### Example output of `npm run verify`
+
+```
+1) Model: deepseek-ai/DeepSeek-V4.1-Flash-1017  (from N models on /v1/models)
+2) Completion id: chatcmpl-…   Answer: A TEE is …
+3) Attestation (fresh random nonce)…
+   Model #1 — signing address 0x…
+     ✅ Intel TDX quote is genuine
+     ✅ Signing key is bound to this enclave
+     ✅ Report is fresh (our nonce inside the quote)
+     ✅ GPU evidence uses our nonce
+     ✅ NVIDIA GPU is in confidential-computing mode
+   Attestation overall: ✅ VERIFIED
+4) Response signature…
+     ✅ Question reached the enclave unchanged
+     ✅ Answer left the enclave unchanged
+     ✅ Signature is valid
+     ✅ Signer is an attested TEE key
 ```
 
-## 4. Запустите рыцаря
-Вместо `ВАШ_КЛЮЧ` вставьте ключ из шага 1:
-```
-cd /root/knight-site
-NEAR_AI_KEY=ВАШ_КЛЮЧ TRUST_PROXY=1 pm2 start server.js --name knight
-pm2 save
-pm2 startup
-```
-Последняя команда выведет ещё одну строку. Скопируйте её и выполните, чтобы рыцарь сам запускался после перезагрузки сервера.
+## Try it as a judge
 
-Проверка: `curl localhost:3000/api/health` должна показать `"key":true`.
+1. Open the site, tap **Say hi to the knight**.
+2. Tap **TEE ✓** in the header → the Verified panel.
+3. Tap 📄 → **Bank statement — October 2026** (fictional). The knight lists spending categories and flags the duplicate charge, the 03:47 overseas purchase, the unknown payee and the night ATM withdrawals.
+4. Ask by voice: "What looks suspicious in the receipts?" — the line under the answer shows that it was signed inside the TEE.
 
-## 5. Домен и HTTPS (обязательно!)
-Без HTTPS браузеры не дают доступ к микрофону. Проще всего настроить HTTPS через Caddy, он сам получает сертификат.
-1. У регистратора домена направьте домен (A-запись) на IP вашего сервера.
-2. На сервере выполните:
-```
-sudo apt install -y caddy
-echo 'ваш-домен.com {
-  reverse_proxy localhost:3000
-}' | sudo tee /etc/caddy/Caddyfile
-sudo systemctl restart caddy
-```
-Через минуту сайт откроется по адресу https://ваш-домен.com.
+## Files
 
-## 6. Голос для Telegram и приложений (очень желательно)
-Некоторые браузеры сами говорить не умеют. Это встроенный браузер Telegram, браузеры внутри приложений на Android и Firefox. Для таких посетителей рыцарь будет говорить голосом с вашего сервера. Для этого поставьте бесплатный движок озвучки Piper, он работает прямо на сервере:
-```
-cd /root/knight-site
-mkdir -p piper && cd piper
-wget https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz
-tar xzf piper_linux_x86_64.tar.gz
-wget -O ru.onnx https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/denis/medium/ru_RU-denis-medium.onnx
-wget -O ru.onnx.json https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/denis/medium/ru_RU-denis-medium.onnx.json
-wget -O en.onnx https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ryan/medium/en_US-ryan-medium.onnx
-wget -O en.onnx.json https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ryan/medium/en_US-ryan-medium.onnx.json
-pm2 restart knight
-```
-Проверка: `curl localhost:3000/api/health` должна показать `"tts":{"ru":true,"en":true}`.
-Сервер озвучивает не больше 2 фраз одновременно, чтобы не перегружать маленький сервер. Готовые фразы (приветствие, частые ответы) он запоминает и озвучивает мгновенно.
-Если голос `denis` не понравится, есть другие русские голоса: `dmitri`, `ruslan`, `irina`. В ссылках замените `denis` на нужное имя (в двух местах каждой ссылки).
-
-## Настройки
-Настройки указываются перед `pm2 start`, как ключ в шаге 4. Чтобы поменять их, выполните `pm2 delete knight` и запустите заново с новыми значениями.
-
-| Настройка | По умолчанию | Что делает |
-|---|---|---|
-| `MODEL` | `Qwen/Qwen3-30B-A3B-Instruct-2507` | Модель NEAR AI. Если хотите ответы умнее, поставьте `Qwen/Qwen3.5-122B-A10B`: она немного дороже. |
-| `CHAR_NAME` | Сэр Ниар | Имя рыцаря в ответах (в приветствии имя меняется в `public/index.html`) |
-| `PER_USER_LIMIT` | 20 | Сколько вопросов может задать один человек... |
-| `PER_USER_WINDOW_MIN` | 60 | ...за столько минут |
-| `DAILY_LIMIT` | 3000 | Сколько всего ответов в сутки на весь сайт. Это защита кошелька. |
-
-## Сколько это стоит
-- Распознавание голоса и озвучка бесплатные: их делает браузер посетителя.
-- Платите вы только за ответы нейросети. С моделью по умолчанию 1000 ответов обойдутся примерно в 0,5–1 $. Актуальные цены смотрите в кабинете cloud.near.ai.
-- Одинаковые первые вопросы («привет», «что такое TEE») берутся из памяти сервера и ничего не стоят.
-- Сервер лёгкий (около 50 МБ памяти), поэтому поместится рядом с другими программами даже на тарифе 512 МБ.
-
-## Если что-то не работает
-- Рыцарь отвечает «Мой оракул задумался». Посмотрите ошибку командой `pm2 logs knight`. Чаще всего это неверный ключ или закончились кредиты.
-- Микрофон не работает. Проверьте, что сайт открыт по https:// и что используется Chrome, Edge или Safari. В Firefox голосовой ввод не работает, там остаётся ввод текстом.
-- Голос звучит роботизированно. Это встроенный голос браузера, он разный на разных устройствах.
-
-## Переменные в Northflank (Environment variables)
-| Переменная | Нужна? | Что делает |
-|---|---|---|
-| `NEAR_AI_KEY` | да | Ключ NEAR AI |
-| `DEV_KEY` | желательно | Код для режима разработчика: страница `/dev.html` с расходом и скоростью |
-| `MODEL` | нет | Другая модель. По умолчанию `deepseek-ai/DeepSeek-V4.1-Flash-1017` (Private TEE) |
-| `TAVILY_API_KEY` | нет | Поиск в интернете (новости и всё, чего нет в документации). Бесплатно ~1000 запросов в месяц на tavily.com |
-| `USE_TOOLS` | нет | `0` — выключить самостоятельный поиск (только шпаргалка) |
-
-Без `TAVILY_API_KEY` рыцарь всё равно сам ищет: по документации NEAR и NEAR AI, читает страницы и смотрит живые данные сети и цену NEAR.
+- `server.js` — API, streaming answers, proofs, Whisper, no storage
+- `lib/attest.js` — attestation + signature verification
+- `scripts/verify.js` — minimal end-to-end check
+- `tools.js` — optional lookups (NEAR docs, network status)
+- `public/` — the knight (video animation, voice, Verified panel), `public/samples/` — fictional documents
+- `README.ru.md` — deployment guide in Russian
