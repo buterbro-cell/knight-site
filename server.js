@@ -33,7 +33,7 @@ let MODEL = process.env.MODEL || 'deepseek-ai/DeepSeek-V4.1-Flash-1017';
 const MODEL_PREFS = ['deepseek-ai/DeepSeek-V4.1-Flash-1017', 'Qwen3.8-27B', 'GLM-5.3-Flash', 'Qwen3.6-35B-A3B', 'Qwen3-VL-30B-A3B'];
 const DEV_KEY = process.env.DEV_KEY || '';
 const CHAR_NAME = process.env.CHAR_NAME || 'Сэр Ниар';
-const PER_USER_LIMIT = Number(process.env.PER_USER_LIMIT || 20);
+const PER_USER_LIMIT = Number(process.env.PER_USER_LIMIT || 40);
 const PER_USER_WINDOW_MIN = Number(process.env.PER_USER_WINDOW_MIN || 60);
 const DAILY_LIMIT = Number(process.env.DAILY_LIMIT || 3000);
 const MAX_QUESTION_CHARS = 600;
@@ -113,22 +113,26 @@ try {
 // ---------- Abuse protection (salted IP hashes + timestamps only) ----------
 const SALT = crypto.randomBytes(16);   // new every start: hashes can't be linked across restarts
 const ipHash = ip => crypto.createHmac('sha256', SALT).update(String(ip)).digest('base64url').slice(0, 16);
-const clientIp = req => (TRUST_PROXY && (req.headers['x-forwarded-for'] || '').split(',')[0].trim()) || req.socket.remoteAddress;
+// Behind a proxy (Phala dstack gateway, Northflank) the visitor's address comes in a forwarding header
+const clientIp = req => (TRUST_PROXY && ((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || String(req.headers['x-real-ip'] || '').trim())) || req.socket.remoteAddress;
+// Separate budgets per action, so voice playback or re-checking the proof never eats the question quota.
+// Per visitor per window: questions PER_USER_LIMIT, speech-to-text 2x, voice playback 15x (one request per sentence), proof checks 10.
+const BUDGET = { chat: PER_USER_LIMIT, stt: PER_USER_LIMIT * 2, tts: PER_USER_LIMIT * 15, verify: 10 };
 const hits = new Map();
 let day = new Date().toISOString().slice(0, 10), dayCount = 0;
 setInterval(() => {
   const cut = Date.now() - PER_USER_WINDOW_MIN * 60e3;
   for (const [h, arr] of hits) { const a = arr.filter(t => t > cut); a.length ? hits.set(h, a) : hits.delete(h); }
 }, 60e3).unref();
-function allow(req, weight = 1) {
+function allow(req, kind = 'chat') {
   const today = new Date().toISOString().slice(0, 10);
   if (today !== day) { day = today; dayCount = 0; }
-  if (dayCount >= DAILY_LIMIT) return 'daily';
-  const h = ipHash(clientIp(req));
+  if (kind === 'chat' && dayCount >= DAILY_LIMIT) return 'daily';
+  const h = kind + ':' + ipHash(clientIp(req));
   const cut = Date.now() - PER_USER_WINDOW_MIN * 60e3;
   const arr = (hits.get(h) || []).filter(t => t > cut);
-  if (arr.length >= PER_USER_LIMIT * weight) return 'user';
-  arr.push(Date.now()); hits.set(h, arr); dayCount++;
+  if (arr.length >= (BUDGET[kind] || PER_USER_LIMIT)) return 'user';
+  arr.push(Date.now()); hits.set(h, arr); if (kind === 'chat') dayCount++;
   return null;
 }
 
@@ -390,7 +394,7 @@ const server = http.createServer(async (req, res) => {
   // Voice → text with Whisper inside a TEE. Audio is held in memory for this request only.
   if (url.pathname === '/api/stt' && req.method === 'POST') {
     if (!sttModel) return send(res, 503, { error: 'no_stt' });
-    const blocked = allow(req, 2);
+    const blocked = allow(req, 'stt');
     if (blocked) return send(res, 429, { error: blocked === 'daily' ? 'daily_limit' : 'user_limit' });
     let audio;
     try { audio = await readBody(req, 8e6); } catch { return send(res, 413, { error: 'too_big' }); }
@@ -405,7 +409,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/attestation') {
     const force = url.searchParams.get('fresh') === '1';
     if (force || !attestation || Date.now() - Date.parse(attestation.checkedAt) > 5 * 60e3) {
-      if (force && allow(req, 0.25)) return send(res, 200, { ...attestation, throttled: true });
+      if (force && allow(req, 'verify')) return send(res, 200, { ...attestation, throttled: true });
       await runAttestation();
     }
     return send(res, 200, attestation || { ok: false, error: 'not_ready' });
@@ -414,7 +418,7 @@ const server = http.createServer(async (req, res) => {
   // Same end-to-end check as `node scripts/verify.js`, run on this live server, output as plain text.
   // One tiny completion + attestation; rate-limited; prints results only, stores nothing.
   if (url.pathname === '/api/selftest') {
-    if (selftestBusy || Date.now() - selftestAt < 60e3 || allow(req, 0.25)) return send(res, 429, { error: 'too_often', retryInSec: 60 });
+    if (selftestBusy || Date.now() - selftestAt < 60e3 || allow(req, 'verify')) return send(res, 429, { error: 'too_often', retryInSec: 60 });
     selftestBusy = true; selftestAt = Date.now();
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     res.write(`$ node scripts/verify.js   (run live on this server, ${new Date().toISOString()})\n\n`);
@@ -430,7 +434,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/attestation/challenge') {
     const word = String(url.searchParams.get('word') || '').trim().slice(0, 64);
     if (!word) return send(res, 400, { error: 'empty' });
-    if (allow(req, 0.25)) return send(res, 429, { error: 'too_often' });
+    if (allow(req, 'verify')) return send(res, 429, { error: 'too_often' });
     const nonce = /^[0-9a-fA-F]{64}$/.test(word) ? word.toLowerCase() : crypto.createHash('sha256').update(word, 'utf8').digest('hex');
     try {
       const a = await attest(MODEL, { nonce });
@@ -445,7 +449,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/attestation/self') {
     if (!relay.inTee()) return send(res, 200, { inTee: false });
     const fresh = url.searchParams.get('fresh') === '1';
-    if (!relayAtt || (fresh && !allow(req, 0.25)) || Date.now() - Date.parse(relayAtt.checkedAt) > 5 * 60e3) {
+    if (!relayAtt || (fresh && !allow(req, 'verify')) || Date.now() - Date.parse(relayAtt.checkedAt) > 5 * 60e3) {
       try { relayAtt = await relay.selfAttest(); } catch (e) { return send(res, 200, { inTee: true, ok: false, error: e.message, checks: [] }); }
     }
     if (url.searchParams.get('raw') === '1') {
@@ -471,7 +475,7 @@ const server = http.createServer(async (req, res) => {
     const text = String(body.text || '').slice(0, 700).trim();
     if (!text) return send(res, 400, { error: 'empty' });
     if (!ttsReady(l)) return send(res, 503, { error: 'no_tts' });
-    if (allow(req, 4)) return send(res, 429, { error: 'user_limit' });
+    if (allow(req, 'tts')) return send(res, 429, { error: 'user_limit' });
     try { const wav = await synthesize(text, l); res.writeHead(200, { 'Content-Type': 'audio/wav', 'Content-Length': wav.length, 'Cache-Control': 'no-store' }); return res.end(wav); }
     catch (e) { console.error('TTS error:', e.message); return send(res, 502, { error: 'tts_error' }); }
   }
@@ -487,7 +491,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/health') return send(res, 200, {
     ok: true, key: !!KEY, model: MODEL, modelChecked, stt: !!sttModel, sttModel, lastError, tools: toolsOn, webSearch: webSearchEnabled,
     verifierLibs: libsReady(), attestationOk: attestation?.ok ?? null, models: availableModels,
-    tts: { ru: ttsReady('ru'), en: ttsReady('en') }, storesUserData: false, relayInTee: relay.inTee(), mem: memInfo(),
+    tts: { ru: ttsReady('ru'), en: ttsReady('en') }, storesUserData: false, relayInTee: relay.inTee(), mem: memInfo(), visitorIpSeen: !!(req.headers['x-forwarded-for'] || req.headers['x-real-ip']),
   });
 
   // Static files
