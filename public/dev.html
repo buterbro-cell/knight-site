@@ -60,6 +60,10 @@
     <table><thead><tr><th>День</th><th>Ответов</th><th>Цена</th></tr></thead><tbody id="days"></tbody></table>
   </div>
   <div class="card">
+    <div class="lbl">Ключ NEAR AI: организация и баланс</div>
+    <div class="err" id="bal" style="white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:12px">загрузка…</div>
+  </div>
+  <div class="card">
     <div class="lbl">Последняя ошибка</div>
     <div class="err" id="lastError">—</div>
   </div>
@@ -69,6 +73,7 @@
 
 <script>
 const $=id=>document.getElementById(id);
+let balLoaded=false;
 let key=''; try{ key=localStorage.getItem('knight-dev')||''; }catch(e){}
 const usd=x=>'$'+(x<0.01?x.toFixed(4):x.toFixed(2));
 const sec=ms=>ms==null?'—':(ms/1000).toFixed(1);
@@ -95,6 +100,7 @@ async function load(){
   $('last').innerHTML=s.last.map(x=>`<tr><td>${new Date(x.time).toLocaleTimeString('ru')}</td><td>${x.inTokens}</td><td>${x.cachedTokens}</td><td>${x.outTokens}</td><td>${usd(x.costUsd)}</td><td>${sec(x.firstWordMs)}/${sec(x.totalMs)}</td></tr>`).join('')||'<tr><td colspan="6">Пока пусто</td></tr>';
   $('days').innerHTML=Object.keys(s.days).sort().reverse().map(k=>`<tr><td>${k}</td><td>${s.days[k].answers}</td><td>${usd(s.days[k].costUsd)}</td></tr>`).join('')||'<tr><td colspan="3">Пока пусто</td></tr>';
   $('lastError').textContent=s.lastError||'—';
+  if(!balLoaded){ balLoaded=true; fetch('api/balance',{headers:{'x-dev-key':key}}).then(r=>r.json()).then(b=>{ $('bal').textContent=JSON.stringify(b,null,2); }).catch(e=>{ $('bal').textContent='не удалось: '+e.message; }); }
   return true;
 }
 $('go').onclick=async()=>{ key=$('key').value.trim(); try{localStorage.setItem('knight-dev',key);}catch(e){} await load(); };

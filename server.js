@@ -488,6 +488,24 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, { ...stats, model: MODEL, price: priceFor(MODEL), lastError, dailyLimit: DAILY_LIMIT, todayCount: dayCount, attestationOk: attestation?.ok ?? null });
   }
 
+  // Owner only: which NEAR AI organization this key belongs to and its remaining balance
+  if (url.pathname === '/api/balance') {
+    const given = String(req.headers['x-dev-key'] || '');
+    if (!DEV_KEY || !(given.length === DEV_KEY.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(DEV_KEY)))) return send(res, 403, { error: 'bad_key' });
+    const base = API_URL.replace(/\/chat\/completions$/, '');
+    const out = {};
+    try {
+      const r = await fetch(base + '/check_api_key', { method: 'POST', headers: { Authorization: `Bearer ${KEY}` }, signal: AbortSignal.timeout(15000) });
+      out.keyCheck = { status: r.status, body: (await r.json().catch(() => null)) };
+      const org = out.keyCheck.body && (out.keyCheck.body.organization_id || out.keyCheck.body.org_id);
+      if (org) {
+        const b = await fetch(`${base}/organizations/${encodeURIComponent(org)}/usage/balance`, { headers: { Authorization: `Bearer ${KEY}` }, signal: AbortSignal.timeout(15000) });
+        out.balance = { status: b.status, body: (await b.json().catch(() => null)) };
+      }
+    } catch (e) { out.error = e.message; }
+    return send(res, 200, out);
+  }
+
   if (url.pathname === '/api/health') return send(res, 200, {
     ok: true, key: !!KEY, model: MODEL, modelChecked, stt: !!sttModel, sttModel, lastError, tools: toolsOn, webSearch: webSearchEnabled,
     verifierLibs: libsReady(), attestationOk: attestation?.ok ?? null, models: availableModels,
