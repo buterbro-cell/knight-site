@@ -245,7 +245,7 @@
       tickle:['Ха-ха-ха! Щекотно!','Эй, осторожнее с доспехами!','Ой! Я рыцарь, а не барабан!','Хи-хи! Ещё раз — и вызову на дуэль!'],
       note:'Голос распознаёт браузер (в Chrome — через Google). Для полной приватности пиши текстом. Ответы генерирует модель в защищённой среде NEAR AI.',
       demoNote:'Демо-режим: ответы заготовлены, микрофон здесь не работает. На настоящем сайте отвечает нейросеть NEAR AI и работает голос.',
-      noVoice:'В этом браузере нет голоса — открой сайт в Chrome, чтобы услышать рыцаря',
+      noVoice:'Озвучка выключена: в этом браузере голос шёл бы через облако, а это не приватно. Ответы — текстом.', privMic:'Этот браузер не умеет записывать звук для приватного распознавания. Напишите вопрос текстом — так ничего не уйдёт сторонним сервисам.',
       searchFiller:'Секунду, сейчас проверю.', searching:'Ищу свежую информацию…',
       vWait:'TEE…', vOk:'TEE ✓', vFail:'TEE ✗', vTitle:'Проверка приватности', vOkBig:'✅ Проверено: ответы считает нейросеть внутри защищённой среды (TEE)', vFailBig:'❌ Проверка не пройдена',
       vIntro:'Сервер сайта сам запросил у NEAR AI отчёт аттестации со свежим случайным числом (nonce) и проверил его так, как описано в документации NEAR AI. Подделать или подсунуть старый отчёт нельзя.',
@@ -274,7 +274,7 @@
       tickle:['Ha-ha-ha! That tickles!','Hey, careful with the armor!','Ouch! I am a knight, not a drum!'],
       note:'Speech is recognized by your browser (Chrome uses Google). For full privacy, type instead. Answers come from a model running in NEAR AI secure enclaves.',
       demoNote:'Demo mode: no server connected, answers are pre-written. On the real site NEAR AI answers.',
-      noVoice:'No voice in this browser — open the site in Chrome to hear the knight',
+      noVoice:'Voice is off: in this browser speech would go through a cloud service, which is not private. Answers are shown as text.', privMic:'This browser cannot record audio for private transcription. Please type your question — nothing goes to third-party services.',
       searchFiller:'One moment, let me check.', searching:'Looking up fresh info…',
       vWait:'TEE…', vOk:'TEE ✓', vFail:'TEE ✗', vTitle:'Privacy verification', vOkBig:'✅ Verified: answers are computed by a model inside a Trusted Execution Environment', vFailBig:'❌ Verification failed',
       vIntro:'This site’s server requested a NEAR AI attestation report with a fresh random nonce and verified it as the NEAR AI verification docs describe. An old or forged report cannot pass.',
@@ -510,10 +510,12 @@
   let voices=[];
   function loadVoices(){ voices = synth ? synth.getVoices() : []; }
   if(synth){ loadVoices(); synth.onvoiceschanged=loadVoices; }
+  // PRIVACY: only voices that run on this device. Cloud voices (e.g. "Google …" in Chrome, localService=false)
+  // would send the answer text to the browser vendor, so they are never used.
   function pickVoice(){
     const code=t('speech'), base=code.slice(0,2);
-    const list=voices.filter(v=>v.lang && v.lang.replace('_','-').toLowerCase().startsWith(base));
-    const pref=['google','milena','yuri','microsoft','samantha','daniel'];
+    const list=voices.filter(v=>v.lang && v.lang.replace('_','-').toLowerCase().startsWith(base) && v.localService!==false);
+    const pref=['milena','yuri','irina','pavel','microsoft','samantha','daniel','alex'];
     for(const p of pref){ const v=list.find(v=>v.name.toLowerCase().includes(p)); if(v) return v; }
     return list[0]||null;
   }
@@ -898,7 +900,12 @@
 
   // ---------------- Кнопки ----------------
   function showText(on){ form.classList.toggle('show',on); if(on) setTimeout(()=>q.focus(),50); }
-  mic.addEventListener('click',()=>{ if(canRecord()){ recognizing?stopRecording():startRecording(); } else { recognizing?stopListening():startListening(); } });
+  // PRIVACY: voice input goes only to Whisper inside the NEAR AI TEE. The browser's own speech recognition
+  // (Chrome sends audio to Google, Safari to Apple) is never used; without recording we ask for text instead.
+  mic.addEventListener('click',()=>{
+    if(canRecord()){ recognizing?stopRecording():startRecording(); return; }
+    showText(true); setStatus(t('privMic'));
+  });
   kbd.addEventListener('click',()=>showText(!form.classList.contains('show')));
   hush.addEventListener('click',()=>{ stopSpeaking(); hideBubble(); setStatus(t('ready')); });
   form.addEventListener('submit',e=>{ e.preventDefault(); const v=q.value; q.value=''; ask(v); });

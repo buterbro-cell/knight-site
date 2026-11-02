@@ -12,7 +12,7 @@ Clinics, banks, law firms and insurers want an AI assistant on their website. To
 
 - 🎙️ **Voice → text:** Whisper Large v3, hosted by NEAR AI inside a TEE (Private TEE).
 - 🧠 **Thinking:** `deepseek-ai/DeepSeek-V4.1-Flash-1017`, hosted by NEAR AI inside a TEE (Private TEE).
-- 🔊 **Text → voice:** on the visitor's device (optional server voice: Piper, see `Dockerfile`).
+- 🔊 **Text → voice:** Piper inside our TEE relay (same voice on every device); fallback only to on-device browser voices.
 - 🛡️ **Verified panel:** the attestation report is fetched with a **fresh random nonce** (or the visitor's own number) and verified the way the NEAR AI verification docs describe. The panel lists every check.
 - 🔏 **Every answer is signed** inside the enclave; the app checks the signature and that the signer is an attested TEE key.
 - 🗑️ **Nothing is stored server-side.** See below.
@@ -61,6 +61,7 @@ For every answer (`GET /v1/signature/{chat_id}`):
 - No database, no files, no logs of content. Questions, answers, documents and voice recordings exist only in local variables of one request handler and are gone when the response ends.
 - No answer cache, no TTS cache, no conversation history on the server — the browser keeps the last few turns and sends them with the next question.
 - Documents are read **in the browser** (PDF via pdf.js) and sent only together with the question.
+- **No cloud fallbacks in the browser.** Voice input goes only to Whisper in the NEAR AI TEE — the browser's own speech recognition (Chrome → Google, Safari → Apple) is never used; without audio recording the visitor is asked to type. Voice output is Piper inside our TEE; the only fallback is a browser voice that runs **on the device** (`localService`), cloud voices are skipped.
 - Kept in memory, without user content: salted hashes of IPs with timestamps (rate limiting; the salt changes on every restart), aggregate token/cost counters for the owner's `/dev.html`, and the latest attestation result (hardware evidence only).
 - Web search is **off** by default because it would send a query outside the TEE (`ALLOW_WEB_SEARCH=1` to enable). Tools that stay on read only public NEAR docs and public network data and never receive the user's document.
 
