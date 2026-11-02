@@ -335,6 +335,14 @@ async function synthesize(text, l) {
   } finally { ttsRelease(); }
 }
 
+// Memory of this process and of the VM (MemAvailable excludes reclaimable file cache)
+function memInfo() {
+  const mb = x => Math.round(x / 1048576);
+  let total = require('os').totalmem(), avail = require('os').freemem();
+  try { const m = fs.readFileSync('/proc/meminfo', 'utf8'); const g = k => Number((m.match(new RegExp(k + ':\\s+(\\d+)')) || [])[1]) * 1024; total = g('MemTotal') || total; avail = g('MemAvailable') || avail; } catch {}
+  return { processMB: mb(process.memoryUsage().rss), vmTotalMB: mb(total), vmAvailableMB: mb(avail) };
+}
+
 // ---------- HTTP ----------
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json', '.mp4': 'video/mp4', '.webm': 'video/webm', '.csv': 'text/csv; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.md': 'text/markdown; charset=utf-8', '.glb': 'model/gltf-binary' };
 function send(res, code, obj) { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); }
@@ -479,7 +487,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/health') return send(res, 200, {
     ok: true, key: !!KEY, model: MODEL, modelChecked, stt: !!sttModel, sttModel, lastError, tools: toolsOn, webSearch: webSearchEnabled,
     verifierLibs: libsReady(), attestationOk: attestation?.ok ?? null, models: availableModels,
-    tts: { ru: ttsReady('ru'), en: ttsReady('en') }, storesUserData: false, relayInTee: relay.inTee(),
+    tts: { ru: ttsReady('ru'), en: ttsReady('en') }, storesUserData: false, relayInTee: relay.inTee(), mem: memInfo(),
   });
 
   // Static files
