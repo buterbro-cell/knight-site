@@ -1,17 +1,33 @@
-# Sir Near — a private voice AI you can verify
+# Sir Near — a verifiably private voice assistant for any website
 
 **Track: Privacy & Private AI (`privacy`)** · NEAR AI Cloud · TEE · Attestation
 
-Sir Near is an animated voice knight. You talk to him or hand him a sensitive document — a bank statement, receipts, a lease — and he answers out loud: what matters, what looks unusual, what is suspicious.
+## The problem
 
-Everything that touches your data runs inside Trusted Execution Environments on **NEAR AI Cloud**, and the app **proves it**:
+Clinics, banks, law firms and insurers want an AI assistant on their website. Today that means sending every customer conversation to an AI vendor that logs it — a compliance risk for the business and a reason for customers to hold back: nobody tells a website chatbot about their symptoms, debts or legal trouble if it might be recorded.
+
+## What we built
+
+**Sir Near** is a voice assistant with a live animated character that a business adds to its website with **one line of code**. Visitors talk to it by voice or show it a document (test results, an invoice, a contract), and it answers out loud. Every model that touches the visitor's data runs inside Trusted Execution Environments on **NEAR AI Cloud** — and the assistant **proves it** on screen. The business itself never sees the conversation.
 
 - 🎙️ **Voice → text:** Whisper Large v3, hosted by NEAR AI inside a TEE (Private TEE).
 - 🧠 **Thinking:** `deepseek-ai/DeepSeek-V4.1-Flash-1017`, hosted by NEAR AI inside a TEE (Private TEE).
-- 🔊 **Text → voice:** your own browser, on your device.
-- 🛡️ **Verified panel:** the server fetches the attestation report with a **fresh random nonce** and verifies it the way the NEAR AI verification docs describe. The panel lists every check.
+- 🔊 **Text → voice:** on the visitor's device (optional server voice: Piper, see `Dockerfile`).
+- 🛡️ **Verified panel:** the attestation report is fetched with a **fresh random nonce** (or the visitor's own number) and verified the way the NEAR AI verification docs describe. The panel lists every check.
 - 🔏 **Every answer is signed** inside the enclave; the app checks the signature and that the signer is an attested TEE key.
 - 🗑️ **Nothing is stored server-side.** See below.
+
+## Add it to a website — one line
+
+```html
+<script src="https://<assistant-host>/widget.js" data-biz="clinic" data-lang="en" async></script>
+```
+
+`public/widget.js` puts a round button in the corner. Tapping it opens the assistant in an iframe served from the assistant's own origin, so **the host page has no access to the conversation** — not the voice, not the documents, not the answers.
+
+Each business is one public JSON file, `public/biz/<id>.json`: name, greeting, sample documents and the instructions the assistant follows. Being public is deliberate — anyone can read exactly what the assistant was told. Business profiles do not use outside tools, so nothing leaves the TEE model call.
+
+**Live demo business:** `/demo/clinic.html` — *Daisy Clinic*, a fictional family clinic. Ask which doctor you need, or tap 📄 → *Blood test results* / *Clinic invoice* (fictional). The main page `/` is the same assistant as the NEAR knight, without a business profile.
 
 ## Requirements → where they are
 
@@ -22,7 +38,7 @@ Everything that touches your data runs inside Trusted Execution Environments on 
 | Fetch attestation with a fresh random nonce and verify it as the docs describe | `lib/attest.js → attest()` (port of the official `nearai-cloud-verifier`, see checks below) |
 | Show a "Verified" panel listing what was checked | `public/index.html` → **TEE ✓** button in the header and the line under each answer |
 | Keep nothing server-side after a response returns | header comment of `server.js`, `/api/health → storesUserData:false`, section below |
-| Fictional sample documents | `public/samples/` (statement CSV, receipts, lease) — 📄 button → "Try a sample" |
+| Fictional sample documents | `public/samples/` (blood test, clinic invoice, bank statement, receipts, lease) — 📄 button in the assistant |
 
 ## What is verified
 
@@ -105,17 +121,17 @@ Nothing was stored: this script only printed results.
 
 ## Try it as a judge
 
-1. Open the site, tap **Say hi to the knight**.
-2. Tap **TEE ✓** in the header → the Verified panel.
-3. Tap 📄 → **Bank statement — October 2026** (fictional). The knight lists spending categories and flags the duplicate charge, the 03:47 overseas purchase, the unknown payee and the night ATM withdrawals.
-4. Ask by voice: "What looks suspicious in the receipts?" — the line under the answer shows that it was signed inside the TEE.
+1. Open `/demo/clinic.html` → tap **Private assistant** in the corner → **Talk to the assistant**.
+2. Tap 📄 → **Blood test results** (fictional patient). The assistant names the values out of range (hemoglobin, ferritin, vitamin D, LDL, HbA1c, CRP), explains them simply and suggests which of the clinic's doctors to see. Try 📄 → **Clinic invoice**: it finds the duplicated biochemistry panel, the unexplained "priority processing fee" and the insurance amount that does not add up.
+3. Tap **TEE ✓** in the assistant's header → the Verified panel. The line under each answer shows that it was signed inside the TEE.
+4. Ask by voice: "Which doctor should I see for chest pain?" — urgent symptoms are redirected to emergency services first.
 5. **Prove it is live, not a recording:** in the Verified panel type *your own* number or word under "Check it yourself" and tap **Verify**. The server sends `nonce = sha256(your word)` to NEAR AI; the panel shows that this exact value sits inside `report_data` of the Intel-signed TDX quote (and in the NVIDIA GPU evidence). Nobody could have prepared that report in advance. Download it and re-check with [nearai-cloud-verifier](https://github.com/nearai/nearai-cloud-verifier), or run `echo -n "your word" | sha256sum` to confirm the nonce. Endpoint: `GET /api/attestation/challenge?word=…` (the word is used for that one request and never stored).
 6. **See the minimal script's output on the live server:** open `/api/selftest` — it runs exactly `node scripts/verify.js` (one completion + attestation with a fresh nonce + response signature) and prints the result as text. Limited to once a minute.
 7. **Don't trust this site at all:** clone the repo, put your own key in `.env`, run `npm run verify` — it talks to NEAR AI directly with its own random nonce.
 
 ## What attestation does and does not prove
 
-It proves the **model and the NEAR AI gateway** run inside genuine Intel TDX + NVIDIA confidential-computing hardware and that each answer was signed there. Our own Node relay (on Northflank) is **not** in a TEE: the "nothing is stored" claim for it rests on this open-source code, not on cryptography.
+It proves the **model and the NEAR AI gateway** run inside genuine Intel TDX + NVIDIA confidential-computing hardware and that each answer was signed there. Our own Node relay (on Northflank) is **not** in a TEE yet: the "nothing is stored" claim for it rests on this open-source code, not on cryptography. Next step: run the relay itself in a TEE (dstack / Phala Cloud) and add its attestation to the panel, and use NEAR AI end-to-end encryption so the relay only ever handles ciphertext.
 
 ## The knight
 
@@ -127,5 +143,8 @@ A rigged 3D character (`public/3d/models/knight-anim.glb`, 20 Mixamo animations)
 - `lib/attest.js` — attestation + signature verification
 - `scripts/verify.js` — minimal end-to-end check
 - `tools.js` — optional lookups (NEAR docs, network status)
-- `public/` — the knight (video animation, voice, Verified panel), `public/samples/` — fictional documents
+- `public/index.html` — the assistant (voice, Verified panel, documents); `public/knight3d.js` — the 3D character
+- `public/widget.js` — the one-line embed for business websites; `public/biz/*.json` — business profiles
+- `public/demo/clinic.html` — fictional clinic website with the assistant embedded
+- `public/samples/` — fictional documents
 - `README.ru.md` — deployment guide in Russian

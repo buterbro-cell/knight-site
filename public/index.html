@@ -143,6 +143,9 @@
   /* 3D knight (knight3d.js): replaces pictures and video once loaded */
   .stage.k3d .char{aspect-ratio:702/1060;animation:none!important;touch-action:none}
   .stage.k3d .char img, .stage.k3d .char>canvas:not(.k3d){display:none}
+  /* Embedded in a business website (widget.js): room for the close button, no footer text */
+  html.embed header{padding-left:46px}
+  html.embed #note{display:none}
 </style>
 </head>
 <body>
@@ -210,9 +213,11 @@
   <div class="sub" id="dSub"></div>
   <button class="opt" id="dUpload"><span id="dUploadT"></span><small id="dUploadS"></small></button>
   <h3 id="dSamplesT"></h3>
+  <div id="dSamples">
   <button class="opt" data-sample="bank-statement-oct-2026.csv">🏦 Bank statement — October 2026<small>CSV · fictional</small></button>
   <button class="opt" data-sample="receipts-business-trip.txt">🧾 Business trip receipts<small>TXT · fictional</small></button>
   <button class="opt" data-sample="apartment-lease-excerpt.txt">📜 Apartment lease excerpt<small>TXT · fictional</small></button>
+  </div>
   <div class="btns"><button id="dClose"></button></div>
   <input type="file" id="dFile" accept=".txt,.csv,.md,.json,.pdf,text/plain,text/csv,application/pdf" hidden>
 </div></div>
@@ -283,6 +288,10 @@
   };
   let lang = (navigator.language||'ru').toLowerCase().startsWith('ru') ? 'ru' : 'en';
   try { const s = localStorage.getItem('knight-lang'); if (s) lang = s; } catch(e){}
+  // Embedded on a business website: ?embed=1&biz=clinic&lang=en (see widget.js and public/biz/*.json)
+  const QS=new URLSearchParams(location.search), BIZ=(QS.get('biz')||'').replace(/[^a-z0-9_-]/gi,''), EMBED=QS.get('embed')==='1';
+  if(QS.get('lang')==='ru'||QS.get('lang')==='en') lang=QS.get('lang');
+  if(EMBED) document.documentElement.classList.add('embed');
   const t = k => T[lang][k];
 
   // ---------------- Элементы ----------------
@@ -602,7 +611,7 @@
     let answer=null;
     if(!demo){
       try{
-        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6),stream:true,document:attachedDoc||undefined})});
+        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6),stream:true,document:attachedDoc||undefined,profile:BIZ||undefined})});
         if(r.status===404||r.status===405) throw new Error('no-server');
         if(myAsk!==askId) return;
         if(r.ok && (r.headers.get('content-type')||'').includes('text/plain') && r.body){
@@ -816,19 +825,19 @@
     for(let i=1;i<=Math.min(pdf.numPages,30);i++){ const pg=await pdf.getPage(i); const tc=await pg.getTextContent(); out+=tc.items.map(x=>x.str).join(' ')+'\n'; if(out.length>20000) break; }
     return out;
   }
-  async function attachAndAsk(name,text){
+  async function attachAndAsk(name,text,question){
     closeDocs(); if(!started) begin();
     setDoc(name,text);
-    ask(t('docAsk'));
+    ask(question||t('docAsk'));
   }
   $('dFile').addEventListener('change',async e=>{
     const f=e.target.files[0]; e.target.value=''; if(!f) return;
     try{ const text=/pdf$/i.test(f.name)||f.type==='application/pdf'?await pdfText(f):await f.text(); if(!text.trim()) throw 0; attachAndAsk(f.name,text); }
     catch(err){ closeDocs(); speak(t('docErr')); }
   });
-  document.querySelectorAll('[data-sample]').forEach(b=>b.addEventListener('click',async()=>{
-    try{ const name=b.dataset.sample; const text=await (await fetch('samples/'+name)).text(); attachAndAsk(name,text); }catch(e){ closeDocs(); speak(t('docErr')); }
-  }));
+  $('dSamples').addEventListener('click',async e=>{ const b=e.target.closest('[data-sample]'); if(!b) return;
+    try{ const name=b.dataset.sample; const text=await (await fetch('samples/'+name)).text(); attachAndAsk(name,text,b.dataset.ask&&b.dataset.ask!=='undefined'?b.dataset.ask:''); }catch(e){ closeDocs(); speak(t('docErr')); }
+  });
 
   // ---------------- Voice via Whisper in a TEE (recorded here, transcribed inside the enclave) ----------------
   let sttServer=false, recState=null;
@@ -905,7 +914,7 @@
     $('title').firstChild.textContent=t('title'); $('subtitle').textContent=t('subtitle');
     startBtn.textContent=t('start'); q.placeholder=t('placeholder'); $('sendBtn').textContent=t('send');
     $('note').textContent=demo?t('demoNote'):(typeof sttServer!=='undefined'&&sttServer?t('noteWhisper'):t('note'));
-    try{ setVBtn(lastAtt); if(lastProof) showProof(lastProof); }catch(e){}
+    try{ setVBtn(lastAtt); if(lastProof) showProof(lastProof); renderSamples(); }catch(e){}
     if(started) setStatus(t('ready'));
   }
   document.querySelectorAll('.lang button').forEach(b=>b.addEventListener('click',()=>{
@@ -938,6 +947,21 @@
   if(window.ResizeObserver) new ResizeObserver(layoutBg).observe(charEl);
   setTimeout(layoutBg,50);
 
+  // ---------------- Business profile (public/biz/<id>.json) ----------------
+  let PROFILE=null;
+  const pick=o=>o&&(o[lang]||o.en||o.ru)||'';
+  function renderSamples(){
+    if(!PROFILE||!PROFILE.samples) return;
+    $('dSamples').innerHTML=PROFILE.samples.map(x=>`<button class="opt" data-sample="${esc(x.file)}" data-ask="${esc(pick(x.ask))}">${esc(pick(x.label))}<small>${esc(pick(x.note))}</small></button>`).join('');
+  }
+  function applyProfile(){
+    if(!PROFILE) return;
+    for(const l of ['ru','en']){ const L=T[l];
+      L.title=PROFILE.title[l]||L.title; L.subtitle=PROFILE.subtitle[l]||L.subtitle; L.hello=PROFILE.hello[l]||L.hello; if(PROFILE.start) L.start=PROFILE.start[l]||L.start; L.greetRest=PROFILE.greetRest[l]||L.greetRest; }
+    document.title=pick(PROFILE.title); renderSamples();
+  }
+  const profileReady = BIZ ? fetch('biz/'+BIZ+'.json').then(r=>r.ok?r.json():null).then(p=>{ PROFILE=p; applyProfile(); }).catch(()=>{}) : Promise.resolve();
+
   // ---------------- 3D-рыцарь ----------------
   function onReact(kind){
     if(!started || mode!=='idle' || uttActive || curSource) return;
@@ -954,7 +978,8 @@
   // ---------------- Старт ----------------
   applyLang();
   // Пока посетитель не нажал кнопку, браузер не разрешает говорить вслух — просто машем и показываем приветствие
-  Promise.all(Object.values(frames).map(i=>i.decode?i.decode().catch(()=>{}):0)).then(()=>{
+  Promise.all(Object.values(frames).map(i=>i.decode?i.decode().catch(()=>{}):0).concat([profileReady])).then(()=>{
+    applyLang();
     setMode('wave'); say(t('hello'));
     setTimeout(()=>{ if(!started) setMode('idle'); }, 2600);
   });

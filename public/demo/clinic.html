@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daisy Clinic — family medicine (fictional demo)</title>
+<style>
+  :root{--g:#1f7a5a;--g2:#e9f6f0;--ink:#16302a}
+  *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#fbfdfc}
+  .demo{background:#fff4d6;color:#6b4b00;text-align:center;font-size:13px;padding:8px 12px;border-bottom:1px solid #f0dca0}
+  nav{display:flex;align-items:center;justify-content:space-between;max-width:1080px;margin:0 auto;padding:18px 20px}
+  .logo{font-weight:800;font-size:22px;color:var(--g)} .logo span{font-size:26px}
+  nav a{color:var(--ink);text-decoration:none;margin-left:22px;font-weight:600;font-size:15px}
+  .hero{max-width:1080px;margin:0 auto;padding:40px 20px 30px;display:grid;grid-template-columns:1.2fr 1fr;gap:36px;align-items:center}
+  h1{font-size:44px;line-height:1.08;margin:0 0 14px} .hero p{font-size:18px;line-height:1.5;color:#3d5a52;margin:0 0 22px}
+  .cta{display:inline-block;background:var(--g);color:#fff;padding:14px 22px;border-radius:12px;font-weight:700;text-decoration:none}
+  .card{background:var(--g2);border-radius:22px;padding:24px}
+  .card h3{margin:0 0 10px} .card li{margin:6px 0}
+  .grid{max-width:1080px;margin:0 auto;padding:10px 20px 40px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .grid div{background:#fff;border:1px solid #dcebe4;border-radius:18px;padding:20px} .grid b{display:block;font-size:17px;margin-bottom:6px} .grid span{color:#4c6a62;font-size:15px}
+  .private{max-width:1080px;margin:0 auto 60px;padding:24px 20px;background:#0d1a3d;color:#e8efff;border-radius:22px}
+  .private h2{margin:0 0 8px} .private p{margin:6px 0;line-height:1.5;color:#c5d3f5}
+  code{display:block;background:#06102a;color:#9fe3c0;border-radius:10px;padding:12px;margin-top:10px;font-size:13px;white-space:pre-wrap;word-break:break-all}
+  @media (max-width:760px){.hero{grid-template-columns:1fr}h1{font-size:34px}.grid{grid-template-columns:1fr}nav a{display:none}}
+</style>
+</head>
+<body>
+<div class="demo">Fictional clinic for the NEAR Hackathon demo. Names, doctors and prices are invented.</div>
+<nav><div class="logo"><span>🌼</span> Daisy Clinic</div><div><a href="#">Doctors</a><a href="#">Prices</a><a href="#">Contacts</a></div></nav>
+<section class="hero">
+  <div>
+    <h1>Family medicine you can talk to openly</h1>
+    <p>Six specialists, same-week appointments, lab tests in one visit. Not sure which doctor you need? Ask our assistant in the corner — by voice, any time.</p>
+    <a class="cta" href="#">Book an appointment</a>
+  </div>
+  <div class="card">
+    <h3>Open today</h3>
+    <ul><li>Mon–Fri 8:00–20:00 · Sat 9:00–15:00</li><li>12 Green Street · +1 555 0100</li><li>Insurance: BlueCare, MediPlus, HealthOne</li></ul>
+  </div>
+</section>
+<section class="grid">
+  <div><b>General practice</b><span>Dr. Anna Lee — check-ups, test results, referrals.</span></div>
+  <div><b>Cardiology</b><span>Dr. Mark Stone — ECG, blood pressure, cholesterol.</span></div>
+  <div><b>Endocrinology</b><span>Dr. Sarah Kim — thyroid, blood sugar, vitamins.</span></div>
+</section>
+<section class="private">
+  <h2>🔒 Our assistant cannot leak what you tell it</h2>
+  <p>Patients rarely tell a website chatbot the whole truth — they worry it is recorded. Our assistant runs inside hardware-protected enclaves (TEE) on NEAR AI Cloud. The conversation, your voice and the documents you show it are not stored and are not visible to the clinic. Tap <b>TEE ✓</b> inside the assistant to check the proof yourself.</p>
+  <p>How the clinic added it — one line on the page:</p>
+  <code>&lt;script src="https://&lt;assistant-host&gt;/widget.js" data-biz="clinic" data-lang="en" async&gt;&lt;/script&gt;</code>
+</section>
+<script src="../widget.js" data-biz="clinic" data-lang="en" async></script>
+</body>
+</html>

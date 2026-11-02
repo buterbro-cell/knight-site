@@ -97,6 +97,18 @@ const SYSTEM_PROMPT = `Ты — ${CHAR_NAME}, весёлый, добрый и у
 `;
 const SYSTEM_PROMPT_KB = `ШПАРГАЛКА ПРО NEAR:\n${KNOWLEDGE}`;
 
+// ---------- Business profiles: one JSON file per business in public/biz/ ----------
+// A business that embeds the assistant gets its own name, greeting, sample documents and instructions.
+// The files are public on purpose: anyone can read exactly what the assistant was told.
+const PROFILES = {};
+try {
+  for (const f of fs.readdirSync(path.join(__dirname, 'public', 'biz'))) {
+    if (!f.endsWith('.json')) continue;
+    const p = JSON.parse(fs.readFileSync(path.join(__dirname, 'public', 'biz', f), 'utf8'));
+    if (p.id && p.prompt) PROFILES[p.id] = p;
+  }
+} catch (e) { console.error('Profiles:', e.message); }
+
 // ---------- Abuse protection (salted IP hashes + timestamps only) ----------
 const SALT = crypto.randomBytes(16);   // new every start: hashes can't be linked across restarts
 const ipHash = ip => crypto.createHmac('sha256', SALT).update(String(ip)).digest('base64url').slice(0, 16);
@@ -190,7 +202,7 @@ async function proveAnswer({ chatId, requestBody, responseText }) {
 }
 
 // ---------- Streaming answer with tools and proof ----------
-async function askModelStream(messages, res) {
+async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_PROMPT_KB, tools = true } = {}) {
   await slot();
   let started = false, firstMs = null;
   const usageSum = { prompt_tokens: 0, completion_tokens: 0, prompt_tokens_details: { cached_tokens: 0 } };
@@ -201,9 +213,9 @@ async function askModelStream(messages, res) {
   const begin = () => { if (!started) { started = true; res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' }); } };
   let full = '', final = null;
   try {
-    const convo = [{ role: 'system', content: SYSTEM_PROMPT + SYSTEM_PROMPT_KB }, ...messages];
+    const convo = [{ role: 'system', content: system }, ...messages];
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-      const withTools = toolsOn && round < MAX_TOOL_ROUNDS;
+      const withTools = tools && toolsOn && round < MAX_TOOL_ROUNDS;
       const requestBody = JSON.stringify({
         model: MODEL, messages: convo,
         max_tokens: MAX_ANSWER_TOKENS, temperature: 0.6, stream: true, stream_options: { include_usage: true },
@@ -353,7 +365,10 @@ const server = http.createServer(async (req, res) => {
     const blocked = allow(req);
     if (blocked) return send(res, 429, { error: blocked === 'daily' ? 'daily_limit' : 'user_limit' });
     if (!KEY) return send(res, 500, { error: 'no_key' });
-    try { await askModelStream(msgs, res); lastError = null; }
+    // Business profile: its own instructions, no outside tools (nothing leaves the TEE model call)
+    const prof = PROFILES[String(body.profile || '')];
+    const opts = prof ? { system: prof.prompt, tools: false } : undefined;
+    try { await askModelStream(msgs, res, opts); lastError = null; }
     catch (e) {
       lastError = new Date().toISOString() + ' ' + e.message; stats.errors++;
       console.error(new Date().toISOString(), 'AI error:', e.message);   // never logs content

@@ -1,0 +1,19 @@
+DAISY CLINIC — INVOICE #DC-2026-10-4471        *** FICTIONAL SAMPLE ***
+Patient: Alex Sample        Insurance: MediPlus Silver (covers: GP visits, blood tests, ECG; 80%)
+Date of service: 2026-10-28
+
+Code     Service                                   Qty   Price    Total
+GP-01    General practitioner visit (Dr. Lee)        1    60.00    60.00
+LAB-10   Complete blood count                        1    25.00    25.00
+LAB-22   Biochemistry panel                          1    45.00    45.00
+LAB-22   Biochemistry panel                          1    45.00    45.00
+LAB-31   Ferritin + iron studies                     1    30.00    30.00
+LAB-40   Vitamin D (25-OH)                           1    38.00    38.00
+ECG-01   Electrocardiogram                           1    35.00    35.00
+ADM-99   "Priority processing fee"                   1    49.00    49.00
+                                                            ---------------
+Subtotal                                                          327.00
+Insurance pays (80% of covered items)                            -192.00
+PATIENT PAYS                                                      135.00
+
+Payment due: 2026-11-15. Card on file will be charged automatically.
