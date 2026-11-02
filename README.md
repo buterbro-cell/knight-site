@@ -75,6 +75,8 @@ npm start                   # http://localhost:3000
 
 Docker / Northflank: the included `Dockerfile` builds everything; set `NEAR_AI_KEY` as a secret environment variable.
 
+**In a TEE (Phala Cloud / dstack):** GitHub Actions (`.github/workflows/image.yml`) publishes the image to `ghcr.io/buterbro-cell/knight-site`; `docker-compose.phala.yml` runs it in an Intel TDX confidential VM with the dstack socket mounted. The server then attests **itself** (`lib/selfattest.js`, `GET /api/attestation/self`): a fresh Intel TDX quote with our nonce in `report_data`, verified with dcap-qvl, plus the app id and compose hash, which anyone can check on `https://trust.phala.com/app/<app_id>`. The Verified panel shows this as "Our relay server".
+
 ### Real output (captured live on the deployed server via `/api/selftest`, Nov 1 2026)
 
 ```

@@ -18,6 +18,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { attest, verifyResponseSignature, libsReady } = require('./lib/attest');
 const { selftest } = require('./lib/selftest');
+const relay = require('./lib/selfattest');   // attestation of this server when it runs in a TEE (Phala / dstack)
 const util = require('util');
 
 // ---------- Settings ----------
@@ -166,6 +167,7 @@ async function checkModel() {
 // ---------- Attestation (hardware evidence only — no user data) ----------
 let attestation = null, attesting = null;
 let selftestBusy = false, selftestAt = 0;
+let relayAtt = null;   // latest attestation of this server (hardware evidence only)
 async function runAttestation(signingAddress) {
   if (attesting && !signingAddress) return attesting;
   const p = (async () => {
@@ -425,8 +427,25 @@ const server = http.createServer(async (req, res) => {
     try {
       const a = await attest(MODEL, { nonce });
       const found = a.models.length > 0 && a.models.every(m => m.checks.some(c => c.id === 'nonce' && c.ok));
-      return send(res, 200, { ...a, challenge: { word, nonce, found }, rawReport: a.raw });
+      const r = relay.inTee() ? await relay.selfAttest(nonce).catch(e => ({ inTee: true, ok: false, error: e.message, checks: [] })) : { inTee: false };
+      return send(res, 200, { ...a, challenge: { word, nonce, found }, rawReport: a.raw, relay: r });
     } catch (e) { return send(res, 502, { error: 'attestation_error' }); }
+  }
+
+  // Attestation of THIS server (the relay). In a TEE on Phala Cloud it returns a fresh Intel TDX quote,
+  // verified here and checkable by anyone on https://trust.phala.com/app/<app_id>. Outside a TEE: { inTee:false }.
+  if (url.pathname === '/api/attestation/self') {
+    if (!relay.inTee()) return send(res, 200, { inTee: false });
+    const fresh = url.searchParams.get('fresh') === '1';
+    if (!relayAtt || (fresh && !allow(req, 0.25)) || Date.now() - Date.parse(relayAtt.checkedAt) > 5 * 60e3) {
+      try { relayAtt = await relay.selfAttest(); } catch (e) { return send(res, 200, { inTee: true, ok: false, error: e.message, checks: [] }); }
+    }
+    if (url.searchParams.get('raw') === '1') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': 'attachment; filename="relay-attestation.json"', 'Cache-Control': 'no-store' });
+      return res.end(JSON.stringify({ nonce: relayAtt.nonce, report_data: relayAtt.reportData, app_id: relayAtt.appId, compose_hash: relayAtt.composeHash, checkedAt: relayAtt.checkedAt, quote: relayAtt.quote, event_log: relayAtt.eventLog }, null, 2));
+    }
+    const { quote, eventLog, ...pub } = relayAtt;
+    return send(res, 200, pub);
   }
 
   // Raw attestation report of the latest check + its nonce: judges can re-verify it themselves
@@ -460,7 +479,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/health') return send(res, 200, {
     ok: true, key: !!KEY, model: MODEL, modelChecked, stt: !!sttModel, sttModel, lastError, tools: toolsOn, webSearch: webSearchEnabled,
     verifierLibs: libsReady(), attestationOk: attestation?.ok ?? null, models: availableModels,
-    tts: { ru: ttsReady('ru'), en: ttsReady('en') }, storesUserData: false,
+    tts: { ru: ttsReady('ru'), en: ttsReady('en') }, storesUserData: false, relayInTee: relay.inTee(),
   });
 
   // Static files
