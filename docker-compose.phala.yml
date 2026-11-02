@@ -1,11 +1,11 @@
 # Phala Cloud (dstack) deployment: the whole relay server runs inside an Intel TDX confidential VM.
 # Paste this into Phala Cloud → Deploy → Docker Compose. Set NEAR_AI_KEY and DEV_KEY as encrypted secrets.
 # For full verifiability pin the image by digest (see the GitHub Actions "image" job summary):
-#   image: ghcr.io/buterbro-cell/knight-site@sha256:<digest>
+#   image: ghcr.io/buterbro-cell/knight-site@sha256:8d20d22a128cb4b16598a014c944ac47a3b2c8edc03f4400a2fa88775ca74a4d<digest>
 services:
   app:
-    # built by GitHub Actions from commit cae3a4c (tag sha-cae3a4cb4818f6dcd289d6f8372cd7879c12ac6f)
-    image: ghcr.io/buterbro-cell/knight-site@sha256:69e4dc0920f519dcc8d0506c1efc852ce193e59ae8a48b8001b5beb7b46b0fba
+    # built by GitHub Actions from commit 9796968 (tag sha-9796968…)
+    image: ghcr.io/buterbro-cell/knight-site@sha256:8d20d22a128cb4b16598a014c944ac47a3b2c8edc03f4400a2fa88775ca74a4d
     restart: always
     user: root          # the dstack socket belongs to root inside the CVM
     ports:
