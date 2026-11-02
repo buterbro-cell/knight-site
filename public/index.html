@@ -539,12 +539,13 @@
     setMode('talk'); setStatus(t('speaking'));
     await waitVoices();
     if(id!==speakId) return;
-    const voice=synth?pickVoice():null;
-    if(voice) await speakBrowser(src,id,!!intro,voice);
-    else {
-      let ok=false;
-      if(serverTTS[lang] && audioCtx){ ok=await speakServer(src,id,!!intro); }
-      if(!ok && id===speakId){ voiceless=true; setStatus(t('noVoice')); await speakSilent(src,id,!!intro); }
+    // One voice on every device: the server voice (Piper) comes first, the browser voice is only a fallback
+    let ok=false;
+    if(serverTTS[lang] && audioCtx){ ok=await speakServer(src,id,!!intro); }
+    if(!ok && id===speakId){
+      const voice=synth?pickVoice():null;
+      if(voice) await speakBrowser(src,id,!!intro,voice);
+      else { voiceless=true; setStatus(t('noVoice')); await speakSilent(src,id,!!intro); }
     }
     if(id!==speakId) return;
     mouthStop(); setMode(after);

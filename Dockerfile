@@ -7,7 +7,7 @@ COPY package.json ./
 RUN npm install --omit=dev --no-audit --no-fund
 COPY . .
 
-# Голос на сервере (Piper) для браузеров без своего голоса, например Telegram.
+# Голос на сервере (Piper): один и тот же голос на всех устройствах, бесплатно, текст не уходит третьим лицам.
 # Нужно ~300 МБ памяти, поэтому по умолчанию выключено.
 # Включить: в Northflank → Build options → Build arguments: WITH_VOICE = 1
 ARG WITH_VOICE=0
