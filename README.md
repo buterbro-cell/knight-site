@@ -133,7 +133,17 @@ Nothing was stored: this script only printed results.
 
 ## What attestation does and does not prove
 
-It proves the **model and the NEAR AI gateway** run inside genuine Intel TDX + NVIDIA confidential-computing hardware and that each answer was signed there. Our own Node relay (on Northflank) is **not** in a TEE yet: the "nothing is stored" claim for it rests on this open-source code, not on cryptography. Next step: run the relay itself in a TEE (dstack / Phala Cloud) and add its attestation to the panel, and use NEAR AI end-to-end encryption so the relay only ever handles ciphertext.
+The whole path is now attested:
+
+| Hop | Runs in | Proof |
+|---|---|---|
+| Our relay server (this repo) | Intel TDX confidential VM on Phala Cloud (dstack) | "Our relay server" block in the Verified panel: fresh TDX quote with our nonce; app id + compose hash; public report at [trust.phala.com/app/a8fa8d779fbe978b9ed7ffda75e01abc952f7ee9](https://trust.phala.com/app/a8fa8d779fbe978b9ed7ffda75e01abc952f7ee9) |
+| NEAR AI gateway | TEE | gateway attestation in the panel |
+| Model (DeepSeek V4.1 Flash) and Whisper | Intel TDX + NVIDIA confidential computing | model attestation + signature of every answer |
+
+What ties the relay's attestation to *this source code*: `docker-compose.phala.yml` pins the image **by digest**; the image is built by GitHub Actions (`.github/workflows/image.yml`) from a public commit with build provenance; the compose hash is measured into RTMR3 and shown on the Trust Center page. The relay verifies its own quote in the panel for convenience — the independent check is the Trust Center report or the downloadable raw quote (`/api/attestation/self?raw=1`), verifiable with `dcap-qvl` or dstack-verifier.
+
+Not covered: the visitor's own device, and a malicious host page that draws a *fake* assistant instead of embedding ours (it cannot read the real one — it is a cross-origin iframe). The real assistant always shows its own origin and can be opened in a new tab.
 
 ## The knight
 
