@@ -13,8 +13,11 @@ const num = (k, v) => (DBG.has(k) ? +DBG.get(k) : v);
 
 // ---- tuning (world units, knight is ~1.67 tall, faces +Z) ----
 const FACE = { w: num('fw', 0.8), y: num('fy', 0.22), z: num('fz', 0.42), cx: num('cx', 0.9), cy: num('cy', 0.6) };
-const SWORD = { bone: 'mixamorigHips', pos: [num('sx', 0.36), num('sy', 0.58), num('sz', -0.08)], rot: [0, 0, num('sr', 160)], scale: 0.78 };
-const SHIELD = { bone: 'mixamorigSpine2', pos: [0, num('hy', 0.78), num('hz', -0.3)], rot: [num('hrx', 8), 180, 0], scale: 0.62 };
+// sword: in a sling on the back, hilt over the right shoulder; shield: on the left forearm, NEAR logo to the front
+const SWORD = { bone: 'mixamorigSpine2', pos: [num('sx', -0.25), num('sy', 1.05), num('sz', -0.24)], rot: [0, 0, num('sr', 225)], scale: 0.8 };
+const SHIELD = { bone: 'mixamorigLeftForeArm', rel: true, pos: [num('hx', 0.1), num('hy', -0.05), num('hz', 0.1)], rot: [0, num('hry', 15), num('hrz', 0)], scale: num('hs', 0.5) };
+// chibi body is wide: push the upper arms away from the torso in every animation (like Mixamo's "arm space")
+const ARM_OUT = num('arm', 20) * Math.PI / 180, ARM_AXIS = DBG.get('armax') || 'x';
 
 export async function createKnight(host, { onReact = () => {} } = {}) {
   // ---------- renderer ----------
@@ -68,12 +71,20 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
   const place = (item, cfg) => {
     const b = bone(cfg.bone); if (!b) return;
     const m = item.scene; m.scale.setScalar(cfg.scale);
-    m.position.set(...cfg.pos); m.quaternion.setFromEuler(new THREE.Euler(...cfg.rot.map(x => x * Math.PI / 180)));
+    m.position.set(...cfg.pos); if (cfg.rel) m.position.add(b.getWorldPosition(new THREE.Vector3())); m.quaternion.setFromEuler(new THREE.Euler(...cfg.rot.map(x => x * Math.PI / 180)));
     S.add(m); m.updateMatrixWorld(true); b.attach(m);
   };
-  place(SW, SWORD); place(SH, SHIELD);
-  act('Idle').stop();
 
+  const armL = bone('mixamorigLeftArm'), armR = bone('mixamorigRightArm');
+  const ax = new THREE.Vector3(ARM_AXIS === 'x' ? 1 : 0, ARM_AXIS === 'y' ? 1 : 0, ARM_AXIS === 'z' ? 1 : 0);
+  const qL = new THREE.Quaternion().setFromAxisAngle(ax, ARM_OUT), qR = new THREE.Quaternion().setFromAxisAngle(ax, -ARM_OUT);
+  const qLi = qL.clone().invert(), qRi = qR.clone().invert(); let spread = false;
+  // the mixer skips bones whose value did not change, so the offset is removed before each update and re-added after
+  function spreadArms() { if (spread) return; spread = true; if (armL) armL.quaternion.multiply(qL); if (armR) armR.quaternion.multiply(qR); }
+  function unspreadArms() { if (!spread) return; spread = false; if (armL) armL.quaternion.multiply(qLi); if (armR) armR.quaternion.multiply(qRi); }
+  spreadArms(); knight.updateMatrixWorld(true);
+  place(SW, SWORD); place(SH, SHIELD);
+  unspreadArms(); act('Idle').stop();
   let cur = null, curName = '';
   function play(name, { loop = true, fade = 0.3, from = 0, speed = 1 } = {}) {
     const a = act(name); if (!a) return null;
@@ -208,7 +219,7 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
   // ---------- loop ----------
   const clock = new THREE.Clock(); let talkT = 0, blinkAt = performance.now() + 2500;
   R.setAnimationLoop(() => {
-    const dt = Math.min(clock.getDelta(), 0.1); mixer.update(dt);
+    const dt = Math.min(clock.getDelta(), 0.1); unspreadArms(); mixer.update(dt); spreadArms();
     const now = performance.now();
     if (!overlay) {
       if (talkingNow) {                              // mouth flaps only while sound plays
@@ -219,6 +230,7 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
     if (now > blinkAt && face.eyes === 'open') { face.set('closed'); setTimeout(() => face.eyes === 'closed' && !overlay && face.set('open'), 130); blinkAt = now + 2200 + Math.random() * 3500; }
     R.render(S, C);
   });
+  if (DBG.has('rotY')) knight.rotation.y = +DBG.get('rotY') * Math.PI / 180;
   layout(); applyBase(true);
   requestAnimationFrame(() => { canvas.style.opacity = '1'; });
 
@@ -227,7 +239,7 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
     talking(on) { if (on === talkingNow) return; talkingNow = on; if (!on && !overlay) face.set(null, 'closed'); applyBase(); },
     emote(e) { if (e === 'laugh' && !overlay) { face.set('happy', 'wide'); later(1200, () => !overlay && face.set('open', 'closed')); } },
     poke, fall, tickle,
-    debugPose(name, t) { overlay = { name }; mixer.stopAllAction(); const a = act(name); a.play(); mixer.setTime(t * clips[name].duration); },
+    debugPose(name, t) { overlay = { name }; unspreadArms(); mixer.stopAllAction(); const a = act(name); a.play(); mixer.setTime(t * clips[name].duration); mixer.timeScale = 0; },
     face, clips: Object.keys(clips),
     state: () => ({ overlay: overlay && overlay.name, clip: curName, pokes: pokes.length, eyes: face.eyes }),
   };
