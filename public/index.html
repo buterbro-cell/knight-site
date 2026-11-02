@@ -923,7 +923,7 @@
     const feetY=ch.bottom-app.top-ch.height*0.025, feetX=ch.left-app.left+ch.width*0.5;
     const H=app.height;
     let sc=feetY/(ih*RING.y);           // масштаб по высоте: круг всегда одного размера относительно рыцаря
-    if(iw*sc<W*0.6) sc=W*0.6/iw;
+    if(iw*sc<W) sc=W/iw;               // always cover the full width: no empty sides on phones
     const w=iw*sc, h=ih*sc;
     bgImg.style.width=w+'px'; bgImg.style.height=h+'px';
     // если фон уже экрана — края не нужно растворять

@@ -1,5 +1,5 @@
 // 3D knight for the main page: Mixamo animations, drawn face (blink + mouth synced to speech),
-// sword at the hip, shield on the back, and Talking-Tom-style reactions: poke head / body / legs,
+// sword and shield standing on the floor beside him, and Talking-Tom-style reactions: poke head / body / legs,
 // poke many times → he falls and gets up, rub him → he laughs (tickle).
 // Usage (from index.html): const k = await createKnight(hostEl, { onReact });
 //   k.mode('idle'|'wave'|'listen'|'think'|'talk')   k.talking(true|false)   k.emote('laugh')
@@ -13,11 +13,11 @@ const num = (k, v) => (DBG.has(k) ? +DBG.get(k) : v);
 
 // ---- tuning (world units, knight is ~1.67 tall, faces +Z) ----
 const FACE = { w: num('fw', 0.8), y: num('fy', 0.22), z: num('fz', 0.42), cx: num('cx', 0.9), cy: num('cy', 0.6) };
-// sword: in a sling on the back, hilt over the right shoulder; shield: on the left forearm, NEAR logo to the front
-const SWORD = { bone: 'mixamorigSpine2', pos: [num('sx', -0.25), num('sy', 1.05), num('sz', -0.24)], rot: [0, 0, num('sr', 225)], scale: 0.8 };
-const SHIELD = { bone: 'mixamorigLeftForeArm', rel: true, pos: [num('hx', 0.1), num('hy', -0.05), num('hz', 0.1)], rot: [0, num('hry', 15), num('hrz', 0)], scale: num('hs', 0.5) };
+// shield stands on the floor at the knight's side, NEAR logo to the front; the sword is stuck in the ground behind it
+const SWORD = { pos: [num('sx', -0.5), num('sy', 0.42), num('sz', -0.25)], rot: [0, 0, num('sr', 148)], scale: num('ss', 0.8) };
+const SHIELD = { pos: [num('hx', -0.53), num('hy', 0.22), num('hz', -0.12)], rot: [num('hrx', -8), num('hry', 12), num('hrz', 6)], scale: num('hs', 0.46) };
 // chibi body is wide: push the upper arms away from the torso in every animation (like Mixamo's "arm space")
-const ARM_OUT = num('arm', 20) * Math.PI / 180, ARM_AXIS = DBG.get('armax') || 'x';
+const ARM_OUT = num('arm', 16) * Math.PI / 180, ARM_AXIS = DBG.get('armax') || 'x';
 
 export async function createKnight(host, { onReact = () => {} } = {}) {
   // ---------- renderer ----------
@@ -69,10 +69,10 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
   // weapons: placed in world space on the first idle frame, then they follow their bones
   act('Idle').play(); mixer.setTime(0); knight.updateMatrixWorld(true);
   const place = (item, cfg) => {
-    const b = bone(cfg.bone); if (!b) return;
+    const b = cfg.bone && bone(cfg.bone);
     const m = item.scene; m.scale.setScalar(cfg.scale);
-    m.position.set(...cfg.pos); if (cfg.rel) m.position.add(b.getWorldPosition(new THREE.Vector3())); m.quaternion.setFromEuler(new THREE.Euler(...cfg.rot.map(x => x * Math.PI / 180)));
-    S.add(m); m.updateMatrixWorld(true); b.attach(m);
+    m.position.set(...cfg.pos); if (cfg.rel && b) m.position.add(b.getWorldPosition(new THREE.Vector3())); m.quaternion.setFromEuler(new THREE.Euler(...cfg.rot.map(x => x * Math.PI / 180)));
+    S.add(m); m.updateMatrixWorld(true); if (b) b.attach(m);
   };
 
   const armL = bone('mixamorigLeftArm'), armR = bone('mixamorigRightArm');
