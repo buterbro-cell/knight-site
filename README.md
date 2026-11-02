@@ -117,6 +117,10 @@ Nothing was stored: this script only printed results.
 
 It proves the **model and the NEAR AI gateway** run inside genuine Intel TDX + NVIDIA confidential-computing hardware and that each answer was signed there. Our own Node relay (on Northflank) is **not** in a TEE: the "nothing is stored" claim for it rests on this open-source code, not on cryptography.
 
+## The knight
+
+A rigged 3D character (`public/3d/models/knight-anim.glb`, 20 Mixamo animations) rendered with three.js by `public/knight3d.js`: idle / talking / thinking / waving states, a drawn face whose mouth moves only while the voice plays, and Talking-Tom-style touch — tap head, body or legs for different reactions, tap 5 times quickly and he falls over and gets up dizzy, rub him to tickle. Browsers without WebGL2 (or `?video=1`) get the previous video knight.
+
 ## Files
 
 - `server.js` — API, streaming answers, proofs, Whisper, no storage

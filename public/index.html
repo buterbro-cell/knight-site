@@ -138,6 +138,12 @@
   .docchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .docchip button{border:0;background:rgba(255,255,255,.15);color:#fff;border-radius:50%;width:24px;height:24px;cursor:pointer;flex:none}
 </style>
+<script type="importmap">{"imports":{"three":"./3d/vendor/three/build/three.module.min.js","three/addons/":"./3d/vendor/three/examples/jsm/"}}</script>
+<style>
+  /* 3D knight (knight3d.js): replaces pictures and video once loaded */
+  .stage.k3d .char{aspect-ratio:702/1060;animation:none!important;touch-action:none}
+  .stage.k3d .char img, .stage.k3d .char>canvas:not(.k3d){display:none}
+</style>
 </head>
 <body>
 <div class="app">
@@ -212,6 +218,8 @@
 </div></div>
 
 <script>
+  // 3D knight unless WebGL2 is missing or ?video=1 asks for the old video knight
+  window.__use3d = !/[?&]video=1/.test(location.search) && !!document.createElement('canvas').getContext('webgl2');
 (() => {
   'use strict';
   // ---------------- Тексты ----------------
@@ -228,6 +236,7 @@
       limitUser:'Уф, ты задал много вопросов! Дай рыцарю передохнуть и возвращайся чуть позже.',
       limitDay:'На сегодня мой запас ответов закончился. Приходи завтра, путник!',
       error:'Мой оракул задумался и не ответил. Спроси ещё раз, пожалуйста.',
+      poke:['Ай!','Ой!','Эй!','Ух!'], annoyed:['Ну хватит тыкать!','Эй, я же рыцарь, а не кнопка!','Сейчас обижусь!'], fall:['Ой-ой… всё кружится!','Нечестно! Я поскользнулся!','Рыцари не падают… почти никогда.'],
       tickle:['Ха-ха-ха! Щекотно!','Эй, осторожнее с доспехами!','Ой! Я рыцарь, а не барабан!','Хи-хи! Ещё раз — и вызову на дуэль!'],
       note:'Голос распознаёт браузер (в Chrome — через Google). Для полной приватности пиши текстом. Ответы генерирует модель в защищённой среде NEAR AI.',
       demoNote:'Демо-режим: ответы заготовлены, микрофон здесь не работает. На настоящем сайте отвечает нейросеть NEAR AI и работает голос.',
@@ -255,6 +264,7 @@
       limitUser:"Phew, that's a lot of questions! Let the knight rest and come back a bit later.",
       limitDay:"I'm out of answers for today. Come back tomorrow, traveler!",
       error:"My oracle got lost in thought. Please ask again.",
+      poke:['Ouch!','Oof!','Hey!'], annoyed:['Stop poking me!','Hey, I am a knight, not a button!'], fall:['Whoa… the room is spinning!','Not fair! I slipped!'],
       tickle:['Ha-ha-ha! That tickles!','Hey, careful with the armor!','Ouch! I am a knight, not a drum!'],
       note:'Speech is recognized by your browser (Chrome uses Google). For full privacy, type instead. Answers come from a model running in NEAR AI secure enclaves.',
       demoNote:'Demo mode: no server connected, answers are pre-written. On the real site NEAR AI answers.',
@@ -281,7 +291,9 @@
   const startBtn=$('start'), row=$('row'), mic=$('mic'), kbd=$('kbd'), hush=$('hush'), form=$('form'), q=$('q');
   const frames={}; charEl.querySelectorAll('img').forEach(i=>frames[i.dataset.f]=i);
   let current='idle';
+  let K3D=null;
   function show(f){
+    if(K3D){ if(f==='wave') K3D.mode('wave'); else if(f==='laugh') K3D.emote('laugh'); else K3D.mode(mode); }
     if(VID.on){ VID.want(f==='idle'||f==='blink'?baseClip():'talk'); }
     if(f===current) return; frames[current].classList.remove('show'); frames[f].classList.add('show'); current=f; }
 
@@ -289,6 +301,7 @@
   // Ролики хранят картинку слева и прозрачность справа; WebGL склеивает их в рыцаря без фона.
   const VID=(()=>{
     const api={on:false,want(){}};
+    if(window.__use3d) return api;   // the 3D knight is used instead of video
     const make=(src,canvas)=>{
       const v=document.createElement('video'); v.src=(v.canPlayType('video/webm; codecs="vp9"')?src+'.webm':src+'.mp4'); v.muted=true; v.loop=true; v.playsInline=true; v.setAttribute('playsinline',''); v.preload='auto'; v.crossOrigin='anonymous';
       const gl=canvas.getContext('webgl',{premultipliedAlpha:true,alpha:true,antialias:false});
@@ -365,7 +378,7 @@
   let mode='idle'; // idle | wave | listen | think | talk
   function baseClip(){ return (mode==='listen'||mode==='think')?'listen':'idle'; }
   function setMode(m){
-    mode=m;
+    mode=m; if(K3D) K3D.mode(m);
     charEl.className='char'+(VID.on?' video':'')+(m==='idle'?'':' '+m);
     if(VID.on && m!=='talk') VID.want(baseClip()); // «говорит» включает только настоящая речь
     stage.classList.toggle('listening', m==='listen'); glow.style.opacity = m==='listen'?1:0;
@@ -568,8 +581,9 @@
   // Рот в живой анимации двигается ровно пока звучит речь: замолчал — закрыл, продолжил — открыл
   let uttActive=false, silentTalk=false;
   setInterval(()=>{
-    if(!VID.on) return;
     const talking = uttActive || !!curSource || silentTalk;
+    if(K3D) K3D.talking(talking);
+    if(!VID.on) return;
     if(talking) VID.want('talk');
     else if(VID.state==='talk') VID.want(baseClip());
   },80);
@@ -866,6 +880,7 @@
   let tickleIdx=0, started=false;
   charEl.addEventListener('click',()=>{
     if(!started) return begin();
+    if(K3D) return;   // the 3D knight handles taps, rubs and falls itself
     if(mode!=='idle') return;
     charEl.classList.remove('poke'); void charEl.offsetWidth; charEl.classList.add('poke');
     show('laugh');
@@ -921,6 +936,19 @@
   window.addEventListener('resize',layoutBg);
   if(window.ResizeObserver) new ResizeObserver(layoutBg).observe(charEl);
   setTimeout(layoutBg,50);
+
+  // ---------------- 3D-рыцарь ----------------
+  function onReact(kind){
+    if(!started || mode!=='idle' || uttActive || curSource) return;
+    const L=T[lang];
+    if(kind==='tickle') speak(L.tickle[tickleIdx++ % L.tickle.length],{face:'laugh'});
+    else if(kind==='fall') setTimeout(()=>{ if(mode==='idle') speak(L.fall[Math.floor(Math.random()*L.fall.length)]); },2600);
+    else if(kind==='annoyed') speak(L.annoyed[Math.floor(Math.random()*L.annoyed.length)]);
+    else if(kind==='poke' && Math.random()<0.5) speak(L.poke[Math.floor(Math.random()*L.poke.length)]);
+  }
+  if(window.__use3d) import('./knight3d.js').then(m=>m.createKnight(charEl,{onReact})).then(k=>{
+    K3D=k; window.__knight=k; stage.classList.add('k3d'); k.mode(mode); setTimeout(layoutBg,50);
+  }).catch(e=>console.warn('3D knight failed, keeping pictures',e));
 
   // ---------------- Старт ----------------
   applyLang();
