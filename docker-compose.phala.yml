@@ -4,8 +4,8 @@
 #   image: ghcr.io/buterbro-cell/knight-site@sha256:<digest>
 services:
   app:
-    # built by GitHub Actions from commit 0808f01
-    image: ghcr.io/buterbro-cell/knight-site@sha256:c6db0eb991743436d3d879999b62a9929dbf25d5a9b916ff658ea876e3eb16f7
+    # built by GitHub Actions from commit eacd8fc
+    image: ghcr.io/buterbro-cell/knight-site@sha256:aefdec6a1695e4bac62e68d382f467adf40cd13a4a573b9cb98aae8886d91565
     restart: always
     user: root          # the dstack socket belongs to root inside the CVM
     ports:
