@@ -617,7 +617,7 @@
     $('title').firstChild.textContent=t('title'); $('subtitle').textContent=t('subtitle');
     startBtn.textContent=t('start'); q.placeholder=t('placeholder'); $('sendBtn').textContent=t('send');
     $('note').textContent=demo?t('demoNote'):(typeof sttServer!=='undefined'&&sttServer?t('noteWhisper'):t('note'));
-    try{ setVBtn(lastAtt); if(lastProof) showProof(lastProof); renderSamples(); }catch(e){}
+    try{ setVBtn(lastAtt); if(lastProof) showProof(lastProof); renderSamples(); showOfficial(); }catch(e){}
     if(started) setStatus(t('ready'));
   }
   document.querySelectorAll('.lang button').forEach(b=>b.addEventListener('click',()=>{
@@ -661,7 +661,18 @@
     if(!PROFILE) return;
     for(const l of ['ru','en']){ const L=T[l];
       L.title=PROFILE.title[l]||L.title; L.subtitle=PROFILE.subtitle[l]||L.subtitle; L.hello=PROFILE.hello[l]||L.hello; if(PROFILE.start) L.start=PROFILE.start[l]||L.start; L.greetRest=PROFILE.greetRest[l]||L.greetRest; }
-    document.title=pick(PROFILE.title); renderSamples();
+    document.title=pick(PROFILE.title); renderSamples(); showOfficial();
+  }
+  // Is this assistant embedded on one of the business's own sites? (profile.domains; our own origin hosts the demo)
+  // The host page cannot fake the iframe's referrer origin, and it cannot read or restyle this badge.
+  function showOfficial(){
+    if(!EMBED||!PROFILE) return;
+    let host=''; try{ host=new URL(document.referrer).hostname; }catch(e){}
+    const ok=host && (host===location.hostname || (PROFILE.domains||[]).some(d=>host===d||host.endsWith('.'+d)));
+    let el=$('official'); if(!el){ el=document.createElement('div'); el.id='official'; $('subtitle').after(el); }
+    el.className='official '+(ok?'ok':'warn');
+    el.textContent= ok ? (lang==='ru'?'✓ Официальный помощник на ':'✓ Official assistant on ')+host
+                       : (lang==='ru'?'⚠ Этот сайт не в списке сайтов ':'⚠ This site is not listed for ')+pick(PROFILE.name);
   }
   const profileReady = BIZ ? fetch('biz/'+BIZ+'.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(p=>{ PROFILE=p; applyProfile(); }).catch(()=>{}) : Promise.resolve();
   // Background: the business's own room (biz/<id>.json → background), otherwise the default data-center hall

@@ -1,21 +1,62 @@
 # Sir Near — a verifiably private voice assistant for any website
 
-**Track: Privacy & Private AI (`privacy`)** · NEAR AI Cloud · TEE · Attestation
+**NEAR HACKATHON · Track: Privacy & Private AI (`privacy`)** · NEAR AI Cloud · Phala Cloud (dstack) · TEE attestation
+
+> Website chatbots of clinics and banks usually tell you **not** to share medical or financial details — the conversation is stored by an AI vendor.
+> Sir Near is built so there is nothing to store and nobody to see it: every hop runs in a hardware enclave, and the assistant **proves it on screen**.
+
+| | |
+|---|---|
+| 🌐 **Live demo** | https://4f6208e0cb5e85944797f12cb210582e54a2107f-3000.dstack-pha-prod9.phala.network |
+| 🏥🏦 **Demo businesses** | `/demo/?s=clinic` · `/demo/?s=bank` |
+| 🛡️ **Server attestation (Phala Trust Center)** | https://trust.phala.com/app/a8fa8d779fbe978b9ed7ffda75e01abc952f7ee9 |
+| 🧪 **Live self-test** | `/api/selftest` — the minimal verify script, run on the deployed server |
+
+---
+
+## For judges: 5 minutes, do X → see Y
+
+1. **Open `/demo/?s=clinic`** → tap **Private assistant** (bottom right) → **Talk to the assistant**.
+   → A 3D knight greets you by voice as Daisy Clinic's assistant; under the title: **✓ Official assistant on <this site>**.
+2. Tap **📄** → **Blood test results** (fictional patient).
+   → The knight names the out-of-range values (hemoglobin, ferritin, vitamin D, LDL, HbA1c, CRP), explains them in plain words and suggests which of the clinic's doctors to see. Under the answer: **🔏 Answer signed inside the TEE — verified**.
+3. Tap **TEE ✓** in the assistant's header → the **Verified panel**.
+   → Green checks for the **model** (Intel TDX + NVIDIA GPU), the **NEAR AI gateway** and **our relay server** (Intel TDX on Phala), plus the signature evidence of the last answer.
+4. In the panel, under **Check it yourself**, type **any number** → **Verify**.
+   → "✅ Your number was found inside the Intel-signed report": `nonce = sha256(your number)` sits in the quote's `report_data`. Nobody could have prepared that report in advance — the check is live. Check the hash yourself: `echo -n "<your number>" | sha256sum`.
+5. Switch to **🏦 Owlbridge Bank** at the top → 📄 → **Suspicious call from "the bank"**.
+   → It recognises the "safe account" scam (urgency, SMS code, secrecy) and says exactly what to do now. 📄 → **Personal loan offer** → the advertised 6.9% is really a **15.8% APR** (financed insurance, fees, early-repayment penalty).
+6. Open **`/api/selftest`**.
+   → The output of `scripts/verify.js` produced live on the deployed server: TEE model chosen from `/v1/models` → one completion → attestation with a fresh nonce → response signature. All ✅.
+7. Open the **Trust Center** link above.
+   → Phala's independent report for our server: TEE hardware verified, source code (compose) verified, network end-to-end encrypted, OS verified.
+8. **Don't trust our site at all:** `git clone`, put your own key in `.env`, run `npm run verify` — it talks to NEAR AI directly with its own random nonce.
+
+---
 
 ## The problem
 
-Clinics, banks, law firms and insurers want an AI assistant on their website. Today that means sending every customer conversation to an AI vendor that logs it — a compliance risk for the business and a reason for customers to hold back: nobody tells a website chatbot about their symptoms, debts or legal trouble if it might be recorded.
+Clinics, banks and insurers are putting AI assistants on their websites. But the assistant's terms — and often the assistant itself — ask people **not** to share sensitive details, because conversations go to an AI vendor and are stored. So the assistant can't help with exactly the questions people need help with: symptoms they're embarrassed about, a payment they can't make, whether a call "from the bank" was a scam.
 
 ## What we built
 
-**Sir Near** is a voice assistant with a live animated character that a business adds to its website with **one line of code**. Visitors talk to it by voice or show it a document (test results, an invoice, a contract), and it answers out loud. Every model that touches the visitor's data runs inside Trusted Execution Environments on **NEAR AI Cloud** — and the assistant **proves it** on screen. The business itself never sees the conversation.
+**Sir Near** is a voice assistant with a live 3D character that any business adds to its website with **one line of code**. Visitors talk to it or show it a document; it answers out loud. Everything that touches the visitor's data runs in Trusted Execution Environments, and the assistant shows the proof.
 
-- 🎙️ **Voice → text:** Whisper Large v3, hosted by NEAR AI inside a TEE (Private TEE).
-- 🧠 **Thinking:** `deepseek-ai/DeepSeek-V4.1-Flash-1017`, hosted by NEAR AI inside a TEE (Private TEE).
-- 🔊 **Text → voice:** Piper inside our TEE relay (same voice on every device); fallback only to on-device browser voices.
-- 🛡️ **Verified panel:** the attestation report is fetched with a **fresh random nonce** (or the visitor's own number) and verified the way the NEAR AI verification docs describe. The panel lists every check.
-- 🔏 **Every answer is signed** inside the enclave; the app checks the signature and that the signer is an attested TEE key.
-- 🗑️ **Nothing is stored server-side.** See below.
+```mermaid
+flowchart LR
+  B["Visitor's browser<br/>(assistant iframe, own origin)"] -- HTTPS, TLS ends inside the enclave --> R["Our relay server<br/>Intel TDX · Phala Cloud (dstack)<br/>stores nothing · Piper voice"]
+  R -- question / document --> G["NEAR AI gateway<br/>TEE"]
+  G --> M["DeepSeek V4.1 Flash<br/>Intel TDX + NVIDIA CC"]
+  R -- audio --> W["Whisper Large v3<br/>NEAR AI TEE"]
+  R -. "attestation with fresh nonce<br/>+ signature of every answer" .-> B
+```
+
+- 🎙️ **Voice → text:** Whisper Large v3 in a NEAR AI TEE.
+- 🧠 **Answers:** `deepseek-ai/DeepSeek-V4.1-Flash-1017`, hosted by NEAR AI in a TEE (*Private TEE*).
+- 🔊 **Text → voice:** Piper, inside our TEE relay — same voice on every device.
+- 🛡️ **Verified panel:** model, gateway and relay attestations, each with a fresh nonce; every answer signed in the enclave.
+- 🗑️ **Nothing stored** — see below.
+- 🧸 **A character people like talking to:** rigged 3D knight with 20 animations, a face that blinks and talks only while the voice plays, and Talking-Tom-style reactions (tap him, tickle him, poke him five times and he falls over).
 
 ## Add it to a website — one line
 
@@ -23,71 +64,85 @@ Clinics, banks, law firms and insurers want an AI assistant on their website. To
 <script src="https://<assistant-host>/widget.js" data-biz="clinic" data-lang="en" async></script>
 ```
 
-`public/widget.js` puts a round button in the corner. Tapping it opens the assistant in an iframe served from the assistant's own origin, so **the host page has no access to the conversation** — not the voice, not the documents, not the answers.
-
-Each business is one public JSON file, `public/biz/<id>.json`: name, greeting, sample documents and the instructions the assistant follows. Being public is deliberate — anyone can read exactly what the assistant was told. Business profiles do not use outside tools, so nothing leaves the TEE model call.
-
-**Live demo businesses:** `/demo/` — one page with a scenario switch at the top:
-- **🏥 Daisy Clinic** (`/demo/?s=clinic`) — ask which doctor you need, or tap 📄 → *Blood test results* / *Clinic invoice*.
-- **🏦 Owlbridge Bank** (`/demo/?s=bank`) — "questions people are afraid to ask their bank": a payment you can't make, a suspicious call from "the bank", a strange charge, the real cost of a loan. Tap 📄 → *Card statement*, *Personal loan offer* or *Suspicious call*. The assistant never asks for card numbers or codes and has no access to accounts.
-
-Both are fictional. The main page `/` is the same assistant as the NEAR knight, without a business profile.
+- `public/widget.js` adds a button in the corner. The assistant opens in an **iframe from our origin**, so the host page **cannot read** the conversation — not the voice, not the documents, not the answers.
+- Each business is one **public** JSON file, `public/biz/<id>.json`: name, greeting, background, sample documents, allowed domains and the exact instructions the assistant follows. Public on purpose — anyone can read what the assistant was told. Business profiles use no outside tools: nothing leaves the TEE model call.
+- **Official-install badge:** the assistant checks the embedding page's origin (the iframe referrer, which the host page cannot change) against the profile's `domains` and shows *✓ Official assistant on …* or a warning. The host page cannot draw over it.
 
 ## Requirements → where they are
 
-| Requirement | Where |
+| Track requirement | Where |
 |---|---|
-| OpenAI-compatible API, base URL `https://cloud-api.near.ai/v1`, key in `.env` | `lib/env.js`, `.env.example`, `server.js` (`API_URL`) |
-| Choose a TEE-hosted model from the models endpoint | `server.js → checkModel()` reads `/v1/models`, prefers NEAR-hosted *Private TEE* models (`MODEL_PREFS`), never *Incognito* ones; same in `scripts/verify.js` |
-| Fetch attestation with a fresh random nonce and verify it as the docs describe | `lib/attest.js → attest()` (port of the official `nearai-cloud-verifier`, see checks below) |
-| Show a "Verified" panel listing what was checked | `public/index.html` → **TEE ✓** button in the header and the line under each answer |
-| Keep nothing server-side after a response returns | header comment of `server.js`, `/api/health → storesUserData:false`, section below |
-| Fictional sample documents | `public/samples/` (blood test, clinic invoice, bank statement, receipts, lease) — 📄 button in the assistant |
+| NEAR AI Cloud via the OpenAI-compatible API, base URL `https://cloud-api.near.ai/v1`, key in `.env` | `server.js` (`API_URL`), `lib/env.js`, `.env.example` |
+| Choose a TEE-hosted model from the models endpoint | `server.js → checkModel()` reads `/v1/models`, prefers NEAR-hosted *Private TEE* models (`MODEL_PREFS`), never *Incognito*; same in `lib/selftest.js` |
+| Fetch the attestation report with a fresh random nonce and verify it as the docs describe | `lib/attest.js → attest()` — a port of the official [nearai-cloud-verifier](https://github.com/nearai/nearai-cloud-verifier) |
+| Show a "Verified" panel listing what was checked | **TEE ✓** button → panel (`public/app.js → renderVerified()`); line under every answer |
+| Keep nothing server-side after a response returns; say so in README and code | header comment of `server.js`; section *Nothing is kept server-side* below; `/api/health → storesUserData:false` |
+| Fictional sample documents | `public/samples/` — blood test, clinic invoice, card statement, loan offer, scam-call transcript, receipts, lease |
+| Minimal script: one completion + attestation, show its output | `scripts/verify.js` (`npm run verify`); real output below and live at `/api/selftest` |
 
 ## What is verified
 
-For every attestation (`GET /v1/attestation/report?model=…&nonce=<32 random bytes>&signing_algo=ecdsa`):
+**Model and NEAR AI gateway** — `GET /v1/attestation/report?model=…&nonce=<32 random bytes>&signing_algo=ecdsa`:
 
-1. **Intel TDX quote is genuine** — verified with `@phala/dcap-qvl-node` against Intel's collateral (`UpToDate`/`OutOfDate` accepted, same rule as the official verifier).
-2. **Signing key is bound to the enclave** — `report_data[0..32]` equals the attested signing address.
-3. **Report is fresh** — `report_data[32..64]` equals *our* nonce.
-4. **NVIDIA GPU in confidential-computing mode** — GPU evidence carries our nonce; NVIDIA NRAS verdict is `true`.
-5. **Running code matches the attested manifest** — SHA-256 of the docker compose equals `mr_config_id` from the verified quote (informational).
+1. **Intel TDX quote is genuine** — `@phala/dcap-qvl-node` against Intel's collateral (`UpToDate`/`OutOfDate` accepted, as in the official verifier).
+2. **Signing key is bound to the enclave** — `report_data[0..32]` = attested signing address.
+3. **Report is fresh** — `report_data[32..64]` = our nonce.
+4. **NVIDIA GPU in confidential-computing mode** — GPU evidence carries our nonce; NVIDIA NRAS verdict `true`.
+5. **Running code matches the manifest** — SHA-256 of the docker compose = `mr_config_id` (informational).
 
-For every answer (`GET /v1/signature/{chat_id}`):
+**Every answer** — `GET /v1/signature/{chat_id}`:
 
 6. SHA-256 of our exact request body and of the exact streamed response match the signed text.
 7. The ECDSA signature recovers to the signing address.
-8. That address belongs to an attestation we just verified (if another replica answered, that exact key is attested with a new nonce).
+8. That address belongs to an attestation we just verified (if another replica answered, that key is attested with a new nonce).
+
+**Our relay server** — `GET /api/attestation/self` (`lib/selfattest.js`), dstack guest agent:
+
+9. Intel TDX quote with `report_data = tag ‖ our nonce`, verified with dcap-qvl; app id and compose hash measured in RTMR3; public report on the Phala Trust Center.
 
 ## Nothing is kept server-side
 
-- No database, no files, no logs of content. Questions, answers, documents and voice recordings exist only in local variables of one request handler and are gone when the response ends.
-- No answer cache, no TTS cache, no conversation history on the server — the browser keeps the last few turns and sends them with the next question.
+- No database, no files, no content logs. Questions, answers, documents and audio live only in local variables of one request handler.
+- No answer cache, no TTS cache, no conversation history on the server — the browser keeps the last few turns.
 - Documents are read **in the browser** (PDF via pdf.js) and sent only together with the question.
-- **No cloud fallbacks in the browser.** Voice input goes only to Whisper in the NEAR AI TEE — the browser's own speech recognition (Chrome → Google, Safari → Apple) is never used; without audio recording the visitor is asked to type. Voice output is Piper inside our TEE; the only fallback is a browser voice that runs **on the device** (`localService`), cloud voices are skipped.
-- Kept in memory, without user content: salted hashes of IPs with timestamps (rate limiting; the salt changes on every restart), aggregate token/cost counters for the owner's `/dev.html`, and the latest attestation result (hardware evidence only).
-- Web search is **off** by default because it would send a query outside the TEE (`ALLOW_WEB_SEARCH=1` to enable). Tools that stay on read only public NEAR docs and public network data and never receive the user's document.
+- **No cloud fallbacks in the browser:** voice input goes only to Whisper in the TEE (the browser's own speech recognition — Google / Apple — is never used); voice output falls back only to voices that run **on the device**.
+- In memory, without user content: salted IP hashes with timestamps for rate limiting (salt changes on every restart), aggregate token counters for the owner's `/dev.html`, the latest attestation results.
+- Web search is **off** by default (it would send a query outside the TEE).
+
+## What it proves — and what it doesn't
+
+| Hop | Runs in | Proof |
+|---|---|---|
+| Our relay server (this repo) | Intel TDX CVM, Phala Cloud (dstack) | panel → "Our relay server"; [Trust Center](https://trust.phala.com/app/a8fa8d779fbe978b9ed7ffda75e01abc952f7ee9); raw quote `/api/attestation/self?raw=1` |
+| NEAR AI gateway | TEE | gateway attestation in the panel |
+| Model and Whisper | Intel TDX + NVIDIA confidential computing | model attestation + signature of every answer |
+
+- **Which code runs:** `docker-compose.phala.yml` pins the image **by digest**; GitHub Actions (`.github/workflows/image.yml`) builds it from a public commit with build provenance; the compose hash is measured into RTMR3 and shown on the Trust Center.
+- **Attestation proves *where* an answer was computed and that nobody altered it — not that the answer is correct.** The model can be wrong; the assistant says so and doesn't diagnose.
+- **Not covered:** the visitor's own device; a malicious page drawing a *fake* assistant (it can't read the real one, and the real one shows the official-install badge and its own origin); trust in Intel, NVIDIA, Phala and NEAR AI hardware roots; side-channel and physical attacks on TEEs. This is a prototype without an external security audit.
+
+## Business model and verifying installations
+
+- **Subscription per business** by number of conversations (for example 500 conversations / month), the server counts **only how many** conversations happened — never their content. Larger customers could bring their own NEAR AI key or run the open-source relay in their own TEE (not built yet).
+- **Cost:** one conversation is ~1–2 cents of model usage on NEAR AI; one TEE relay serves many businesses (each is a JSON profile).
+- **Checking installs:** the official-install badge (above); for self-hosted relays the operator — or anyone — checks the relay's attestation and that its compose pins the published image digest.
 
 ## Run it
 
 ```bash
-cp .env.example .env        # put your NEAR_AI_KEY inside
+cp .env.example .env        # NEAR_AI_KEY=...
 npm install
-npm run verify              # minimal script: one completion + attestation + signature check
-npm start                   # http://localhost:3000
+npm run verify              # minimal script: one completion + attestation + signature
+npm start                   # http://localhost:3000  (demo: /demo/)
 ```
 
-Docker / Northflank: the included `Dockerfile` builds everything; set `NEAR_AI_KEY` as a secret environment variable.
+- **Docker / any host:** `Dockerfile` (`--build-arg WITH_VOICE=1` adds the Piper voice).
+- **In a TEE (Phala Cloud):** GitHub Actions publishes `ghcr.io/buterbro-cell/knight-site`; deploy `docker-compose.phala.yml` and set `NEAR_AI_KEY` as an encrypted secret. The dstack socket mount lets the server attest itself.
 
-**In a TEE (Phala Cloud / dstack):** GitHub Actions (`.github/workflows/image.yml`) publishes the image to `ghcr.io/buterbro-cell/knight-site`; `docker-compose.phala.yml` runs it in an Intel TDX confidential VM with the dstack socket mounted. The server then attests **itself** (`lib/selfattest.js`, `GET /api/attestation/self`): a fresh Intel TDX quote with our nonce in `report_data`, verified with dcap-qvl, plus the app id and compose hash, which anyone can check on `https://trust.phala.com/app/<app_id>`. The Verified panel shows this as "Our relay server".
-
-### Real output (captured live on the deployed server via `/api/selftest`, Nov 1 2026)
+### Real output of the minimal script (captured on the deployed server, Nov 1 2026)
 
 ```
 $ node scripts/verify.js   (run live on this server, 2026-11-01T23:40:31.963Z)
-
-Libraries: { dcap: true, ethers: true }
 
 1) Model: deepseek-ai/DeepSeek-V4.1-Flash-1017  (from 64 models on /v1/models)
 
@@ -99,70 +154,49 @@ Libraries: { dcap: true, ethers: true }
 
    Gateway — signing address 0xb98a789cdc4817275f5155593ba73ef2a957e779
      ✅ Intel TDX quote is genuine  (dcap-qvl status: UpToDate)
-     ✅ Signing key is bound to this enclave  (report_data[0..32] = signing address 0xb98a789cdc4817275f5155593ba73ef2a957e779)
+     ✅ Signing key is bound to this enclave
      ✅ Report is fresh (our nonce inside the quote)  (report_data[32..64] = 7039cfc3a00b62a6…)
-     ✅ Server echoed our nonce  [info]
-     ✅ Running code matches the attested manifest  (compose sha256 f571e5dafe8f96ba… = mr_config_id)  [info]
+     ✅ Running code matches the attested manifest  [info]
 
    Model #1 — signing address 0xfe0071895500a9755c18044948ab4f4e1a7f337e
      ✅ Intel TDX quote is genuine  (dcap-qvl status: UpToDate)
-     ✅ Signing key is bound to this enclave  (report_data[0..32] = signing address 0xfe0071895500a9755c18044948ab4f4e1a7f337e)
+     ✅ Signing key is bound to this enclave
      ✅ Report is fresh (our nonce inside the quote)  (report_data[32..64] = 7039cfc3a00b62a6…)
-     ✅ Server echoed our nonce  [info]
-     ✅ Running code matches the attested manifest  (compose sha256 ae66f844658a7aee… = mr_config_id)  [info]
+     ✅ Running code matches the attested manifest  [info]
      ✅ GPU evidence uses our nonce
      ✅ NVIDIA GPU is in confidential-computing mode  (NVIDIA NRAS verdict: true)
 
    Attestation overall: ✅ VERIFIED  (2054 ms)
 
 4) Response signature…
-     ✅ Question reached the enclave unchanged  (SHA-256 of our request vs. the signed hash)
-     ✅ Answer left the enclave unchanged  (SHA-256 of the received answer vs. the signed hash)
+     ✅ Question reached the enclave unchanged
+     ✅ Answer left the enclave unchanged
      ✅ Signature is valid  (signer 0xfe0071895500a9755c18044948ab4f4e1a7f337e)
-     ✅ Signer is an attested TEE key  (matches a verified enclave)
-
-   Signature overall: ✅
+     ✅ Signer is an attested TEE key
 
 Nothing was stored: this script only printed results.
 ```
 
-## Try it as a judge
+Full output: [`docs/verify-output.txt`](docs/verify-output.txt).
 
-1. Open `/demo/?s=clinic` → tap **Private assistant** in the corner → **Talk to the assistant**.
-2. Tap 📄 → **Blood test results** (fictional patient). The assistant names the values out of range (hemoglobin, ferritin, vitamin D, LDL, HbA1c, CRP), explains them simply and suggests which of the clinic's doctors to see. Try 📄 → **Clinic invoice**: it finds the duplicated biochemistry panel, the unexplained "priority processing fee" and the insurance amount that does not add up.
-3. Tap **TEE ✓** in the assistant's header → the Verified panel. The line under each answer shows that it was signed inside the TEE.
-4. Ask by voice: "Which doctor should I see for chest pain?" — urgent symptoms are redirected to emergency services first.
-5. Switch to **🏦 Owlbridge Bank** at the top → 📄 → **Suspicious call from "the bank"**: the assistant recognises the "safe account" scam (urgency, SMS code, secrecy) and says exactly what to do now. 📄 → **Personal loan offer**: it shows that the advertised 6.9% is really a 15.8% APR with a financed insurance and an early-repayment fee.
-6. **Prove it is live, not a recording:** in the Verified panel type *your own* number or word under "Check it yourself" and tap **Verify**. The server sends `nonce = sha256(your word)` to NEAR AI; the panel shows that this exact value sits inside `report_data` of the Intel-signed TDX quote (and in the NVIDIA GPU evidence). Nobody could have prepared that report in advance. Download it and re-check with [nearai-cloud-verifier](https://github.com/nearai/nearai-cloud-verifier), or run `echo -n "your word" | sha256sum` to confirm the nonce. Endpoint: `GET /api/attestation/challenge?word=…` (the word is used for that one request and never stored).
-7. **See the minimal script's output on the live server:** open `/api/selftest` — it runs exactly `node scripts/verify.js` (one completion + attestation with a fresh nonce + response signature) and prints the result as text. Limited to once a minute.
-8. **Don't trust this site at all:** clone the repo, put your own key in `.env`, run `npm run verify` — it talks to NEAR AI directly with its own random nonce.
+## Repository map
 
-## What attestation does and does not prove
+| Path | What |
+|---|---|
+| `server.js` | API: streamed answers, Whisper, Piper, proofs, rate limits; stores nothing |
+| `lib/attest.js` | NEAR AI attestation + answer-signature verification |
+| `lib/selfattest.js` | attestation of our own server via the dstack guest agent |
+| `lib/selftest.js`, `scripts/verify.js` | the minimal end-to-end check (`npm run verify`, `/api/selftest`) |
+| `tools.js` | optional public lookups for the main knight (NEAR docs, network status) |
+| `public/index.html`, `public/app.js`, `public/app.css` | the assistant: voice, Verified panel, documents, business profiles |
+| `public/knight3d.js`, `public/3d/` | the 3D character (three.js), model, face |
+| `public/widget.js` | one-line embed for business websites |
+| `public/biz/*.json` | business profiles (clinic, bank) |
+| `public/demo/index.html` | fictional clinic and bank websites with the assistant embedded |
+| `public/samples/` | fictional documents |
+| `Dockerfile`, `docker-compose.phala.yml`, `.github/workflows/image.yml` | build and TEE deployment |
+| `README.ru.md` | short guide in Russian |
 
-The whole path is now attested:
+All businesses, people and documents in this repository are fictional.
 
-| Hop | Runs in | Proof |
-|---|---|---|
-| Our relay server (this repo) | Intel TDX confidential VM on Phala Cloud (dstack) | "Our relay server" block in the Verified panel: fresh TDX quote with our nonce; app id + compose hash; public report at [trust.phala.com/app/a8fa8d779fbe978b9ed7ffda75e01abc952f7ee9](https://trust.phala.com/app/a8fa8d779fbe978b9ed7ffda75e01abc952f7ee9) |
-| NEAR AI gateway | TEE | gateway attestation in the panel |
-| Model (DeepSeek V4.1 Flash) and Whisper | Intel TDX + NVIDIA confidential computing | model attestation + signature of every answer |
-
-What ties the relay's attestation to *this source code*: `docker-compose.phala.yml` pins the image **by digest**; the image is built by GitHub Actions (`.github/workflows/image.yml`) from a public commit with build provenance; the compose hash is measured into RTMR3 and shown on the Trust Center page. The relay verifies its own quote in the panel for convenience — the independent check is the Trust Center report or the downloadable raw quote (`/api/attestation/self?raw=1`), verifiable with `dcap-qvl` or dstack-verifier.
-
-Not covered: the visitor's own device, and a malicious host page that draws a *fake* assistant instead of embedding ours (it cannot read the real one — it is a cross-origin iframe). The real assistant always shows its own origin and can be opened in a new tab.
-
-## The knight
-
-A rigged 3D character (`public/3d/models/knight-anim.glb`, 20 Mixamo animations) rendered with three.js by `public/knight3d.js`: idle / talking / thinking / waving states, a drawn face whose mouth moves only while the voice plays, and Talking-Tom-style touch — tap head, body or legs for different reactions, tap 5 times quickly and he falls over and gets up dizzy, rub him to tickle. Browsers without WebGL2 get still pictures of the knight.
-
-## Files
-
-- `server.js` — API, streaming answers, proofs, Whisper, no storage
-- `lib/attest.js` — NEAR AI attestation + signature verification; `lib/selfattest.js` — attestation of our own server in a TEE (dstack)
-- `scripts/verify.js` — minimal end-to-end check
-- `tools.js` — optional lookups (NEAR docs, network status)
-- `public/index.html` + `public/app.js` + `public/app.css` — the assistant (voice, Verified panel, documents); `public/knight3d.js` — the 3D character
-- `public/widget.js` — the one-line embed for business websites; `public/biz/*.json` — business profiles
-- `public/demo/index.html` — fictional clinic and bank websites (switch at the top) with the assistant embedded
-- `public/samples/` — fictional documents
-- `README.ru.md` — deployment guide in Russian
+Built for **NEAR HACKATHON** (Nov 1–14, 2026), track **Privacy & Private AI**.

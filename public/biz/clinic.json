@@ -61,5 +61,8 @@
     "src": "img/bg-clinic.webp",
     "ringX": 0.5,
     "ringY": 0.8
-  }
+  },
+  "domains": [
+    "daisy-clinic.example"
+  ]
 }

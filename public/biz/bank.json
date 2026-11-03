@@ -76,5 +76,8 @@
     "src": "img/bg-bank.webp",
     "ringX": 0.5,
     "ringY": 0.81
-  }
+  },
+  "domains": [
+    "owlbridge-bank.example"
+  ]
 }
