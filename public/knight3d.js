@@ -66,7 +66,8 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
   const clips = Object.fromEntries(K.animations.map(c => [c.name, c]));
   const act = n => mixer.clipAction(clips[n]);
   const TALKS = ['Talking_1', 'Talking_2', 'Talking_3'].filter(n => clips[n]);
-  const IDLE = clips['Breathing_Idle'] ? 'Breathing_Idle' : clips['Idle_1'] ? 'Idle_1' : 'Idle';
+  // Idle_1: head up, looks at the visitor. Try another with ?idle=Breathing_Idle or ?idle=Idle
+  const IDLE = clips[DBG.get('idle')] ? DBG.get('idle') : clips['Idle_1'] ? 'Idle_1' : clips['Breathing_Idle'] ? 'Breathing_Idle' : 'Idle';
 
   // weapons: placed in world space on the first idle frame, then they follow their bones
   act('Idle').play(); mixer.setTime(0); knight.updateMatrixWorld(true);

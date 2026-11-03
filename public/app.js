@@ -679,7 +679,7 @@
     else if(kind==='annoyed') speak(L.annoyed[Math.floor(Math.random()*L.annoyed.length)]);
     else if(kind==='poke' && Math.random()<0.5) speak(L.poke[Math.floor(Math.random()*L.poke.length)]);
   }
-  if(window.__use3d) import('./knight3d.js?v=3').then(m=>m.createKnight(charEl,{onReact})).then(k=>{
+  if(window.__use3d) import('./knight3d.js?v=4').then(m=>m.createKnight(charEl,{onReact})).then(k=>{
     K3D=k; window.__knight=k; stage.classList.add('k3d'); k.mode(mode); setTimeout(layoutBg,50);
   }).catch(e=>{ console.warn('3D knight failed, showing pictures',e); stage.classList.remove('k3d'); });
 

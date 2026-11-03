@@ -16,6 +16,7 @@
   var lang = me.getAttribute('data-lang') || (navigator.language || 'en').slice(0, 2);
   var label = me.getAttribute('data-label') || (lang === 'ru' ? 'Приватный помощник' : 'Private assistant');
   var src = origin + '/?embed=1' + (biz ? '&biz=' + biz : '') + '&lang=' + (lang === 'ru' ? 'ru' : 'en');
+  var idle = new URLSearchParams(location.search).get('idle'); if (idle) src += '&idle=' + encodeURIComponent(idle);   // demo/testing only
 
   var css = document.createElement('style');
   css.textContent =
