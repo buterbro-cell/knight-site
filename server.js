@@ -520,7 +520,7 @@ const server = http.createServer(async (req, res) => {
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()) { res.writeHead(404); return res.end('Not found'); }
     const ext = path.extname(file);
-    const headers = { 'Content-Type': TYPES[ext] || 'application/octet-stream', 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=604800', 'Accept-Ranges': 'bytes' };
+    const headers = { 'Content-Type': TYPES[ext] || 'application/octet-stream', 'Cache-Control': ['.html', '.js', '.css', '.json'].includes(ext) ? 'no-cache' : 'public, max-age=604800', 'Accept-Ranges': 'bytes' };
     const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');   // iPhone needs Range for video
     if (m) {
       let start = m[1] ? Number(m[1]) : st.size - Number(m[2]);

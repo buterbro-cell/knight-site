@@ -148,15 +148,15 @@ Not covered: the visitor's own device, and a malicious host page that draws a *f
 
 ## The knight
 
-A rigged 3D character (`public/3d/models/knight-anim.glb`, 20 Mixamo animations) rendered with three.js by `public/knight3d.js`: idle / talking / thinking / waving states, a drawn face whose mouth moves only while the voice plays, and Talking-Tom-style touch — tap head, body or legs for different reactions, tap 5 times quickly and he falls over and gets up dizzy, rub him to tickle. Browsers without WebGL2 (or `?video=1`) get the previous video knight.
+A rigged 3D character (`public/3d/models/knight-anim.glb`, 20 Mixamo animations) rendered with three.js by `public/knight3d.js`: idle / talking / thinking / waving states, a drawn face whose mouth moves only while the voice plays, and Talking-Tom-style touch — tap head, body or legs for different reactions, tap 5 times quickly and he falls over and gets up dizzy, rub him to tickle. Browsers without WebGL2 get still pictures of the knight.
 
 ## Files
 
 - `server.js` — API, streaming answers, proofs, Whisper, no storage
-- `lib/attest.js` — attestation + signature verification
+- `lib/attest.js` — NEAR AI attestation + signature verification; `lib/selfattest.js` — attestation of our own server in a TEE (dstack)
 - `scripts/verify.js` — minimal end-to-end check
 - `tools.js` — optional lookups (NEAR docs, network status)
-- `public/index.html` — the assistant (voice, Verified panel, documents); `public/knight3d.js` — the 3D character
+- `public/index.html` + `public/app.js` + `public/app.css` — the assistant (voice, Verified panel, documents); `public/knight3d.js` — the 3D character
 - `public/widget.js` — the one-line embed for business websites; `public/biz/*.json` — business profiles
 - `public/demo/clinic.html` — fictional clinic website with the assistant embedded
 - `public/samples/` — fictional documents
