@@ -65,6 +65,7 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
   const clips = Object.fromEntries(K.animations.map(c => [c.name, c]));
   const act = n => mixer.clipAction(clips[n]);
   const TALKS = ['Talking_1', 'Talking_2', 'Talking_3'].filter(n => clips[n]);
+  const IDLE = clips['Breathing_Idle'] ? 'Breathing_Idle' : clips['Idle_1'] ? 'Idle_1' : 'Idle';
 
   // weapons: placed in world space on the first idle frame, then they follow their bones
   act('Idle').play(); mixer.setTime(0); knight.updateMatrixWorld(true);
@@ -77,11 +78,15 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
 
   const armL = bone('mixamorigLeftArm'), armR = bone('mixamorigRightArm');
   const ax = new THREE.Vector3(ARM_AXIS === 'x' ? 1 : 0, ARM_AXIS === 'y' ? 1 : 0, ARM_AXIS === 'z' ? 1 : 0);
-  const qL = new THREE.Quaternion().setFromAxisAngle(ax, ARM_OUT), qR = new THREE.Quaternion().setFromAxisAngle(ax, -ARM_OUT);
-  const qLi = qL.clone().invert(), qRi = qR.clone().invert(); let spread = false;
+  // Old Mixamo clips keep the arms inside the chibi body: push them out. The newer idles (arm space fixed in Mixamo) need no push.
+  const NO_SPREAD = new Set(['Idle_1', 'Breathing_Idle']);
+  let spreadK = 1, spread = false; const qL = new THREE.Quaternion(), qR = new THREE.Quaternion(), qLi = new THREE.Quaternion(), qRi = new THREE.Quaternion();
+  const setK = k => { qL.setFromAxisAngle(ax, ARM_OUT * k); qR.setFromAxisAngle(ax, -ARM_OUT * k); qLi.copy(qL).invert(); qRi.copy(qR).invert(); };
+  setK(spreadK);
   // the mixer skips bones whose value did not change, so the offset is removed before each update and re-added after
   function spreadArms() { if (spread) return; spread = true; if (armL) armL.quaternion.multiply(qL); if (armR) armR.quaternion.multiply(qR); }
   function unspreadArms() { if (!spread) return; spread = false; if (armL) armL.quaternion.multiply(qLi); if (armR) armR.quaternion.multiply(qRi); }
+  function stepSpread(dt) { const target = NO_SPREAD.has(curName) ? 0 : 1; if (spreadK !== target) { spreadK += Math.sign(target - spreadK) * Math.min(Math.abs(target - spreadK), dt * 3); setK(spreadK); } }
   spreadArms(); knight.updateMatrixWorld(true);
   place(SW, SWORD); place(SH, SHIELD);
   unspreadArms(); act('Idle').stop();
@@ -99,7 +104,7 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
   let mode = 'idle', talkingNow = false, overlay = null, baseName = '', lastNod = performance.now();
   const timers = new Set();
   const later = (ms, fn) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
-  const wantedBase = () => talkingNow ? 'talk' : mode === 'think' ? 'Thinking' : mode === 'wave' ? 'Waving' : 'Idle';
+  const wantedBase = () => talkingNow ? 'talk' : mode === 'think' ? 'Thinking' : mode === 'wave' ? 'Waving' : IDLE;
   function applyBase(force) {
     if (overlay) return;
     const w = wantedBase();
@@ -219,13 +224,13 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
   // ---------- loop ----------
   const clock = new THREE.Clock(); let talkT = 0, blinkAt = performance.now() + 2500;
   R.setAnimationLoop(() => {
-    const dt = Math.min(clock.getDelta(), 0.1); unspreadArms(); mixer.update(dt); spreadArms();
+    const dt = Math.min(clock.getDelta(), 0.1); unspreadArms(); mixer.update(dt); stepSpread(dt); spreadArms();
     const now = performance.now();
     if (!overlay) {
       if (talkingNow) {                              // mouth flaps only while sound plays
         talkT += dt; if (talkT > 0.08 + Math.random() * 0.07) { talkT = 0; const r = Math.random(); face.set(null, r < 0.35 ? 'wide' : r < 0.7 ? 'mid' : r < 0.85 ? 'o' : 'closed'); }
       } else if (face.mouth !== 'closed' && face.eyes !== 'happy') face.set(null, 'closed');
-      if (mode === 'listen' && !talkingNow && curName === 'Idle' && now - lastNod > 4500) { lastNod = now; play('Head_Nod_Yes', { loop: false, fade: 0.3 }); }
+      if (mode === 'listen' && !talkingNow && curName === IDLE && now - lastNod > 4500) { lastNod = now; play('Head_Nod_Yes', { loop: false, fade: 0.3 }); }
     }
     if (now > blinkAt && face.eyes === 'open') { face.set('closed'); setTimeout(() => face.eyes === 'closed' && !overlay && face.set('open'), 130); blinkAt = now + 2200 + Math.random() * 3500; }
     R.render(S, C);

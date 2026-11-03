@@ -625,7 +625,7 @@
 
   // ---------------- Фон: светящийся круг ровно под ногами рыцаря ----------------
   const bgImg=$('bgimg'), appEl=document.querySelector('.app');
-  const RING={x:0.5,y:0.858}; // где на картинке фона находится круг (доли ширины и высоты)
+  let RING={x:0.5,y:0.858}; // где на картинке фона находится круг (доли ширины и высоты); профиль бизнеса может задать свой фон
   function layoutBg(){
     if(!bgImg.naturalWidth) return;
     const app=appEl.getBoundingClientRect(), ch=charEl.getBoundingClientRect();
@@ -661,6 +661,11 @@
     document.title=pick(PROFILE.title); renderSamples();
   }
   const profileReady = BIZ ? fetch('biz/'+BIZ+'.json').then(r=>r.ok?r.json():null).then(p=>{ PROFILE=p; applyProfile(); }).catch(()=>{}) : Promise.resolve();
+  // Background: the business's own room (biz/<id>.json → background), otherwise the default data-center hall
+  profileReady.then(()=>{
+    const b=PROFILE&&PROFILE.background;
+    if(b&&b.src){ RING={x:b.ringX??0.5,y:b.ringY??0.858}; bgImg.src=b.src; } else bgImg.src='img/bg.webp';
+  });
 
   // ---------------- 3D-рыцарь ----------------
   function onReact(kind){

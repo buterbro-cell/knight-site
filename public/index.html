@@ -18,12 +18,14 @@
   /* Embedded in a business website (widget.js): room for the close button, no footer text */
   html.embed header{padding-left:46px}
   html.embed #note{display:none}
+  /* bright business rooms (clinic): keep the header readable */
+  html.embed header{margin:0 -16px;padding:10px 16px 14px 62px;width:calc(100% + 32px);max-width:none;background:linear-gradient(180deg,rgba(6,12,32,.72),rgba(6,12,32,0))}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="bgblur"></div>
-  <img class="bgimg" id="bgimg" src="img/bg.webp" alt="">
+  <img class="bgimg" id="bgimg" alt="">
   <div class="shade"></div>
   <div class="stars"></div>
   <header>
