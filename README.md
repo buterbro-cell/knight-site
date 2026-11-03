@@ -27,7 +27,11 @@ Clinics, banks, law firms and insurers want an AI assistant on their website. To
 
 Each business is one public JSON file, `public/biz/<id>.json`: name, greeting, sample documents and the instructions the assistant follows. Being public is deliberate — anyone can read exactly what the assistant was told. Business profiles do not use outside tools, so nothing leaves the TEE model call.
 
-**Live demo business:** `/demo/clinic.html` — *Daisy Clinic*, a fictional family clinic. Ask which doctor you need, or tap 📄 → *Blood test results* / *Clinic invoice* (fictional). The main page `/` is the same assistant as the NEAR knight, without a business profile.
+**Live demo businesses:** `/demo/` — one page with a scenario switch at the top:
+- **🏥 Daisy Clinic** (`/demo/?s=clinic`) — ask which doctor you need, or tap 📄 → *Blood test results* / *Clinic invoice*.
+- **🏦 Owlbridge Bank** (`/demo/?s=bank`) — "questions people are afraid to ask their bank": a payment you can't make, a suspicious call from "the bank", a strange charge, the real cost of a loan. Tap 📄 → *Card statement*, *Personal loan offer* or *Suspicious call*. The assistant never asks for card numbers or codes and has no access to accounts.
+
+Both are fictional. The main page `/` is the same assistant as the NEAR knight, without a business profile.
 
 ## Requirements → where they are
 
@@ -124,13 +128,14 @@ Nothing was stored: this script only printed results.
 
 ## Try it as a judge
 
-1. Open `/demo/clinic.html` → tap **Private assistant** in the corner → **Talk to the assistant**.
+1. Open `/demo/?s=clinic` → tap **Private assistant** in the corner → **Talk to the assistant**.
 2. Tap 📄 → **Blood test results** (fictional patient). The assistant names the values out of range (hemoglobin, ferritin, vitamin D, LDL, HbA1c, CRP), explains them simply and suggests which of the clinic's doctors to see. Try 📄 → **Clinic invoice**: it finds the duplicated biochemistry panel, the unexplained "priority processing fee" and the insurance amount that does not add up.
 3. Tap **TEE ✓** in the assistant's header → the Verified panel. The line under each answer shows that it was signed inside the TEE.
 4. Ask by voice: "Which doctor should I see for chest pain?" — urgent symptoms are redirected to emergency services first.
-5. **Prove it is live, not a recording:** in the Verified panel type *your own* number or word under "Check it yourself" and tap **Verify**. The server sends `nonce = sha256(your word)` to NEAR AI; the panel shows that this exact value sits inside `report_data` of the Intel-signed TDX quote (and in the NVIDIA GPU evidence). Nobody could have prepared that report in advance. Download it and re-check with [nearai-cloud-verifier](https://github.com/nearai/nearai-cloud-verifier), or run `echo -n "your word" | sha256sum` to confirm the nonce. Endpoint: `GET /api/attestation/challenge?word=…` (the word is used for that one request and never stored).
-6. **See the minimal script's output on the live server:** open `/api/selftest` — it runs exactly `node scripts/verify.js` (one completion + attestation with a fresh nonce + response signature) and prints the result as text. Limited to once a minute.
-7. **Don't trust this site at all:** clone the repo, put your own key in `.env`, run `npm run verify` — it talks to NEAR AI directly with its own random nonce.
+5. Switch to **🏦 Owlbridge Bank** at the top → 📄 → **Suspicious call from "the bank"**: the assistant recognises the "safe account" scam (urgency, SMS code, secrecy) and says exactly what to do now. 📄 → **Personal loan offer**: it shows that the advertised 6.9% is really a 15.8% APR with a financed insurance and an early-repayment fee.
+6. **Prove it is live, not a recording:** in the Verified panel type *your own* number or word under "Check it yourself" and tap **Verify**. The server sends `nonce = sha256(your word)` to NEAR AI; the panel shows that this exact value sits inside `report_data` of the Intel-signed TDX quote (and in the NVIDIA GPU evidence). Nobody could have prepared that report in advance. Download it and re-check with [nearai-cloud-verifier](https://github.com/nearai/nearai-cloud-verifier), or run `echo -n "your word" | sha256sum` to confirm the nonce. Endpoint: `GET /api/attestation/challenge?word=…` (the word is used for that one request and never stored).
+7. **See the minimal script's output on the live server:** open `/api/selftest` — it runs exactly `node scripts/verify.js` (one completion + attestation with a fresh nonce + response signature) and prints the result as text. Limited to once a minute.
+8. **Don't trust this site at all:** clone the repo, put your own key in `.env`, run `npm run verify` — it talks to NEAR AI directly with its own random nonce.
 
 ## What attestation does and does not prove
 
@@ -158,6 +163,6 @@ A rigged 3D character (`public/3d/models/knight-anim.glb`, 20 Mixamo animations)
 - `tools.js` — optional lookups (NEAR docs, network status)
 - `public/index.html` + `public/app.js` + `public/app.css` — the assistant (voice, Verified panel, documents); `public/knight3d.js` — the 3D character
 - `public/widget.js` — the one-line embed for business websites; `public/biz/*.json` — business profiles
-- `public/demo/clinic.html` — fictional clinic website with the assistant embedded
+- `public/demo/index.html` — fictional clinic and bank websites (switch at the top) with the assistant embedded
 - `public/samples/` — fictional documents
 - `README.ru.md` — deployment guide in Russian
