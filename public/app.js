@@ -660,7 +660,7 @@
       L.title=PROFILE.title[l]||L.title; L.subtitle=PROFILE.subtitle[l]||L.subtitle; L.hello=PROFILE.hello[l]||L.hello; if(PROFILE.start) L.start=PROFILE.start[l]||L.start; L.greetRest=PROFILE.greetRest[l]||L.greetRest; }
     document.title=pick(PROFILE.title); renderSamples();
   }
-  const profileReady = BIZ ? fetch('biz/'+BIZ+'.json').then(r=>r.ok?r.json():null).then(p=>{ PROFILE=p; applyProfile(); }).catch(()=>{}) : Promise.resolve();
+  const profileReady = BIZ ? fetch('biz/'+BIZ+'.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(p=>{ PROFILE=p; applyProfile(); }).catch(()=>{}) : Promise.resolve();
   // Background: the business's own room (biz/<id>.json → background), otherwise the default data-center hall
   profileReady.then(()=>{
     const b=PROFILE&&PROFILE.background;
