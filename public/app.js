@@ -75,6 +75,8 @@
   // ---------------- Элементы ----------------
   const $ = id => document.getElementById(id);
   const charEl=$('char'), bubble=$('bubble'), statusEl=$('status'), stage=$('stage'), glow=$('glow');
+  // With WebGL2 the 3D knight loads; hide the old still pictures from the very first frame (no flash)
+  if(window.__use3d) stage.classList.add('k3d');
   const startBtn=$('start'), row=$('row'), mic=$('mic'), kbd=$('kbd'), hush=$('hush'), form=$('form'), q=$('q');
   const frames={}; charEl.querySelectorAll('img').forEach(i=>frames[i.dataset.f]=i);
   let current='idle';
@@ -671,7 +673,7 @@
   }
   if(window.__use3d) import('./knight3d.js').then(m=>m.createKnight(charEl,{onReact})).then(k=>{
     K3D=k; window.__knight=k; stage.classList.add('k3d'); k.mode(mode); setTimeout(layoutBg,50);
-  }).catch(e=>console.warn('3D knight failed, keeping pictures',e));
+  }).catch(e=>{ console.warn('3D knight failed, showing pictures',e); stage.classList.remove('k3d'); });
 
   // ---------------- Старт ----------------
   applyLang();

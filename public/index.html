@@ -11,6 +11,10 @@
   /* 3D knight (knight3d.js): replaces pictures and video once loaded */
   .stage.k3d .char{aspect-ratio:702/1060;animation:none!important;touch-action:none}
   .stage.k3d .char img, .stage.k3d .char>canvas:not(.k3d){display:none}
+  /* while the 3D knight downloads: a soft pulsing glow instead of the old pictures */
+  .stage.k3d .char:not(:has(canvas.k3d))::after{content:"";position:absolute;left:50%;bottom:8%;width:46%;aspect-ratio:1;transform:translateX(-50%);border-radius:50%;
+    background:radial-gradient(closest-side,rgba(120,180,255,.35),transparent);animation:k3dload 1.4s ease-in-out infinite}
+  @keyframes k3dload{50%{opacity:.35;transform:translateX(-50%) scale(.9)}}
   /* Embedded in a business website (widget.js): room for the close button, no footer text */
   html.embed header{padding-left:46px}
   html.embed #note{display:none}
