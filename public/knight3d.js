@@ -8,6 +8,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const ROOT = new URL('./3d/', import.meta.url).href;
+const MODEL_VER = '4a89d21e';   // change when a model file changes, so browsers don't keep an old cached copy
 const DBG = new URLSearchParams(location.search);
 const num = (k, v) => (DBG.has(k) ? +DBG.get(k) : v);
 
@@ -53,7 +54,7 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
 
   // ---------- load ----------
   const L = new GLTFLoader();
-  const [K, SW, SH] = await Promise.all(['knight-anim', 'sword', 'shield'].map(n => L.loadAsync(ROOT + 'models/' + n + '.glb')));
+  const [K, SW, SH] = await Promise.all(['knight-anim', 'sword', 'shield'].map(n => L.loadAsync(ROOT + 'models/' + n + '.glb?v=' + MODEL_VER)));
   const knight = K.scene; S.add(knight);
   const bone = n => { let b = null; knight.traverse(o => { if (o.name === n) b = o; }); return b; };
   let body = null;
