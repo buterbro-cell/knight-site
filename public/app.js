@@ -131,8 +131,11 @@
     bubble.classList.toggle('user', !!opts.user);
     if(opts.dots) bubble.innerHTML='<span class="dots"><span></span><span></span><span></span></span>';
     else bubble.textContent=text;
-    bubble.classList.add('show');
+    bubble.classList.add('show'); fadeLong();
   }
+  // fade the bottom edge only while there is more text below
+  function fadeLong(){ requestAnimationFrame(()=>bubble.classList.toggle('long', bubble.scrollHeight-bubble.scrollTop-bubble.clientHeight>4)); }
+  bubble.addEventListener('scroll',fadeLong,{passive:true});
   const hideBubble=()=>bubble.classList.remove('show');
   const setStatus=s=>statusEl.textContent=s||'';
 
@@ -380,11 +383,11 @@
         }
       }
       full+=piece; pending+=piece; src.fullText=full;
-      if(speaking && id===speakId){ bubble.textContent=full; }
+      if(speaking && id===speakId){ bubble.textContent=full; fadeLong(); }
       flush(false);
     }
     flush(true); src.end();
-    if(speaking && id===speakId) bubble.textContent=full;
+    if(speaking && id===speakId) { bubble.textContent=full; fadeLong(); }
     if(proofBuf){ try{ showProof(JSON.parse(proofBuf)); }catch(e){} }
     if(!speaking){ return full.trim()||t('error'); }
     return {text:full.trim(), done:speaking};
