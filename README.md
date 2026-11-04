@@ -129,7 +129,7 @@ flowchart LR
 
 ## Roadmap — not built yet
 
-- **Voice transactions (soon).** "Send 20 USDC to Anna" or "pay this invoice" said out loud: the agent reads the invoice or the request inside the TEE, drafts the transaction and shows it on screen — amount, recipient, fee. **The visitor signs it in their own NEAR wallet**; the agent never holds keys or funds. Planned on NEAR Intents with confidential execution, so the payment details stay as private as the conversation.
+- **Voice transactions (soon).** "Send 20 USDC to Anna" or "pay this invoice" — said once, done by the agent. It reads the request or the invoice inside the TEE and **executes on its own, within limits the user set in advance**: a daily cap, an allowlist of recipients, and an amount above which it asks for one tap in the user's NEAR wallet. Built on NEAR limited-permission access keys and NEAR Intents with confidential execution: the agent never holds the user's main keys, and the payment details stay as private as the conversation.
 - **Bring-your-own relay:** a business runs the open-source relay in its own TEE and the assistant verifies it the same way it verifies ours.
 
 ## Run it
