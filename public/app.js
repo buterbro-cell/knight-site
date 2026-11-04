@@ -30,7 +30,7 @@
       vInfo:'справочно', vThrottled:'Повторная проверка — не чаще нескольких раз в час, показан последний результат.', vSelf:'Как проверить самому, не доверяя этому сайту', vSelfText:'1) Скачайте исходный отчёт аттестации — в нём nonce и подписанные доказательства Intel и NVIDIA. 2) Проверьте его официальным инструментом NEAR AI: github.com/nearai/nearai-cloud-verifier. 3) Подпись ответа выше проверяется так: ethers.verifyMessage(signed_text, signature) должен вернуть signing_address, а этот адрес — совпасть с ключом из отчёта.', vRaw:'Скачать исходный отчёт', vRelay:'Наш сервер-посредник', vRelayNo:'⚠️ Наш сервер пока работает не в TEE: он ничего не хранит (это видно в открытом коде), но криптографически это не доказано.', vRelayTC:'Открыть отчёт Phala Trust Center', vRelayRaw:'Скачать отчёт сервера', vRelayIntro:'Между вашим браузером и NEAR AI стоит наш сервер. Он тоже работает в защищённой среде Intel TDX, и это проверено здесь же:',
       vCh:'Проверьте сами: своё число', vChText:'Придумайте любое число или слово. Мы попросим железо NEAR AI вписать его (в виде sha256) внутрь отчёта, подписанного Intel. Заранее такой отчёт не подготовить — значит, проверка идёт вживую.', vChPh:'например 58371', vChBtn:'Проверить', vChWait:'Запрашиваю отчёт у NEAR AI… (10–30 сек)', vChOk:'✅ Ваше число найдено внутри отчёта, подписанного Intel', vChBad:'❌ Ваше число в отчёте не найдено', vChErr:'Не получилось — попробуйте чуть позже (не чаще пары раз в несколько минут).', vChWord:'Ваше слово', vChHash:'sha256 → nonce', vChRaw:'Скачать этот отчёт', proofOk:'🔏 Ответ подписан внутри TEE — проверено', proofFail:'⚠️ Подпись ответа не подтвердилась — подробнее',
       lbDoc:'Документ', lbKbd:'Текст', lbHush:'Тише', dropT:'Отпусти файл — рыцарь разберёт', docAria:'Загрузить документ', dTitle:'Документ', dSub:'Рыцарь приватно разберёт анализы, выписку, чеки или договор — можно просто сфотографировать. Файл уходит только в защищённую среду и нигде не сохраняется.', dUpload:'📁 Загрузить свой файл', dUploadS:'Фото или скриншот (JPG, PNG, WebP), PDF, TXT, CSV', dSamples:'Или вымышленный пример (для проверки):', dClose:'Закрыть',
-      imgErr:'Не получилось открыть картинку. Попробуй JPG или PNG.', docAsk:'Разбери этот документ: что в нём главное и что выглядит необычно или подозрительно?', docAttached:'Документ прикреплён. Сейчас разберу!', docErr:'Не получилось прочитать файл.', docBig:'Файл большой — я прочитаю первые 20 тысяч символов.',
+      imgErr:'Не получилось открыть картинку. Попробуй JPG или PNG.', docPh:'Вопрос к документу — или просто «Спросить»', docReady:'Документ прикреплён. Напиши вопрос, скажи голосом или сразу нажми «Спросить».', docAsk:'Разбери этот документ: что в нём главное и что выглядит необычно или подозрительно?', docAttached:'Документ прикреплён. Сейчас разберу!', docErr:'Не получилось прочитать файл.', docBig:'Файл большой — я прочитаю первые 20 тысяч символов.',
       transcribing:'Распознаю речь (Whisper в TEE)…', noteWhisper:'Голос распознаёт Whisper внутри защищённой среды NEAR AI, ответы — модель в TEE. Сервер сайта ничего не сохраняет. Нажми «TEE ✓» вверху, чтобы увидеть доказательство.',
       speech:'ru-RU'
     },
@@ -59,7 +59,7 @@
       vInfo:'info', vThrottled:'Re-verification is limited to a few times per hour — showing the latest result.', vSelf:'Verify it yourself, without trusting this site', vSelfText:'1) Download the raw attestation report — it contains the nonce and the signed Intel and NVIDIA evidence. 2) Check it with NEAR AI’s official tool: github.com/nearai/nearai-cloud-verifier. 3) The answer signature above: ethers.verifyMessage(signed_text, signature) must return signing_address, and that address must match a key in the report.', vRaw:'Download raw report', vRelay:'Our relay server', vRelayNo:'⚠️ Our relay server is not running in a TEE yet: it stores nothing (see the open code), but that is not cryptographically proven.', vRelayTC:'Open the Phala Trust Center report', vRelayRaw:'Download the server report', vRelayIntro:'Our server sits between your browser and NEAR AI. It also runs inside an Intel TDX enclave, verified right here:',
       vCh:'Check it yourself: your own number', vChText:'Type any number or word. We ask NEAR AI hardware to put it (as sha256) inside the Intel-signed report. Such a report cannot be prepared in advance — so the check is live.', vChPh:'e.g. 58371', vChBtn:'Verify', vChWait:'Requesting a report from NEAR AI… (10–30 s)', vChOk:'✅ Your number was found inside the Intel-signed report', vChBad:'❌ Your number was not found in the report', vChErr:'Failed — try again a bit later (a couple of times per few minutes).', vChWord:'Your word', vChHash:'sha256 → nonce', vChRaw:'Download this report', proofOk:'🔏 Answer signed inside the TEE — verified', proofFail:'⚠️ Answer signature not confirmed — details',
       lbDoc:'Document', lbKbd:'Type', lbHush:'Mute', dropT:'Drop the file — the knight will review it', docAria:'Upload a document', dTitle:'Document', dSub:'The knight privately reviews lab results, a statement, receipts or a contract — a photo is fine. The file goes only into the enclave and is never stored.', dUpload:'📁 Upload your file', dUploadS:'Photo or screenshot (JPG, PNG, WebP), PDF, TXT, CSV', dSamples:'Or a fictional sample (for testing):', dClose:'Close',
-      imgErr:'Could not open the image. Try JPG or PNG.', docAsk:'Review this document: what matters most and what looks unusual or suspicious?', docAttached:'Document attached. Let me take a look!', docErr:'Could not read the file.', docBig:'Large file — I will read the first 20 thousand characters.',
+      imgErr:'Could not open the image. Try JPG or PNG.', docPh:'Ask about the document — or just tap “Ask”', docReady:'Document attached. Type or say your question, or just tap “Ask”.', docAsk:'Review this document: what matters most and what looks unusual or suspicious?', docAttached:'Document attached. Let me take a look!', docErr:'Could not read the file.', docBig:'Large file — I will read the first 20 thousand characters.',
       transcribing:'Transcribing (Whisper in TEE)…', noteWhisper:'Speech is transcribed by Whisper inside a NEAR AI enclave, answers come from a model in a TEE. This server stores nothing. Tap “TEE ✓” on top for the proof.',
       speech:'en-US'
     }
@@ -314,6 +314,7 @@
   const history=[];
   async function ask(question){
     question=question.trim(); if(!question) return;
+    if(typeof pendingAsk!=='undefined' && pendingAsk){ pendingAsk=null; q.placeholder=t('placeholder'); }
     stopSpeaking();
     say(question,{user:true}); setMode('think'); setStatus(t('thinking')); hideProof();
     const myAsk=++askId;
@@ -527,7 +528,7 @@
       const text=/pdf$/i.test(f.name)||f.type==='application/pdf'?await pdfText(f):await f.text(); if(!text.trim()) throw 0; attachAndAsk(f.name,text);
     }catch(err){ closeDocs(); speak(t(isImage(f)?'imgErr':'docErr')); }
   }
-  $('docx').addEventListener('click',()=>{ attachedDoc=null; $('docchip').classList.add('hidden'); });
+  $('docx').addEventListener('click',()=>{ attachedDoc=null; pendingAsk=null; q.placeholder=t('placeholder'); $('docchip').classList.add('hidden'); });
   function openDocs(){
     $('dTitle').textContent=t('dTitle'); $('dSub').textContent=t('dSub'); $('dUploadT').textContent=t('dUpload'); $('dUploadS').textContent=t('dUploadS');
     $('dSamplesT').textContent=t('dSamples'); $('dClose').textContent=t('dClose'); $('dmodal').classList.remove('hidden');
@@ -546,10 +547,13 @@
     for(let i=1;i<=Math.min(pdf.numPages,30);i++){ const pg=await pdf.getPage(i); const tc=await pg.getTextContent(); out+=tc.items.map(x=>x.str).join(' ')+'\n'; if(out.length>20000) break; }
     return out;
   }
+  // Attach first, then let the visitor add their own question (typed or spoken) — or send right away with the default one
+  let pendingAsk=null;
   async function attachAndAsk(name,text,question,image){
     closeDocs(); if(!started) begin();
     setDoc(name,text,image);
-    ask(question||t('docAsk'));
+    pendingAsk=question||t('docAsk');
+    stopSpeaking(); showText(true); q.placeholder=t('docPh'); setStatus(t('docReady'));
   }
   $('dFile').addEventListener('change',async e=>{
     const f=e.target.files[0]; e.target.value=''; if(!f) return; handleFile(f);
@@ -617,7 +621,10 @@
   });
   kbd.addEventListener('click',()=>showText(!form.classList.contains('show')));
   hush.addEventListener('click',()=>{ stopSpeaking(); hideBubble(); setStatus(t('ready')); });
-  form.addEventListener('submit',e=>{ e.preventDefault(); const v=q.value; q.value=''; ask(v); });
+  form.addEventListener('submit',e=>{ e.preventDefault(); let v=q.value.trim(); q.value='';
+    if(!v && attachedDoc && pendingAsk) v=pendingAsk;
+    if(v){ pendingAsk=null; q.placeholder=t('placeholder'); }
+    ask(v); });
 
   let tickleIdx=0, started=false;
   charEl.addEventListener('click',()=>{
@@ -645,7 +652,7 @@
     document.querySelectorAll('.lang button').forEach(b=>b.classList.toggle('on',b.dataset.l===lang));
     $('title').firstChild.textContent=t('title'); $('subtitle').textContent=t('subtitle');
     $('lbDoc').textContent=t('lbDoc'); $('lbKbd').textContent=t('lbKbd'); $('lbHush').textContent=t('lbHush'); $('dropT').textContent=t('dropT'); $('docbtn').setAttribute('aria-label',t('docAria'));
-    startBtn.textContent=t('start'); q.placeholder=t('placeholder'); $('sendBtn').textContent=t('send');
+    startBtn.textContent=t('start'); q.placeholder=t(typeof pendingAsk!=='undefined'&&pendingAsk?'docPh':'placeholder'); $('sendBtn').textContent=t('send');
     $('note').textContent=demo?t('demoNote'):(typeof sttServer!=='undefined'&&sttServer?t('noteWhisper'):t('note'));
     try{ setVBtn(lastAtt); if(lastProof) showProof(lastProof); renderSamples(); showOfficial(); }catch(e){}
     if(started) setStatus(t('ready'));
