@@ -197,6 +197,13 @@ Full output: [`docs/verify-output.txt`](docs/verify-output.txt).
 | `Dockerfile`, `docker-compose.phala.yml`, `.github/workflows/image.yml` | build and TEE deployment |
 | `README.ru.md` | short guide in Russian |
 
+## Built during the hackathon, and with what
+
+- All code in this repository was written during NEAR HACKATHON (first commit Nov 1, 2026); full history in git.
+- Written with an AI coding agent (Claude Code); the team designed the product, the character and its animations.
+- Libraries: three.js (3D), pdf.js (PDF reading in the browser), `@phala/dcap-qvl-node` (Intel TDX quote verification), `ethers` v5 (signature recovery), Piper TTS (voice). 3D character generated with Tripo and animated with Adobe Mixamo; backgrounds AI-generated.
+- License: MIT (`LICENSE`).
+
 All businesses, people and documents in this repository are fictional.
 
 Built for **NEAR HACKATHON** (Nov 1–14, 2026), track **Privacy & Private AI**.
