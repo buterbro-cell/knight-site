@@ -127,6 +127,11 @@ flowchart LR
 - **Cost:** one conversation is ~1–2 cents of model usage on NEAR AI; one TEE relay serves many businesses (each is a JSON profile).
 - **Checking installs:** the official-install badge (above); for self-hosted relays the operator — or anyone — checks the relay's attestation and that its compose pins the published image digest.
 
+## Roadmap — not built yet
+
+- **Voice transactions (soon).** "Send 20 USDC to Anna" or "pay this invoice" said out loud: the agent reads the invoice or the request inside the TEE, drafts the transaction and shows it on screen — amount, recipient, fee. **The visitor signs it in their own NEAR wallet**; the agent never holds keys or funds. Planned on NEAR Intents with confidential execution, so the payment details stay as private as the conversation.
+- **Bring-your-own relay:** a business runs the open-source relay in its own TEE and the assistant verifies it the same way it verifies ours.
+
 ## Run it
 
 ```bash
