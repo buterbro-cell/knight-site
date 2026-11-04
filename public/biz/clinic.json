@@ -26,6 +26,21 @@
   },
   "samples": [
     {
+      "file": "clinic-blood-test-photo.jpg",
+      "label": {
+        "en": "📸 Photo of a blood test",
+        "ru": "📸 Фото анализа крови"
+      },
+      "note": {
+        "en": "JPG photo · fictional patient",
+        "ru": "Фото JPG · вымышленный пациент"
+      },
+      "ask": {
+        "en": "Explain my blood test in simple words. What is out of range and which doctor should I see?",
+        "ru": "Объясни мой анализ крови простыми словами. Что не в норме и к какому врачу записаться?"
+      }
+    },
+    {
       "file": "clinic-blood-test.txt",
       "label": {
         "en": "🩸 Blood test results",

@@ -77,7 +77,7 @@ flowchart LR
 | Fetch the attestation report with a fresh random nonce and verify it as the docs describe | `lib/attest.js → attest()` — a port of the official [nearai-cloud-verifier](https://github.com/nearai/nearai-cloud-verifier) |
 | Show a "Verified" panel listing what was checked | **TEE ✓** button → panel (`public/app.js → renderVerified()`); line under every answer |
 | Keep nothing server-side after a response returns; say so in README and code | header comment of `server.js`; section *Nothing is kept server-side* below; `/api/health → storesUserData:false` |
-| Fictional sample documents | `public/samples/` — blood test, clinic invoice, card statement, loan offer, scam-call transcript, receipts, lease |
+| Fictional sample documents | `public/samples/` — blood test (also as a photo), clinic invoice, card statement, loan offer, scam-call transcript, receipts, lease |
 | Minimal script: one completion + attestation, show its output | `scripts/verify.js` (`npm run verify`); real output below and live at `/api/selftest` |
 
 ## What is verified
@@ -104,7 +104,7 @@ flowchart LR
 
 - No database, no files, no content logs. Questions, answers, documents and audio live only in local variables of one request handler.
 - No answer cache, no TTS cache, no conversation history on the server — the browser keeps the last few turns.
-- Documents are read **in the browser** (PDF via pdf.js) and sent only together with the question.
+- Documents are read **in the browser** (PDF via pdf.js) and sent only together with the question. Photos and screenshots are shrunk in the browser (≤ 1344 px JPEG) and go as an image straight to the TEE model (DeepSeek V4.1 Flash reads images natively) — never stored.
 - **No cloud fallbacks in the browser:** voice input goes only to Whisper in the TEE (the browser's own speech recognition — Google / Apple — is never used); voice output falls back only to voices that run **on the device**.
 - In memory, without user content: salted IP hashes with timestamps for rate limiting (salt changes on every restart), aggregate token counters for the owner's `/dev.html`, the latest attestation results.
 - Web search is **off** by default (it would send a query outside the TEE).

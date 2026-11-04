@@ -365,7 +365,7 @@ const server = http.createServer(async (req, res) => {
   // Ask the knight. Request body lives only inside this handler.
   if (url.pathname === '/api/chat' && req.method === 'POST') {
     let body;
-    try { body = JSON.parse((await readBody(req, 120e3)).toString('utf8')); } catch { return send(res, 400, { error: 'bad_request' }); }
+    try { body = JSON.parse((await readBody(req, 1.6e6)).toString('utf8')); } catch { return send(res, 400, { error: 'bad_request' }); }
     const msgs = (Array.isArray(body.messages) ? body.messages : [])
       .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
       .slice(-6).map(m => ({ role: m.role, content: m.content.slice(0, MAX_QUESTION_CHARS) }));
@@ -375,6 +375,16 @@ const server = http.createServer(async (req, res) => {
       const name = String(body.document.name || 'document').slice(0, 80).replace(/[\r\n]/g, ' ');
       const last = msgs[msgs.length - 1];
       last.content = `Документ пользователя «${name}» (обрабатывается приватно, не сохраняется):\n<<<\n${body.document.text.slice(0, MAX_DOC_CHARS)}\n>>>\n\nВопрос: ${last.content}`;
+    } else if (body.document && typeof body.document.image === 'string') {
+      // Photo of a document: goes to the TEE model as an image part (OpenAI format), only for this request, never stored
+      const img = body.document.image;
+      if (img.length > 1.4e6 || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(img)) return send(res, 400, { error: 'bad_image' });
+      const name = String(body.document.name || 'photo').slice(0, 80).replace(/[\r\n]/g, ' ');
+      const last = msgs[msgs.length - 1];
+      last.content = [
+        { type: 'text', text: `Фото документа пользователя «${name}» (обрабатывается приватно, не сохраняется). Сначала внимательно прочитай всё, что на нём написано.\n\nВопрос: ${last.content}` },
+        { type: 'image_url', image_url: { url: img } },
+      ];
     }
     const blocked = allow(req);
     if (blocked) return send(res, 429, { error: blocked === 'daily' ? 'daily_limit' : 'user_limit' });
