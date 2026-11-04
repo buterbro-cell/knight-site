@@ -143,7 +143,7 @@ const slot = () => new Promise(res => { if (active < MAX_PARALLEL) { active++; r
 const release = () => { const next = queue.shift(); next ? next() : active--; };
 
 // ---------- Model selection from the models endpoint ----------
-let lastError = null, modelChecked = false, availableModels = [], sttModel = null;
+let lastReject = null, lastError = null, modelChecked = false, availableModels = [], sttModel = null;
 async function checkModel() {
   if (!KEY) return;
   try {
@@ -365,7 +365,7 @@ const server = http.createServer(async (req, res) => {
   // Ask the knight. Request body lives only inside this handler.
   if (url.pathname === '/api/chat' && req.method === 'POST') {
     let body;
-    try { body = JSON.parse((await readBody(req, 1.6e6)).toString('utf8')); } catch { return send(res, 400, { error: 'bad_request' }); }
+    try { body = JSON.parse((await readBody(req, 1.6e6)).toString('utf8')); } catch (e) { lastReject = `${new Date().toISOString()} chat body: ${e.message} (${req.headers['content-length'] || '?'} bytes)`; return send(res, e.message === 'too big' ? 413 : 400, { error: 'bad_request' }); }
     const msgs = (Array.isArray(body.messages) ? body.messages : [])
       .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
       .slice(-6).map(m => ({ role: m.role, content: m.content.slice(0, MAX_QUESTION_CHARS) }));
@@ -378,7 +378,7 @@ const server = http.createServer(async (req, res) => {
     } else if (body.document && typeof body.document.image === 'string') {
       // Photo of a document: goes to the TEE model as an image part (OpenAI format), only for this request, never stored
       const img = body.document.image;
-      if (img.length > 1.4e6 || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(img)) return send(res, 400, { error: 'bad_image' });
+      if (img.length > 1.4e6 || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(img)) { lastReject = `${new Date().toISOString()} bad image: ${img.slice(0, 22)}… ${img.length} chars`; return send(res, 400, { error: 'bad_image' }); }
       const name = String(body.document.name || 'photo').slice(0, 80).replace(/[\r\n]/g, ' ');
       const last = msgs[msgs.length - 1];
       last.content = [
@@ -517,7 +517,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === '/api/health') return send(res, 200, {
-    ok: true, key: !!KEY, model: MODEL, modelChecked, stt: !!sttModel, sttModel, lastError, tools: toolsOn, webSearch: webSearchEnabled,
+    ok: true, key: !!KEY, model: MODEL, modelChecked, stt: !!sttModel, sttModel, lastError, lastReject, tools: toolsOn, webSearch: webSearchEnabled,
     verifierLibs: libsReady(), attestationOk: attestation?.ok ?? null, models: availableModels,
     tts: { ru: ttsReady('ru'), en: ttsReady('en') }, storesUserData: false, relayInTee: relay.inTee(), mem: memInfo(), visitorIpSeen: !!(req.headers['x-forwarded-for'] || req.headers['x-real-ip']),
   });

@@ -332,7 +332,7 @@
         } else {
           const data=await r.json().catch(()=>({}));
           if(r.status===429) answer = data.error==='daily_limit'?t('limitDay'):t('limitUser');
-          else if(!r.ok) answer=t('error');
+          else if(!r.ok){ answer=t('error')+' (HTTP '+r.status+(data.error?' · '+data.error:'')+')'; }
           else answer=data.answer;
         }
       }catch(e){ if(e&&e.message==='no-server') enableDemo(); else if(answer==null) answer=t('error'); }
@@ -509,12 +509,12 @@
     const url=URL.createObjectURL(file);
     try{
       const img=await new Promise((ok,bad)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=bad; i.src=url; });
-      let side=1344, q=.86, out='';
+      let side=1280, q=.82, out='';
       for(let n=0;n<6;n++){
         const k=Math.min(1,side/Math.max(img.naturalWidth,img.naturalHeight));
         const c=document.createElement('canvas'); c.width=Math.round(img.naturalWidth*k); c.height=Math.round(img.naturalHeight*k);
         const g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height); g.drawImage(img,0,0,c.width,c.height);
-        out=c.toDataURL('image/jpeg',q); if(out.length<950000) return out;
+        out=c.toDataURL('image/jpeg',q); if(out.length<700000) return out;
         q-=.1; if(q<.6){ q=.8; side=Math.round(side*.8); }
       }
       return out.length<1350000?out:null;
