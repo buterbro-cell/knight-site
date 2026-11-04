@@ -502,7 +502,7 @@
   let attachedDoc=null;
   function setDoc(name,text,image){
     if(text && text.length>20000){ text=text.slice(0,20000); }
-    attachedDoc=image?{name,image}:{name,text}; $('docname').textContent=(image?'🖼 ':'')+name; $('docchip').classList.remove('hidden');
+    attachedDoc=image?{name,image}:{name,text}; $('docicon').textContent=image?'🖼':'📄'; $('docname').textContent=name; $('docchip').classList.remove('hidden');
   }
   // Photos: shrunk in the browser (max side 1344 px, ≤ ~700 KB JPEG), then sent to the model in the TEE as an image
   async function imageData(file){
