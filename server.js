@@ -208,7 +208,7 @@ async function proveAnswer({ chatId, requestBody, responseText }) {
 }
 
 // ---------- Streaming answer with tools and proof ----------
-async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_PROMPT_KB, tools = true } = {}) {
+async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_PROMPT_KB, tools = true, maxTokens = MAX_ANSWER_TOKENS } = {}) {
   await slot();
   let started = false, firstMs = null;
   const usageSum = { prompt_tokens: 0, completion_tokens: 0, prompt_tokens_details: { cached_tokens: 0 } };
@@ -217,14 +217,14 @@ async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_P
   const timer = setTimeout(() => ctrl.abort(), 90e3);
   res.on('close', () => { if (!res.writableEnded) ctrl.abort(); });
   const begin = () => { if (!started) { started = true; res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' }); } };
-  let full = '', final = null;
+  let full = '', final = null, finish = null, thinkChars = 0;
   try {
     const convo = [{ role: 'system', content: system }, ...messages];
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
       const withTools = tools && toolsOn && round < MAX_TOOL_ROUNDS;
       const requestBody = JSON.stringify({
         model: MODEL, messages: convo,
-        max_tokens: MAX_ANSWER_TOKENS, temperature: 0.6, stream: true, stream_options: { include_usage: true },
+        max_tokens: maxTokens, temperature: 0.6, stream: true, stream_options: { include_usage: true },
         ...(withTools ? { tools: TOOLS, tool_choice: 'auto' } : {}),
       });
       const r = await fetch(API_URL, { method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${KEY}` }, body: requestBody });
@@ -265,7 +265,9 @@ async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_P
           if (j.id && !chatId) chatId = j.id;
           if (j.usage) { usageSum.prompt_tokens += j.usage.prompt_tokens || 0; usageSum.completion_tokens += j.usage.completion_tokens || 0; usageSum.prompt_tokens_details.cached_tokens += j.usage.prompt_tokens_details?.cached_tokens || j.usage.prompt_cache_hit_tokens || 0; }
           const d = j.choices && j.choices[0] && j.choices[0].delta;
+          if (j.choices && j.choices[0] && j.choices[0].finish_reason) finish = j.choices[0].finish_reason;
           if (!d) continue;
+          if (d.reasoning_content || d.reasoning) thinkChars += String(d.reasoning_content || d.reasoning).length;
           if (d.content) out(d.content);
           for (const tc of d.tool_calls || []) {
             const i = tc.index ?? 0;
@@ -285,7 +287,7 @@ async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_P
       const results = await Promise.all(real.map(c => runTool(c.function.name, c.function.arguments)));
       real.forEach((c, i) => convo.push({ role: 'tool', tool_call_id: c.id, content: results[i] }));
     }
-    if (!full.trim()) throw new Error('empty answer');
+    if (!full.trim()) throw new Error(`empty answer (finish=${finish}, out_tokens=${usageSum.completion_tokens}, reasoning_chars=${thinkChars}, max_tokens=${maxTokens})`);
     recordUsage(usageSum, Date.now() - t0, firstMs);
     // Proof for this answer: TEE signature + attested signer. Sent after the text, then forgotten.
     if (final) {
@@ -391,7 +393,8 @@ const server = http.createServer(async (req, res) => {
     if (!KEY) return send(res, 500, { error: 'no_key' });
     // Business profile: its own instructions, no outside tools (nothing leaves the TEE model call)
     const prof = PROFILES[String(body.profile || '')];
-    const opts = prof ? { system: prof.prompt, tools: false } : undefined;
+    const hasImage = Array.isArray(msgs[msgs.length - 1].content);
+    const opts = { ...(prof ? { system: prof.prompt, tools: false } : {}), ...(hasImage ? { maxTokens: 4000 } : {}) };
     try { await askModelStream(msgs, res, opts); lastError = null; }
     catch (e) {
       lastError = new Date().toISOString() + ' ' + e.message; stats.errors++;
