@@ -156,7 +156,7 @@ async function checkModel() {
 
 // ---------- Attestation (hardware evidence only — no user data) ----------
 let attestation = null, attesting = null;
-let selftestBusy = false, selftestAt = 0;
+let selftestBusy = false, selftestAt = 0, bundleRun = null, lastBundle = null, lastBundleError = '';
 let relayAtt = null;   // latest attestation of this server (hardware evidence only)
 async function runAttestation(signingAddress) {
   if (attesting && !signingAddress) return attesting;
@@ -403,21 +403,33 @@ const server = http.createServer(async (req, res) => {
   // Same end-to-end check as `node scripts/verify.js`, run on this live server, output as plain text.
   // One tiny completion + attestation; rate-limited; prints results only, stores nothing.
   if (url.pathname === '/api/selftest') {
+    // Evidence bundle: one shared run. Browsers often open a URL twice (address-bar preloading), so a second
+    // request waits for the running test instead of being refused, and a finished bundle is reused for 10 minutes.
+    // The bundle holds only a fixed public test prompt and hardware evidence — no visitor data.
+    if (url.searchParams.get('bundle') === '1') {
+      if (!(lastBundle && Date.now() - lastBundle.at < 10 * 60e3)) {
+        if (!bundleRun) {
+          if (allow(req, 'selftest')) return send(res, 429, { error: 'too_often', reason: 'self-test budget for this visitor used up', retryInSec: PER_USER_WINDOW_MIN * 60 });
+          bundleRun = (async () => {
+            const bundle = {}; const lines = [];
+            const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout after 150 s')), 150e3).unref());
+            try { await Promise.race([selftest((...x) => lines.push(util.format(...x)), bundle), timeout]); }
+            catch (e) { lines.push('Error: ' + e.message); }
+            if (bundle.format) lastBundle = { at: Date.now(), bundle }; else lastBundleError = lines.slice(-12).join('\n');
+          })().finally(() => { bundleRun = null; });
+        }
+        await bundleRun;
+      }
+      if (!lastBundle) return send(res, 502, { error: 'selftest_failed', log: lastBundleError });
+      const b = lastBundle.bundle;
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': `attachment; filename="evidence-${b.captured_at.slice(0, 19).replace(/[:T]/g, '-')}.json"`, 'Cache-Control': 'no-store' });
+      return res.end(JSON.stringify(b, null, 1));
+    }
     if (selftestBusy) return send(res, 429, { error: 'too_often', reason: 'a self-test is running right now', retryInSec: 30 });
     const wait = Math.ceil((60e3 - (Date.now() - selftestAt)) / 1000);
     if (wait > 0) return send(res, 429, { error: 'too_often', reason: 'one self-test per minute', retryInSec: wait });
     if (allow(req, 'selftest')) return send(res, 429, { error: 'too_often', reason: 'self-test budget for this visitor used up', retryInSec: PER_USER_WINDOW_MIN * 60 });
     selftestBusy = true; selftestAt = Date.now();
-    if (url.searchParams.get('bundle') === '1') {
-      // Same run, saved as an evidence file anyone can re-check offline: node scripts/verify-bundle.js <file>
-      const bundle = {}; const lines = [];
-      try { await selftest((...x) => lines.push(util.format(...x)), bundle); }
-      catch (e) { lines.push('Error: ' + e.message); }
-      finally { selftestBusy = false; }
-      if (!bundle.format) return send(res, 502, { error: 'selftest_failed', log: lines.join('\n') });
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': `attachment; filename="evidence-${bundle.captured_at.slice(0, 19).replace(/[:T]/g, '-')}.json"`, 'Cache-Control': 'no-store' });
-      return res.end(JSON.stringify(bundle, null, 1));
-    }
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     res.write(`$ node scripts/verify.js   (run live on this server, ${new Date().toISOString()})\n\n`);
     try { await selftest((...a) => res.write(util.format(...a) + '\n')); }
