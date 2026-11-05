@@ -10,7 +10,7 @@ const emit = () => listeners.forEach(f => { try { f(account); } catch (e) {} });
 
 function conn() {
   if (!connector) {
-    connector = new NearConnector({ network: 'mainnet', features: { signAndSendTransaction: true } });
+    connector = new NearConnector({ network: 'mainnet' });   // no feature filter: injected wallets (HOT extension) may not declare every feature
     connector.on('wallet:signIn', e => { account = (e.accounts && e.accounts[0] && e.accounts[0].accountId) || account; emit(); });
     connector.on('wallet:signOut', () => { account = null; emit(); });
   }
