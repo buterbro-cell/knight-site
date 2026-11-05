@@ -525,6 +525,8 @@ const server = http.createServer(async (req, res) => {
       if (req.method !== 'POST') return send(res, 405, { error: 'post' });
       const b = JSON.parse((await readBody(req, 4e3)).toString('utf8') || '{}');
       if (url.pathname === '/api/agent/session') return send(res, 200, await agentWallet.openSession(b));
+      // withdraw needs no session: the money can only go back to the owner's own balance
+      if (url.pathname === '/api/agent/withdraw') return send(res, 200, await agentWallet.withdraw(String(b.owner || '')));
       const owner = agentWallet.checkToken(b.token);
       if (!owner) return send(res, 401, { error: 'session_expired' });
       if (url.pathname === '/api/agent/pay') {
@@ -532,7 +534,6 @@ const server = http.createServer(async (req, res) => {
         const p = b.proposal || {};
         return send(res, 200, await agentWallet.execute(owner, { action: p.action, amount: p.amount, token: p.token, toToken: p.toToken, toChain: p.toChain, to: p.to, payWith: p.payWith }));
       }
-      if (url.pathname === '/api/agent/withdraw') return send(res, 200, await agentWallet.withdraw(owner));
       return send(res, 404, { error: 'not_found' });
     } catch (e) { return send(res, 400, { error: 'agent_error', message: e.message }); }
   }

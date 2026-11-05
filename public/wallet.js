@@ -123,27 +123,36 @@ export async function getQuote(body) {
 }
 
 // ---------------- Full mode: the agent wallet whose key lives only in the server's TEE ----------------
-let session = null;   // { token, owner, expiresAt } — this tab only
+// { token, owner, expiresAt } — kept on this device for 24 hours so voice payments need no wallet popup
+let session = null;
+try { session = JSON.parse(localStorage.getItem('sirnear.agentSession') || 'null'); } catch (e) {}
 export async function agentSession() {
   if (session && session.owner === account && Date.now() < session.expiresAt - 60e3) return session.token;
   const w = await conn().wallet();
-  const message = `Sir Near: let my agent wallet act for ${account} for 30 minutes, within its limits. ${Date.now()}`;
+  const message = `Sir Near: let my agent wallet act for ${account} for 24 hours, within its limits. ${Date.now()}`;
   const nonce = crypto.getRandomValues(new Uint8Array(32));
   const s = await w.signMessage({ message, recipient: 'sir-near', nonce, network: 'mainnet' });
   const b64 = btoa(String.fromCharCode(...nonce));
   const r = await fetch('api/agent/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: s.accountId || account, publicKey: s.publicKey, signature: s.signature, message, nonce: b64 }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status));
-  session = j; return j.token;
+  session = j; try { localStorage.setItem('sirnear.agentSession', JSON.stringify(j)); } catch (e) {}
+  return j.token;
 }
 export async function agentInfo() {
   const r = await fetch('api/agent/info?owner=' + encodeURIComponent(account), { cache: 'no-store' });
   const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.message || j.error); return j;
 }
-async function agentPost(path, body) {
+async function agentPost(path, body, retry = true) {
   const token = await agentSession();
   const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, ...body }) });
-  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status)); return j;
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && retry) { session = null; try { localStorage.removeItem('sirnear.agentSession'); } catch (e) {} return agentPost(path, body, false); }
+  if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status)); return j;
 }
 export const agentPay = proposal => agentPost('api/agent/pay', { proposal });
-export const agentWithdraw = () => agentPost('api/agent/withdraw', {});
+// Withdraw needs no signature: the money can only go back to the owner
+export async function agentWithdraw() {
+  const r = await fetch('api/agent/withdraw', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ owner: account }) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status)); return j;
+}
