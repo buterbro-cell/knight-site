@@ -29,9 +29,15 @@ Sir Near is a voice assistant that a business adds to its website with one line 
 | Official-install badge: iframe referrer vs the business profile's domains | `public/app.js` `showOfficial()`, `public/biz/*.json` | — |
 | Business profiles are public JSON (the exact instructions the assistant follows) and run without tools | `public/biz/clinic.json`, `public/biz/bank.json`; `server.js` (`tools: false` for profiles) | — |
 
+| Payments are prepared by the model but only sent after the visitor's wallet signs; never offered with a document attached; $50 cap | `server.js` (`PAY_TOOL`, `payTool`), `lib/pay.js` `buildQuote()`, `public/wallet.js` `depositActions()` | `test/pay.test.js`, `test/wallet.test.js` |
+| Payments are confidential NEAR Intents quotes (payer and payout unlinkable) | `lib/pay.js` (`confidentiality: 'advanced'`, partner key in `X-API-Key`) | `/api/pay/probe` (dry quotes) |
+| Paid private review: answer unlocked only after the server verifies SUCCESS to the clinic's address, one payment per document; samples free | `server.js` paid-review gate, `lib/pay.js` `checkPaid()`, `consumeDeposit()` | `test/pay.test.js` |
+| Full mode: agent wallet key only inside the TEE; owner-only sessions (NEP-413, full-access key checked on chain); $10/action, $25/day | `lib/agentwallet.js` | `test/agentwallet.test.js` |
+| NEAR transactions and NEP-413 without SDKs, byte-identical to near-api-js | `lib/near.js` | `test/near-tx.test.js` (CI), `test/near.test.js` |
+
 ## Not built (stated as such in README → Roadmap)
 
-Voice transactions (autonomous within user-set limits on NEAR Intents); bring-your-own relay.
+Scheduled payments from the agent wallet; bring-your-own relay.
 
 ## Known limits
 

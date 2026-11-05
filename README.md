@@ -131,8 +131,19 @@ flowchart LR
 
 ## Roadmap — not built yet
 
-- **Voice transactions (soon).** "Send 20 USDC to Anna" or "pay this invoice" — said once, done by the agent. It reads the request or the invoice inside the TEE and **executes on its own, within limits the user set in advance**: a daily cap, an allowlist of recipients, and an amount above which it asks for one tap in the user's NEAR wallet. Built on NEAR limited-permission access keys and NEAR Intents with confidential execution: the agent never holds the user's main keys, and the payment details stay as private as the conversation.
+- **Scheduled payments from the agent wallet:** "pay the electricity bill when it arrives", "buy 10 USDC of NEAR every Monday" — the cases where no one is there to tap a wallet.
+- **On-chain limits for the agent wallet** (a policy contract), on top of the limits enforced in the TEE.
 - **Bring-your-own relay:** a business runs the open-source relay in its own TEE and the assistant verifies it the same way it verifies ours.
+
+## Private payments (NEAR Intents, confidential)
+
+| Where | What happens |
+|---|---|
+| **Personal agent** (main page) and **bank** | Say or type "send 2 USDC to anna.near" / "swap 3 NEAR to USDC". The model in the TEE calls `prepare_payment`, a card shows recipient, amounts, fee and time, and **your own wallet** (HOT, Meteor… via NEAR Connect) signs the deposit. The quote is confidential (`confidentiality: advanced`): the deposit and the payout cannot be linked to each other. Nothing moves without your signature. |
+| **Clinic: paid private review** | A review of *your own* lab results costs 1 USDC, paid confidentially to the clinic (`ro52.near`): the clinic is paid, but your wallet is not linked to the payment. The server unlocks the answer only after checking the payment itself. The fictional samples stay free. |
+| **Full mode** (personal agent) | An **agent wallet** whose key exists only inside our TEE (Phala dstack `GetKey`, one per owner, never stored). You top it up with a small budget; the agent then pays on your command **without a wallet popup**, within $10 per action and $25 per day. Only you can command it: a NEP-413 message signed by a full-access key of your account opens a 30-minute session. "Send everything back to me" is one tap. |
+
+Not covered and stated plainly: amounts and timing are public on both chains; the full-mode daily counter resets on restart; a new attested version of the relay derives the same agent keys. Demo limits: $50 per wallet-signed action. Details: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) rows 11–14.
 
 ## Check it without a NEAR AI key
 
@@ -224,6 +235,8 @@ Full output: [`docs/verify-output.txt`](docs/verify-output.txt).
 | `test/`, `.github/workflows/test.yml` | unit tests and CI |
 | `docs/THREAT_MODEL.md` | threats, defences, code and tests, what is not covered |
 | `public/vendor/pdfjs/` | pdf.js served from our origin (Apache-2.0) |
+| `lib/pay.js`, `public/wallet.js`, `public/vendor/near-connect/` | private payments: confidential NEAR Intents quotes, wallet signing (NEAR Connect, MIT) |
+| `lib/agentwallet.js`, `lib/near.js` | full mode: agent wallet with a TEE-only key; zero-dependency NEAR transactions and NEP-413 (bytes checked against near-api-js in CI) |
 | `tools.js` | optional public lookups for the main knight (NEAR docs, network status) |
 | `public/index.html`, `public/app.js`, `public/app.css` | the assistant: voice, Verified panel, documents, business profiles |
 | `public/knight3d.js`, `public/3d/` | the 3D character (three.js), model, face |

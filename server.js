@@ -21,6 +21,7 @@ const { selftest } = require('./lib/selftest');
 const { parseChatInput } = require('./lib/input');
 const { createLimiter } = require('./lib/ratelimit');
 const pay = require('./lib/pay');
+const agentWallet = require('./lib/agentwallet');
 const relay = require('./lib/selfattest');   // attestation of this server when it runs in a TEE (Phala / dstack)
 const util = require('util');
 
@@ -467,7 +468,7 @@ const server = http.createServer(async (req, res) => {
 
   // ---- Private payments through NEAR Intents (confidential quotes). We never hold keys or funds:
   // the visitor's own wallet sends to a one-time deposit address; the payout cannot be linked to that deposit.
-  if (url.pathname === '/api/pay/config') return send(res, 200, { enabled: !!process.env.ONECLICK_JWT, maxUsd: pay.MAX_USD, assets: Object.keys(pay.ASSETS) });
+  if (url.pathname === '/api/pay/config') return send(res, 200, { enabled: !!process.env.ONECLICK_JWT, maxUsd: pay.MAX_USD, assets: Object.keys(pay.ASSETS), agentWallet: agentWallet.mode(), agentLimits: agentWallet.LIMITS });
   if (url.pathname === '/api/pay/quote' && req.method === 'POST') {
     if (!process.env.ONECLICK_JWT) return send(res, 503, { error: 'payments_off' });
     if (allow(req, 'pay')) return send(res, 429, { error: 'too_often' });
@@ -483,6 +484,27 @@ const server = http.createServer(async (req, res) => {
   }
   if (url.pathname === '/api/pay/status') {
     try { return send(res, 200, await pay.status(String(url.searchParams.get('depositAddress') || ''))); } catch (e) { return send(res, 400, { error: e.message }); }
+  }
+
+  // ---- Full mode: the agent's own wallet, key only inside this TEE (lib/agentwallet.js)
+  if (url.pathname.startsWith('/api/agent/')) {
+    if (allow(req, 'pay')) return send(res, 429, { error: 'too_often' });
+    if (agentWallet.mode() === 'off') return send(res, 503, { error: 'agent_wallet_needs_tee', mode: 'off' });
+    try {
+      if (url.pathname === '/api/agent/info') return send(res, 200, await agentWallet.info(String(url.searchParams.get('owner') || '')));
+      if (req.method !== 'POST') return send(res, 405, { error: 'post' });
+      const b = JSON.parse((await readBody(req, 4e3)).toString('utf8') || '{}');
+      if (url.pathname === '/api/agent/session') return send(res, 200, await agentWallet.openSession(b));
+      const owner = agentWallet.checkToken(b.token);
+      if (!owner) return send(res, 401, { error: 'session_expired' });
+      if (url.pathname === '/api/agent/pay') {
+        if (!process.env.ONECLICK_JWT) return send(res, 503, { error: 'payments_off' });
+        const p = b.proposal || {};
+        return send(res, 200, await agentWallet.execute(owner, { action: p.action, amount: p.amount, token: p.token, toToken: p.toToken, toChain: p.toChain, to: p.to }));
+      }
+      if (url.pathname === '/api/agent/withdraw') return send(res, 200, await agentWallet.withdraw(owner));
+      return send(res, 404, { error: 'not_found' });
+    } catch (e) { return send(res, 400, { error: 'agent_error', message: e.message }); }
   }
 
   // Diagnostic for private payments: which NEAR Intents quote variants work right now (dry, nothing is paid)

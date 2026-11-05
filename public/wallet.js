@@ -73,3 +73,38 @@ export async function getQuote(body) {
   if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status));
   return j;
 }
+
+// ---------------- Full mode: the agent wallet whose key lives only in the server's TEE ----------------
+let session = null;   // { token, owner, expiresAt } — this tab only
+export async function agentSession() {
+  if (session && session.owner === account && Date.now() < session.expiresAt - 60e3) return session.token;
+  const w = await conn().wallet();
+  const message = `Sir Near: let my agent wallet act for ${account} for 30 minutes, within its limits. ${Date.now()}`;
+  const nonce = crypto.getRandomValues(new Uint8Array(32));
+  const s = await w.signMessage({ message, recipient: 'sir-near', nonce, network: 'mainnet' });
+  const b64 = btoa(String.fromCharCode(...nonce));
+  const r = await fetch('api/agent/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: s.accountId || account, publicKey: s.publicKey, signature: s.signature, message, nonce: b64 }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status));
+  session = j; return j.token;
+}
+export async function agentInfo() {
+  const r = await fetch('api/agent/info?owner=' + encodeURIComponent(account), { cache: 'no-store' });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.message || j.error); return j;
+}
+async function agentPost(path, body) {
+  const token = await agentSession();
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, ...body }) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status)); return j;
+}
+export const agentPay = proposal => agentPost('api/agent/pay', { proposal });
+export const agentWithdraw = () => agentPost('api/agent/withdraw', {});
+// Top up from the owner's wallet: some NEAR for gas (creates the implicit account) + USDC
+export async function topUp(agentAccount, usdcContract, usdcUnits, nearYocto) {
+  const w = await conn().wallet();
+  const txs = [{ receiverId: agentAccount, actions: [{ type: 'Transfer', params: { deposit: nearYocto } }] }];
+  if (BigInt(usdcUnits || '0') > 0n) txs.push({ receiverId: usdcContract, actions: [
+    { type: 'FunctionCall', params: { methodName: 'storage_deposit', args: { account_id: agentAccount, registration_only: true }, gas: TGAS30, deposit: STORAGE } },
+    { type: 'FunctionCall', params: { methodName: 'ft_transfer', args: { receiver_id: agentAccount, amount: String(usdcUnits) }, gas: TGAS30, deposit: '1' } }] });
+  return w.signAndSendTransactions({ transactions: txs, network: 'mainnet' });
+}
