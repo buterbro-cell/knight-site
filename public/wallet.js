@@ -102,11 +102,15 @@ export async function payQuote(q) {
   return post('api/pay/submit-intent', signed);
 }
 
-export async function waitDone(depositAddress, onStatus, { timeoutMs = 5 * 60e3 } = {}) {
+export const sessionToken = () => (intents && intents.account === account ? intents.token : null);
+// agent: true → the agent's own session reads the status (it paid); otherwise this tab's NEAR Intents session
+export async function waitDone(depositAddress, onStatus, { timeoutMs = 5 * 60e3, agent = false } = {}) {
   const t0 = Date.now();
+  const url = agent ? 'api/agent/status?owner=' + encodeURIComponent(account) + '&depositAddress=' + encodeURIComponent(depositAddress) : 'api/pay/status?depositAddress=' + encodeURIComponent(depositAddress);
   while (Date.now() - t0 < timeoutMs) {
     let s = null;
-    try { s = await (await fetch('api/pay/status?depositAddress=' + encodeURIComponent(depositAddress), { cache: 'no-store' })).json(); } catch (e) {}
+    try { s = await (await fetch(url, { cache: 'no-store', headers: agent ? {} : H() })).json(); } catch (e) {}
+    if (s && !s.status && s.error) onStatus && onStatus({ status: 'ERROR', error: s.error });
     if (s && s.status) { onStatus && onStatus(s); if (['SUCCESS', 'REFUNDED', 'FAILED', 'INCOMPLETE_DEPOSIT'].includes(s.status)) return s; }
     await new Promise(r => setTimeout(r, 3000));
   }

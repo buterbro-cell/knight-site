@@ -383,9 +383,9 @@ const server = http.createServer(async (req, res) => {
     const isSample = pr && (pr.samples || []).some(x => x.file === String((body.document && body.document.name) || ''));   // demo samples stay free
     if (pr && pr.paidReview && body.document && !isSample) {
       const dep = String(body.paidDeposit || '');
-      if (!pay.isNearAccount(dep)) return send(res, 402, { error: 'payment_required', price: pr.paidReview.price, token: pr.paidReview.token });
+      if (!/^[A-Za-z0-9._:-]{8,128}$/.test(dep)) return send(res, 402, { error: 'payment_required', price: pr.paidReview.price, token: pr.paidReview.token });
       const asset = pay.ASSETS[`${pr.paidReview.token}@near`];
-      let paid; try { paid = await pay.checkPaid(dep, { recipient: pr.paidReview.recipient, priceUnits: pay.toUnits(pr.paidReview.price, asset.decimals).toString(), assetId: asset.assetId }); } catch { paid = { ok: false }; }
+      let paid; try { paid = await pay.checkPaid(dep, { recipient: pr.paidReview.recipient, priceUnits: pay.toUnits(pr.paidReview.price, asset.decimals).toString(), assetId: asset.assetId, bearer: String(body.intentsSession || '') || undefined }); } catch { paid = { ok: false }; }
       if (!paid.ok) return send(res, 402, { error: 'payment_not_confirmed', status: paid.status || null });
       if (!pay.consumeDeposit(dep, String(body.document.name || ''))) return send(res, 402, { error: 'payment_already_used' });
     }
@@ -512,7 +512,7 @@ const server = http.createServer(async (req, res) => {
     try { return send(res, 200, await pay.balances(String(url.searchParams.get('account') || ''))); } catch (e) { return send(res, 400, { error: e.message }); }
   }
   if (url.pathname === '/api/pay/status') {
-    try { return send(res, 200, await pay.status(String(url.searchParams.get('depositAddress') || ''))); } catch (e) { return send(res, 400, { error: e.message }); }
+    try { return send(res, 200, await pay.status(String(url.searchParams.get('depositAddress') || ''), { bearer: String(req.headers['x-intents-session'] || '') || undefined })); } catch (e) { return send(res, 400, { error: e.message }); }
   }
 
   // ---- Full mode: the agent's own wallet, key only inside this TEE (lib/agentwallet.js)
@@ -521,6 +521,7 @@ const server = http.createServer(async (req, res) => {
     if (agentWallet.mode() === 'off') return send(res, 503, { error: 'agent_wallet_needs_tee', mode: 'off' });
     try {
       if (url.pathname === '/api/agent/info') return send(res, 200, await agentWallet.info(String(url.searchParams.get('owner') || '')));
+      if (url.pathname === '/api/agent/status') return send(res, 200, await agentWallet.status(String(url.searchParams.get('owner') || ''), String(url.searchParams.get('depositAddress') || '')));
       if (req.method !== 'POST') return send(res, 405, { error: 'post' });
       const b = JSON.parse((await readBody(req, 4e3)).toString('utf8') || '{}');
       if (url.pathname === '/api/agent/session') return send(res, 200, await agentWallet.openSession(b));

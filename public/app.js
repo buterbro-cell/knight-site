@@ -324,7 +324,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     let answer=null;
     if(!demo){
       try{
-        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6),stream:true,document:attachedDoc||undefined,profile:BIZ||undefined,paidDeposit:(attachedDoc&&paidFor[attachedDoc.name])||undefined})});
+        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6),stream:true,document:attachedDoc||undefined,profile:BIZ||undefined,paidDeposit:(attachedDoc&&paidFor[attachedDoc.name])||undefined,intentsSession:(attachedDoc&&paidFor[attachedDoc.name]&&W&&W.sessionToken())||undefined})});
         if(r.status===402 && PROFILE && PROFILE.paidReview){ clearTimeout(dotsTimer); history.pop(); const q2=question; setMode('idle'); say(t('reviewAsk')); openPay({review:true, then:dep=>{ paidFor[attachedDoc.name]=dep; ask(q2); }}); return; }
         if(r.status===404||r.status===405) throw new Error('no-server');
         if(myAsk!==askId) return;
@@ -658,7 +658,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       if($('pAg')) $('pAg').onclick=async()=>{
         const st=$('pSt'); ['pAg','pOk','pX'].forEach(i=>$(i).disabled=true);
         try{ st.textContent=t('agSession'); await w.agentSession(); st.textContent=t('agPaying'); const r=await w.agentPay({...p,payWith:canSwitch?using:undefined});
-          st.textContent=t('payProcessing'); const fin=await w.waitDone(r.depositAddress,()=>{});
+          st.textContent=t('payProcessing'); const fin=await w.waitDone(r.depositAddress,x=>{ st.textContent=t('payProcessing')+' ['+x.status+(x.error?': '+x.error:'')+']'; },{agent:true});
           const link=(fin.destTx&&fin.destTx[0])||(fin.originTx&&fin.originTx[0]);
           if(fin.status==='SUCCESS'){ st.innerHTML=esc(t('payDone'))+(link?` <a href="${esc(link)}" target="_blank" rel="noopener">${esc(t('payLink'))} ↗</a>`:''); speak(t('payDoneSay')); }
           else st.textContent=fin.status==='REFUNDED'?t('payRefunded'):t('payFailed');
@@ -678,7 +678,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
           st.textContent=t('paySign'); await w.payQuote(q);
         }catch(e){ st.textContent=t('payErr')+((e&&e.message)||t('payDeclined')); $('pX').disabled=false; return; }
         st.textContent=t('payProcessing');
-        const fin=await w.waitDone(q.depositAddress,s=>{ if(s.status==='PROCESSING'||s.status==='KNOWN_DEPOSIT_TX') st.textContent=t('payProcessing'); });
+        const fin=await w.waitDone(q.depositAddress,s=>{ st.textContent=t('payProcessing')+' ['+s.status+(s.error?': '+s.error:'')+']'; });
         const link=(fin.destTx&&fin.destTx[0])||(fin.originTx&&fin.originTx[0]);
         if(fin.status==='SUCCESS'){
           st.innerHTML=esc(t('payDone'))+(link?` <a href="${esc(link)}" target="_blank" rel="noopener">${esc(t('payLink'))} ↗</a>`:'');
