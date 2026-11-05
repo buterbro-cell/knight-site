@@ -1,0 +1,23 @@
+# Sir Near
+
+> A verifiably private voice assistant that any business adds to its website with one line of code. Visitors talk to it or show it a document or a photo of one; every hop runs in a hardware enclave (NEAR AI Cloud TEE for the model, Phala Cloud Intel TDX for our relay), and the assistant proves it on screen. NEAR HACKATHON, tracks: Privacy & Private AI, Open Innovation.
+
+- [README](README.md): what it is, a 5-minute judge guide (do X → see Y), architecture, verification, limits, roadmap.
+- [AGENTS.md](AGENTS.md): every claim mapped to the code and the test that prove it.
+- [Threat model](docs/THREAT_MODEL.md): threats, defences, tests, what is not covered.
+- [Verify output](docs/verify-output.txt): real output of the minimal end-to-end script on the deployed server.
+
+## Check
+
+- `npm install && npm test`: unit tests, no key needed (attestation and signature checks, input handling, rate limits, no-storage guarantees).
+- `npm run verify` with your own `NEAR_AI_KEY`: one TEE completion, attestation with a fresh nonce, signature check, run directly against NEAR AI.
+- Live: `/api/health`, `/api/selftest`, `/api/attestation/challenge?word=<anything>` on the deployed host (URL in README).
+
+## Code
+
+- `server.js`: API (streamed answers, Whisper STT, Piper TTS, proofs); stores nothing.
+- `lib/attest.js`: NEAR AI attestation and per-answer signature verification.
+- `lib/selfattest.js`: our relay's own Intel TDX attestation (dstack).
+- `lib/input.js`: documents and photos as data, with the anti-injection rule.
+- `lib/ratelimit.js`: salted-hash rate limiting.
+- `public/`: the assistant (`app.js`), the embed (`widget.js`), business profiles (`biz/*.json`), the demo sites (`demo/`).

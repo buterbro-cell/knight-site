@@ -1,6 +1,8 @@
 # Sir Near — a verifiably private voice assistant for any website
 
-**NEAR HACKATHON · Track: Privacy & Private AI (`privacy`)** · NEAR AI Cloud · Phala Cloud (dstack) · TEE attestation
+**NEAR HACKATHON · Tracks: Privacy & Private AI (`privacy`), Open Innovation (`open`)** · NEAR AI Cloud · Phala Cloud (dstack) · TEE attestation
+
+[![tests](https://github.com/buterbro-cell/knight-site/actions/workflows/test.yml/badge.svg)](https://github.com/buterbro-cell/knight-site/actions/workflows/test.yml) · For AI reviewers: [`AGENTS.md`](AGENTS.md) (every claim → the code and test that prove it) · [`llms.txt`](llms.txt)
 
 > Website chatbots of clinics and banks usually tell you **not** to share medical or financial details — the conversation is stored by an AI vendor.
 > Sir Near is built so there is nothing to store and nobody to see it: every hop runs in a hardware enclave, and the assistant **proves it on screen**.
@@ -18,14 +20,14 @@
 
 1. **Open `/demo/?s=clinic`** → tap **Private assistant** (bottom right) → **Talk to the assistant**.
    → A 3D knight greets you by voice as Daisy Clinic's assistant; under the title: **✓ Official assistant on <this site>**.
-2. Tap **📄** → **Blood test results** (fictional patient).
-   → The knight names the out-of-range values (hemoglobin, ferritin, vitamin D, LDL, HbA1c, CRP), explains them in plain words and suggests which of the clinic's doctors to see. Under the answer: **🔏 Answer signed inside the TEE — verified**.
+2. Tap **Document** → **📸 Photo of a blood test** (fictional patient) → type a question or just tap **Ask**.
+   → The model reads the photo inside the TEE. The knight names the out-of-range values (hemoglobin, ferritin, vitamin D, LDL, HbA1c, CRP), explains them in plain words and suggests which of the clinic's doctors to see. Under the answer: **🔏 Answer signed inside the TEE — verified**.
 3. Tap **TEE ✓** in the assistant's header → the **Verified panel**.
    → Green checks for the **model** (Intel TDX + NVIDIA GPU), the **NEAR AI gateway** and **our relay server** (Intel TDX on Phala), plus the signature evidence of the last answer.
 4. In the panel, under **Check it yourself**, type **any number** → **Verify**.
    → "✅ Your number was found inside the Intel-signed report": `nonce = sha256(your number)` sits in the quote's `report_data`. Nobody could have prepared that report in advance — the check is live. Check the hash yourself: `echo -n "<your number>" | sha256sum`.
-5. Switch to **🏦 Owlbridge Bank** at the top → 📄 → **Suspicious call from "the bank"**.
-   → It recognises the "safe account" scam (urgency, SMS code, secrecy) and says exactly what to do now. 📄 → **Personal loan offer** → the advertised 6.9% is really a **15.8% APR** (financed insurance, fees, early-repayment penalty).
+5. Switch to **🏦 Owlbridge Bank** at the top → **Document** → **Suspicious call from "the bank"** → **Ask**.
+   → It recognises the "safe account" scam (urgency, SMS code, secrecy) and says exactly what to do now. **Document** → **Personal loan offer** → the advertised 6.9% is really a **15.8% APR** (financed insurance, fees, early-repayment penalty).
 6. Open **`/api/selftest`**.
    → The output of `scripts/verify.js` produced live on the deployed server: TEE model chosen from `/v1/models` → one completion → attestation with a fresh nonce → response signature. All ✅.
 7. Open the **Trust Center** link above.
@@ -132,6 +134,22 @@ flowchart LR
 - **Voice transactions (soon).** "Send 20 USDC to Anna" or "pay this invoice" — said once, done by the agent. It reads the request or the invoice inside the TEE and **executes on its own, within limits the user set in advance**: a daily cap, an allowlist of recipients, and an amount above which it asks for one tap in the user's NEAR wallet. Built on NEAR limited-permission access keys and NEAR Intents with confidential execution: the agent never holds the user's main keys, and the payment details stay as private as the conversation.
 - **Bring-your-own relay:** a business runs the open-source relay in its own TEE and the assistant verifies it the same way it verifies ours.
 
+## Check it without a NEAR AI key
+
+```bash
+npm install
+npm test        # unit tests; GitHub Actions runs them on every push
+```
+
+| Test file | What it proves |
+|---|---|
+| `test/attest.test.js` | Attestation checks: the signing key is bound to the quote, the nonce makes it fresh (a replayed report fails), the compose hash = mr_config_id. Per-answer signatures: an edited answer, an edited question, a forged signature and a valid signature from a non-attested key are all rejected. |
+| `test/input.test.js` | Documents and photos are attached only to the current question, wrapped as data with the anti-injection rule; only jpeg/png/webp data URLs ≤ 1.4 MB; system/tool roles from the browser are dropped. |
+| `test/ratelimit.test.js` | Per-visitor budgets per action, daily cap, window refill; memory holds no IP addresses (only salted hashes), new salt per process. |
+| `test/privacy.test.js` | The server code has no file writes, no database clients, and no log line that prints questions, answers, documents or audio. |
+
+Threats and defences, each mapped to code and tests: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
+
 ## Run it
 
 ```bash
@@ -192,6 +210,12 @@ Full output: [`docs/verify-output.txt`](docs/verify-output.txt).
 | `lib/attest.js` | NEAR AI attestation + answer-signature verification |
 | `lib/selfattest.js` | attestation of our own server via the dstack guest agent |
 | `lib/selftest.js`, `scripts/verify.js` | the minimal end-to-end check (`npm run verify`, `/api/selftest`) |
+| `lib/input.js` | chat input: documents and photos as data, anti-injection wrapper |
+| `lib/ratelimit.js` | per-visitor budgets with salted IP hashes only |
+| `lib/bundle.js`, `scripts/verify-bundle.js` | evidence bundles (`/api/selftest?bundle=1`) and their offline re-check |
+| `test/`, `.github/workflows/test.yml` | unit tests and CI |
+| `docs/THREAT_MODEL.md` | threats, defences, code and tests, what is not covered |
+| `public/vendor/pdfjs/` | pdf.js served from our origin (Apache-2.0) |
 | `tools.js` | optional public lookups for the main knight (NEAR docs, network status) |
 | `public/index.html`, `public/app.js`, `public/app.css` | the assistant: voice, Verified panel, documents, business profiles |
 | `public/knight3d.js`, `public/3d/` | the 3D character (three.js), model, face |
@@ -206,7 +230,7 @@ Full output: [`docs/verify-output.txt`](docs/verify-output.txt).
 
 - All code in this repository was written during NEAR HACKATHON (first commit Nov 1, 2026); full history in git.
 - Written with an AI coding agent (Claude Code); the team designed the product, the character and its animations.
-- Libraries: three.js (3D), pdf.js (PDF reading in the browser), `@phala/dcap-qvl-node` (Intel TDX quote verification), `ethers` v5 (signature recovery), Piper TTS (voice). 3D character generated with Tripo and animated with Adobe Mixamo; backgrounds AI-generated.
+- Libraries: three.js (3D), pdf.js (PDF reading in the browser, vendored), `@phala/dcap-qvl-node` (Intel TDX quote verification), `ethers` v5 (signature recovery), Piper TTS (voice). 3D character generated with Tripo and animated with Adobe Mixamo; backgrounds AI-generated.
 - License: MIT (`LICENSE`).
 
 All businesses, people and documents in this repository are fictional.

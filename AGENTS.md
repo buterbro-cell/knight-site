@@ -1,0 +1,37 @@
+# AGENTS.md — for AI reviewers
+
+Sir Near is a voice assistant that a business adds to its website with one line of code (`public/widget.js`). Visitors talk to it or show it a document or a photo of one. Everything that touches the visitor's data runs in TEEs, and the assistant proves it on screen. Tracks: Privacy & Private AI, Open Innovation.
+
+## How to check quickly
+
+| Without a key | `npm install && npm test` (unit tests: attestation and signature checks, input handling, rate limits, no-storage guarantees). CI: `.github/workflows/test.yml`. |
+|---|---|
+| Live | Deployed on Phala Cloud (Intel TDX): see the links table at the top of `README.md`. `GET /api/health` (state, no content), `GET /api/selftest` (minimal end-to-end check run live), `GET /api/attestation/challenge?word=<anything>` (your own nonce inside the Intel quote). |
+| With your own NEAR AI key | `cp .env.example .env`, set `NEAR_AI_KEY`, then `npm run verify`. It calls NEAR AI directly, not through our server. |
+
+## Claims → proof
+
+| Claim | Code | Test / evidence |
+|---|---|---|
+| Answers come from a TEE-hosted model on NEAR AI Cloud, chosen from `/v1/models` | `server.js` `checkModel()`, `MODEL_PREFS`; `lib/selftest.js` | `/api/selftest` output; `docs/verify-output.txt` |
+| Attestation: Intel TDX quote verified (dcap-qvl), signing key bound in `report_data[0..32]`, fresh nonce in `report_data[32..64]`, NVIDIA GPU verdict from NRAS, compose hash = `mr_config_id` | `lib/attest.js` `verifyOne()`, `reportDataMatches()`, `composeMatches()` | `test/attest.test.js` |
+| Each answer is signed in the enclave; the request/response sha256 and the signer are checked against the attested key | `lib/attest.js` `signedTextChecks()`, `verifyResponseSignature()`; `server.js` `proveAnswer()` | `test/attest.test.js` (edited answer, edited question, forged signature, non-attested signer) |
+| A visitor can choose the nonce (sha256 of their word), so the report cannot be pre-recorded | `server.js` `/api/attestation/challenge` | live endpoint; `test/attest.test.js` (replayed report fails) |
+| Our relay server also runs in Intel TDX (Phala dstack) and attests itself | `lib/selfattest.js`; `server.js` `/api/attestation/self`; `docker-compose.phala.yml` pins the image digest built by `.github/workflows/image.yml` | Phala Trust Center link in `README.md`; `/api/health` → `relayInTee` |
+| Nothing is stored: no files, no database, no content in logs | `server.js` (request data lives in local variables only) | `test/privacy.test.js` |
+| Rate limiting keeps only salted IP hashes and timestamps; salt is new per process | `lib/ratelimit.js` | `test/ratelimit.test.js` |
+| Documents and photos are attached to the current question only, treated as data (anti-prompt-injection rule), images limited to jpeg/png/webp ≤ 1.4 MB | `lib/input.js` | `test/input.test.js` |
+| Photos are read by the TEE model itself (DeepSeek V4.1 Flash, native vision) and shrunk in the browser first | `public/app.js` `imageData()`, `lib/input.js` | manual: demo → Document → "Photo of a blood test" |
+| PDFs are read in the browser with pdf.js served from our origin, with no third-party CDN | `public/app.js` `pdfText()`, `public/vendor/pdfjs/` | — |
+| Voice: speech-to-text by Whisper in a NEAR AI TEE; the browser's cloud speech services are never used; spoken answers use on-device voices or our Piper TTS | `server.js` `transcribe()`, `/api/tts`; `public/app.js` (no `webkitSpeechRecognition`, `localService` voices only) | — |
+| The host page cannot read the conversation (iframe from our origin, no `postMessage` to the host) | `public/widget.js`, `public/app.js` | — |
+| Official-install badge: iframe referrer vs the business profile's domains | `public/app.js` `showOfficial()`, `public/biz/*.json` | — |
+| Business profiles are public JSON (the exact instructions the assistant follows) and run without tools | `public/biz/clinic.json`, `public/biz/bank.json`; `server.js` (`tools: false` for profiles) | — |
+
+## Not built (stated as such in README → Roadmap)
+
+Voice transactions (autonomous within user-set limits on NEAR Intents); bring-your-own relay.
+
+## Known limits
+
+The development host (Northflank) is not a TEE; only the Phala deployment gives the full chain. TEE hardware bugs and side channels are out of scope. More in `docs/THREAT_MODEL.md`. All businesses, people and documents in this repository are fictional.
