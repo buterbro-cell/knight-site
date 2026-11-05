@@ -29,3 +29,13 @@ test('NEP-413 signature verifies against the public key; implicit account = hex(
   assert.ok(near.verify(k.pub, hash, near.b58decode(s.signature.replace('ed25519:', ''))));
   assert.equal(k.implicitAccount, near.b58decode(k.publicKey.replace('ed25519:', '')).toString('hex'));
 });
+
+test('versioned nonce layout matches the intents SDK: magic | v0 | salt | deadline ns LE | random15', () => {
+  const salt = Buffer.from('a1b2c3d4', 'hex'), r = Buffer.alloc(15, 9), d = new Date('2026-11-10T00:00:00.000Z');
+  const n = near.versionedNonce(salt, d, r);
+  assert.equal(n.length, 32);
+  assert.deepEqual([...n.subarray(0, 5)], [0x56, 0x28, 0xf6, 0xc6, 0]);
+  assert.ok(n.subarray(5, 9).equals(salt));
+  assert.equal(n.readBigUInt64LE(9), BigInt(d.getTime()) * 1000000n);
+  assert.ok(n.subarray(17).equals(r));
+});
