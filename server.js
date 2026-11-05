@@ -20,6 +20,7 @@ const { attest, verifyResponseSignature, libsReady } = require('./lib/attest');
 const { selftest } = require('./lib/selftest');
 const { parseChatInput } = require('./lib/input');
 const { createLimiter } = require('./lib/ratelimit');
+const pay = require('./lib/pay');
 const relay = require('./lib/selfattest');   // attestation of this server when it runs in a TEE (Phala / dstack)
 const util = require('util');
 
@@ -436,6 +437,12 @@ const server = http.createServer(async (req, res) => {
     catch (e) { res.write('Error: ' + e.message + '\n'); }
     finally { selftestBusy = false; }
     return res.end();
+  }
+
+  // Diagnostic for private payments: which NEAR Intents quote variants work right now (dry, nothing is paid)
+  if (url.pathname === '/api/pay/probe') {
+    if (allow(req, 'verify')) return send(res, 429, { error: 'too_often' });
+    try { return send(res, 200, await pay.probe()); } catch (e) { return send(res, 502, { error: e.message }); }
   }
 
   // Visitor's own challenge: they type any word/number, nonce = sha256(word).
