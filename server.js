@@ -117,7 +117,7 @@ try {
 const clientIp = req => (TRUST_PROXY && ((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || String(req.headers['x-real-ip'] || '').trim())) || req.socket.remoteAddress;
 // Separate budgets per action, so voice playback or re-checking the proof never eats the question quota.
 // Per visitor per window: questions PER_USER_LIMIT, speech-to-text 2x, voice playback 15x (one request per sentence), proof checks 10.
-const BUDGET = { chat: PER_USER_LIMIT, stt: PER_USER_LIMIT * 2, tts: PER_USER_LIMIT * 15, verify: 10 };
+const BUDGET = { chat: PER_USER_LIMIT, stt: PER_USER_LIMIT * 2, tts: PER_USER_LIMIT * 15, verify: 10, selftest: 6 };
 const limiter = createLimiter({ budget: BUDGET, defaultLimit: PER_USER_LIMIT, windowMin: PER_USER_WINDOW_MIN, dailyLimit: DAILY_LIMIT });
 setInterval(limiter.sweep, 60e3).unref();
 const allow = (req, kind = 'chat') => limiter.allow(clientIp(req), kind);
@@ -403,7 +403,10 @@ const server = http.createServer(async (req, res) => {
   // Same end-to-end check as `node scripts/verify.js`, run on this live server, output as plain text.
   // One tiny completion + attestation; rate-limited; prints results only, stores nothing.
   if (url.pathname === '/api/selftest') {
-    if (selftestBusy || Date.now() - selftestAt < 60e3 || allow(req, 'verify')) return send(res, 429, { error: 'too_often', retryInSec: 60 });
+    if (selftestBusy) return send(res, 429, { error: 'too_often', reason: 'a self-test is running right now', retryInSec: 30 });
+    const wait = Math.ceil((60e3 - (Date.now() - selftestAt)) / 1000);
+    if (wait > 0) return send(res, 429, { error: 'too_often', reason: 'one self-test per minute', retryInSec: wait });
+    if (allow(req, 'selftest')) return send(res, 429, { error: 'too_often', reason: 'self-test budget for this visitor used up', retryInSec: PER_USER_WINDOW_MIN * 60 });
     selftestBusy = true; selftestAt = Date.now();
     if (url.searchParams.get('bundle') === '1') {
       // Same run, saved as an evidence file anyone can re-check offline: node scripts/verify-bundle.js <file>
