@@ -57,3 +57,14 @@ test('one payment unlocks one document (follow-ups on it are free), not a second
   assert.equal(pay.consumeDeposit(d, 'blood.jpg'), true, 'follow-up question on the same document');
   assert.equal(pay.consumeDeposit(d, 'other.pdf'), false, 'a different document needs a new payment');
 });
+
+test('send with another token: recipient still gets exactly the requested token; USDT supported', () => {
+  const q = pay.buildQuote({ action: 'send', amount: '5', token: 'USDT', payWith: 'NEAR', to: 'anna.near', from: 'me.near' });
+  assert.equal(q.originAsset, pay.ASSETS['NEAR@near'].assetId);
+  assert.equal(q.destinationAsset, pay.ASSETS['USDT@near'].assetId);
+  assert.equal(q.swapType, 'EXACT_OUTPUT');
+  assert.equal(q.amount, '5000000');
+  const same = pay.buildQuote({ action: 'send', amount: '5', token: 'USDT', to: 'anna.near', from: 'me.near' });
+  assert.equal(same.originAsset, pay.ASSETS['USDT@near'].assetId);
+  assert.throws(() => pay.buildQuote({ action: 'send', amount: '5', token: 'USDT', payWith: 'DOGE', to: 'anna.near', from: 'me.near' }), /unsupported/);
+});
