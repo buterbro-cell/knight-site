@@ -132,7 +132,7 @@ const slot = () => new Promise(res => { if (active < MAX_PARALLEL) { active++; r
 const release = () => { const next = queue.shift(); next ? next() : active--; };
 
 // ---------- Model selection from the models endpoint ----------
-let lastReject = null, lastError = null, modelChecked = false, availableModels = [], sttModel = null;
+let lastStt = null, lastReject = null, lastError = null, modelChecked = false, availableModels = [], sttModel = null;
 async function checkModel() {
   if (!KEY) return;
   try {
@@ -413,11 +413,15 @@ const server = http.createServer(async (req, res) => {
     if (blocked) return send(res, 429, { error: blocked === 'daily' ? 'daily_limit' : 'user_limit' });
     let audio;
     try { audio = await readBody(req, 8e6); } catch { return send(res, 413, { error: 'too_big' }); }
-    if (audio.length < 1000) return send(res, 400, { error: 'empty' });
+    // diagnostics only (no audio, no text): size, format, outcome
+    const mime = String(req.headers['content-type'] || 'audio/webm');
+    lastStt = { at: new Date().toISOString(), bytes: audio.length, mime };
+    if (audio.length < 1000) { lastStt.result = 'empty'; return send(res, 400, { error: 'empty', bytes: audio.length }); }
     try {
-      const text = await transcribe(audio, String(req.headers['content-type'] || 'audio/webm'), url.searchParams.get('lang') || '');
+      const text = await transcribe(audio, mime, url.searchParams.get('lang') || '');
+      lastStt.result = text ? 'ok' : 'no_text'; lastStt.chars = text.length;
       return send(res, 200, { text });
-    } catch (e) { console.error('STT error:', e.message); return send(res, 502, { error: 'stt_error' }); }
+    } catch (e) { console.error('STT error:', e.message); lastStt.result = 'error'; lastStt.error = e.message.slice(0, 200); return send(res, 502, { error: 'stt_error', detail: e.message.slice(0, 160) }); }
   }
 
   // Attestation report, verified on the server with a fresh random nonce
@@ -623,7 +627,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === '/api/health') return send(res, 200, {
-    ok: true, key: !!KEY, model: MODEL, modelChecked, stt: !!sttModel, sttModel, lastError, lastReject, tools: toolsOn, webSearch: webSearchEnabled,
+    ok: true, key: !!KEY, model: MODEL, modelChecked, stt: !!sttModel, sttModel, lastStt, lastError, lastReject, tools: toolsOn, webSearch: webSearchEnabled,
     verifierLibs: libsReady(), attestationOk: attestation?.ok ?? null, models: availableModels,
     tts: { ru: ttsReady('ru'), en: ttsReady('en') }, storesUserData: false, relayInTee: relay.inTee(), mem: memInfo(), visitorIpSeen: !!(req.headers['x-forwarded-for'] || req.headers['x-real-ip']),
   });

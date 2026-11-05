@@ -731,7 +731,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'].find(m=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m))||'';
     const mr=new MediaRecorder(stream,mime?{mimeType:mime}:{}); const parts=[];
     const AC=window.AudioContext||window.webkitAudioContext; const ac=new AC(); try{ if(ac.state!=='running') ac.resume(); }catch(e){} const srcN=ac.createMediaStreamSource(stream); const an=ac.createAnalyser(); an.fftSize=1024; srcN.connect(an);
-    const data=new Uint8Array(an.fftSize); let heard=false, meterMoved=false, lastLoud=performance.now(); const t0=performance.now();
+    const data=new Uint8Array(an.fftSize); let heard=false, meterMoved=false, peak=0, lastLoud=performance.now(); const t0=performance.now();
     recState={mr,stream,ac,stopped:false};
     mr.ondataavailable=e=>{ if(e.data&&e.data.size) parts.push(e.data); };
     mr.onstop=async()=>{
@@ -739,22 +739,23 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       mic.classList.remove('rec'); recognizing=false; recState=null;
       // mobile browsers may keep the level meter muted (AudioContext not running): then trust the recording itself
       const meterDead=ac.state!=='running'||!meterMoved, size=parts.reduce((a,b)=>a+b.size,0);
-      if(!heard && !(meterDead && size>6000)){ if(mode==='listen'){ setMode('idle'); hideBubble(); } speak(t('noHear')); return; }
+      const diag=`[rec ${Math.round(size/1024)} KB · ${mr.mimeType||'?'} · meter ${ac.state}${meterMoved?'':' silent'} · peak ${peak.toFixed(3)}`;
+      if(!heard && !(meterDead && size>6000)){ if(mode==='listen'){ setMode('idle'); hideBubble(); } speak(t('noHear')).then(()=>setStatus(diag+']')); return; }
       setStatus(t('transcribing')); setMode('think');
       const blob=new Blob(parts,{type:mr.mimeType||'audio/webm'});
       try{
         const r=await fetch('api/stt?lang='+lang,{method:'POST',headers:{'Content-Type':blob.type},body:blob});
         const d=await r.json().catch(()=>({}));
         if(r.status===429){ speak(d.error==='daily_limit'?t('limitDay'):t('limitUser')); return; }
-        if(!r.ok||!d.text){ throw 0; }
+        if(!r.ok||!d.text){ throw new Error('stt '+r.status+' '+(d.error||'')+(d.detail?' '+d.detail:'')+(r.ok&&!d.text?' no text':'')); }
         ask(d.text);
-      }catch(e){ setMode('idle'); speak(t('noHear')); }
+      }catch(e){ setMode('idle'); speak(t('noHear')).then(()=>setStatus(diag+' · '+((e&&e.message)||'network')+']')); }
     };
     const tick=()=>{
       if(!recState||recState.stopped) return;
       an.getByteTimeDomainData(data); let sum=0; for(const v of data){ const x=(v-128)/128; sum+=x*x; }
       const rms=Math.sqrt(sum/data.length), now=performance.now();
-      if(rms>0.002) meterMoved=true;
+      if(rms>peak) peak=rms; if(rms>0.002) meterMoved=true;
       if(rms>0.02){ heard=true; lastLoud=now; }
       // no level meter → no silence detection: stop after 8 s or on a second tap
       if((heard&&now-lastLoud>1300)||now-t0>15000||(!heard&&now-t0>(meterMoved?6000:8000))) return stopRecording();
