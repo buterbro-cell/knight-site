@@ -148,6 +148,14 @@ npm test        # unit tests; GitHub Actions runs them on every push
 | `test/ratelimit.test.js` | Per-visitor budgets per action, daily cap, window refill; memory holds no IP addresses (only salted hashes), new salt per process. |
 | `test/privacy.test.js` | The server code has no file writes, no database clients, and no log line that prints questions, answers, documents or audio. |
 
+**A real answer you can re-check offline.** [`evidence/`](evidence) holds a signed answer from the TEE model captured on the live server (`/api/selftest?bundle=1`): the exact request and response bytes, the enclave signature, the raw attestation report and Intel's collateral. No key, no network, no trust in our server:
+
+```bash
+node scripts/verify-bundle.js evidence/2026-11-05-deepseek-v4.1-flash.json
+```
+
+It checks the signature, the request/response hashes, the Intel TDX quotes (evaluated at capture time), the key binding, the nonce and the compose hash. CI runs it on every push, and the tests confirm that an edited answer or a different nonce fails. The NVIDIA GPU verdict needs NVIDIA's online service, so that one is in the live check (`npm run verify`).
+
 Threats and defences, each mapped to code and tests: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
 
 ## Run it

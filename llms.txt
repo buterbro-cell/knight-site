@@ -11,6 +11,7 @@
 
 - `npm install && npm test`: unit tests, no key needed (attestation and signature checks, input handling, rate limits, no-storage guarantees).
 - `npm run verify` with your own `NEAR_AI_KEY`: one TEE completion, attestation with a fresh nonce, signature check, run directly against NEAR AI.
+- `node scripts/verify-bundle.js evidence/<file>.json`: re-verify a real signed answer offline (no key, no network).
 - Live: `/api/health`, `/api/selftest`, `/api/attestation/challenge?word=<anything>` on the deployed host (URL in README).
 
 ## Code

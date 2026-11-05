@@ -16,3 +16,5 @@ jobs:
           node-version: 22
       - run: npm install --no-audit --no-fund
       - run: npm test
+      - name: Re-verify every evidence bundle offline
+        run: for f in evidence/*.json; do echo "== $f"; node scripts/verify-bundle.js "$f"; done
