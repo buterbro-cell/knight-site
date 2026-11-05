@@ -1,7 +1,8 @@
 // Wallet + private payments in the browser. Loaded only when the visitor wants to pay (dynamic import from app.js).
 // The visitor's wallet (HOT, Meteor, … via NEAR Connect) signs every transaction itself — this page never sees keys.
-// Flow: server asks NEAR Intents for a confidential quote → wallet sends the tokens to the one-time deposit address
-//       → we tell 1Click the tx hash → poll status until the payout is done.
+// Flow (the Intents rail, like near.com): money sits on the visitor's own balance inside NEAR Intents.
+//   once: a session with NEAR Intents (sign an empty intent); top up the Intents balance from the wallet if short
+//   each payment: quote → the wallet signs the exact intent 1Click generated (no gas) → poll status.
 import { NearConnector } from './vendor/near-connect/hot-connect.es.js';
 
 let connector = null, account = null;
@@ -30,31 +31,75 @@ export async function disconnect() { try { await conn().disconnect(); } catch (e
 export const getAccount = () => account;
 export const onChange = f => { listeners.add(f); return () => listeners.delete(f); };
 
-const TGAS30 = '30000000000000';
-const STORAGE = '1250000000000000000000';   // 0.00125 NEAR: register an account on a token contract (refunded if already registered)
+const TGAS100 = '100000000000000';
+const b64ToBytes = b => Uint8Array.from(atob(b), c => c.charCodeAt(0));
+const bytesToB64 = u => btoa(String.fromCharCode(...u));
+async function wallet() { return conn().wallet(); }
+async function signRaw({ message, recipient, nonce }) {
+  const w = await wallet();
+  const s = await w.signMessage({ message, recipient, nonce: b64ToBytes(nonce), network: 'mainnet' });
+  if (!s || !s.signature) throw new Error('the wallet did not sign');
+  let pk = String(s.publicKey || ''); if (pk && !pk.startsWith('ed25519:')) pk = 'ed25519:' + pk;
+  return { message, recipient, nonce, publicKey: pk, signature: s.signature };
+}
+const post = async (path, body, headers = {}) => {
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) { const e = new Error(j.message || j.error || ('HTTP ' + r.status)); e.code = j.error; e.status = r.status; throw e; } return j;
+};
 
-// The transaction the wallet will show and sign: tokens go to the quote's one-time deposit address
-export function depositActions(q, from, wnear = '0') {
-  const fc = (methodName, args, deposit) => ({ type: 'FunctionCall', params: { methodName, args, gas: TGAS30, deposit } });
-  const actions = [];
-  if (q.origin.native) {   // NEAR: use wNEAR already held, wrap only the rest
-    let need = BigInt(q.amountIn) - BigInt(wnear || '0');
-    actions.push(fc('storage_deposit', { account_id: from, registration_only: true }, STORAGE));
-    if (need > 0n) actions.push(fc('near_deposit', {}, need.toString()));
-  }
-  actions.push(fc('storage_deposit', { account_id: q.depositAddress, registration_only: true }, STORAGE));
-  actions.push(fc('ft_transfer', { receiver_id: q.depositAddress, amount: q.amountIn }, '1'));
-  return { receiverId: q.origin.contract, actions };
+// ---- session with NEAR Intents (this tab only)
+let intents = null;   // { account, token, publicKey, at }
+export const sessionKey = () => intents && intents.account === account ? intents.publicKey : null;
+export async function intentsSession({ fresh = false } = {}) {
+  if (!fresh && intents && intents.account === account && Date.now() - intents.at < 15 * 60e3) return intents.token;
+  const c = await (await fetch('api/pay/auth-challenge?account=' + encodeURIComponent(account), { cache: 'no-store' })).json();
+  if (!c.message) throw new Error(c.error || 'no challenge');
+  const signed = await signRaw(c);
+  const j = await post('api/pay/auth', signed).catch(e => { e.publicKey = signed.publicKey; throw e; });
+  intents = { account, token: j.token, publicKey: signed.publicKey, at: Date.now() };
+  return j.token;
+}
+const H = () => (intents && intents.account === account ? { 'X-Intents-Session': intents.token } : {});
+export async function privateBalances() {
+  const r = await fetch('api/pay/private', { headers: H(), cache: 'no-store' });
+  return r.ok ? r.json() : { NEAR: '0', USDT: '0' };
+}
+// A named account must register its wallet key with intents.near once before it can sign intents
+export async function registerKey(publicKey) {
+  const w = await wallet();
+  return w.signAndSendTransaction({ signerId: account, receiverId: 'intents.near', network: 'mainnet',
+    actions: [{ type: 'FunctionCall', params: { methodName: 'add_public_key', args: { public_key: publicKey }, gas: TGAS100, deposit: '1' } }] });
 }
 
-export async function payQuote(q, wnear = '0') {
-  if (!account) throw new Error('wallet not connected');
-  const w = await conn().wallet();
-  const tx = depositActions(q, account, wnear);
+// Top up the Intents balance from the wallet: NEAR is wrapped first (only the missing part), then ft_transfer_call
+export function depositActions(token, amount, wnear = '0') {
+  const fc = (methodName, args, deposit, gas = '30000000000000') => ({ type: 'FunctionCall', params: { methodName, args, gas, deposit } });
+  const actions = [];
+  if (token === 'NEAR') {
+    const need = BigInt(amount) - BigInt(wnear || '0');
+    if (need > 0n) actions.push(fc('near_deposit', {}, need.toString()));
+  }
+  actions.push(fc('ft_transfer_call', { receiver_id: 'intents.near', amount: String(amount), msg: '' }, '1', TGAS100));
+  return { receiverId: token === 'NEAR' ? 'wrap.near' : 'usdt.tether-token.near', actions };
+}
+export async function depositToIntents(token, amount, wnear = '0') {
+  const w = await wallet();
+  const tx = depositActions(token, amount, wnear);
   const out = await w.signAndSendTransaction({ signerId: account, receiverId: tx.receiverId, actions: tx.actions, network: 'mainnet' });
-  const hash = out && ((out.transaction && out.transaction.hash) || (out.transaction_outcome && out.transaction_outcome.id));
-  if (hash) fetch('api/pay/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ depositAddress: q.depositAddress, txHash: hash, nearSenderAccount: account }) }).catch(() => {});
-  return hash || null;
+  return out && ((out.transaction && out.transaction.hash) || (out.transaction_outcome && out.transaction_outcome.id));
+}
+// Intents balance → back to the wallet (public withdrawal, the visitor's own money)
+export async function withdrawFromIntents(token, amount) {
+  const w = await wallet();
+  return w.signAndSendTransaction({ signerId: account, receiverId: 'intents.near', network: 'mainnet',
+    actions: [{ type: 'FunctionCall', params: { methodName: 'ft_withdraw', args: { token: token === 'NEAR' ? 'wrap.near' : 'usdt.tether-token.near', receiver_id: account, amount: String(amount) }, gas: TGAS100, deposit: '1' } }] });
+}
+
+// The payment itself: sign the exact intent generated for this quote (checked by the server) and submit it
+export async function payQuote(q) {
+  if (!account) throw new Error('wallet not connected');
+  const signed = await signRaw(q.intent.payload);
+  return post('api/pay/submit-intent', signed);
 }
 
 export async function waitDone(depositAddress, onStatus, { timeoutMs = 5 * 60e3 } = {}) {
@@ -69,10 +114,8 @@ export async function waitDone(depositAddress, onStatus, { timeoutMs = 5 * 60e3 
 }
 
 export async function getQuote(body) {
-  const r = await fetch('api/pay/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status));
-  return j;
+  try { return await post('api/pay/quote', body, H()); }
+  catch (e) { if (e.status === 401) { await intentsSession({ fresh: true }); return post('api/pay/quote', body, H()); } throw e; }
 }
 
 // ---------------- Full mode: the agent wallet whose key lives only in the server's TEE ----------------
@@ -100,9 +143,3 @@ async function agentPost(path, body) {
 }
 export const agentPay = proposal => agentPost('api/agent/pay', { proposal });
 export const agentWithdraw = () => agentPost('api/agent/withdraw', {});
-// Gas for the agent wallet: a plain NEAR transfer (also creates the implicit account). Tokens go through NEAR Intents.
-export async function sendGas(agentAccount, nearYocto) {
-  const w = await conn().wallet();
-  const out = await w.signAndSendTransaction({ signerId: account, receiverId: agentAccount, actions: [{ type: 'Transfer', params: { deposit: nearYocto } }], network: 'mainnet' });
-  return out && ((out.transaction && out.transaction.hash) || (out.transaction_outcome && out.transaction_outcome.id));
-}

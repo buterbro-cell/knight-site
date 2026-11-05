@@ -5,20 +5,16 @@ const assert = require('node:assert/strict');
 const path = require('path');
 const { pathToFileURL } = require('url');
 
-test('deposit transaction for USDC and for NEAR', async t => {
+test('top-up of the Intents balance: NEAR wraps only the missing part, USDT goes straight in', async t => {
   let W; try { W = await import(pathToFileURL(path.join(__dirname, '..', 'public', 'wallet.js')).href); } catch (e) { t.skip('wallet module needs a browser: ' + e.message); return; }
-  const dep = 'a'.repeat(64);
-  const usdc = W.depositActions({ depositAddress: dep, amountIn: '2025218', origin: { contract: 'usdc.near', native: false } }, 'me.near');
-  assert.equal(usdc.receiverId, 'usdc.near');
-  assert.deepEqual(usdc.actions.map(a => a.params.methodName), ['storage_deposit', 'ft_transfer']);
-  assert.deepEqual(usdc.actions[1].params.args, { receiver_id: dep, amount: '2025218' });
-  assert.equal(usdc.actions[1].params.deposit, '1');
-  const near = W.depositActions({ depositAddress: dep, amountIn: '1000', origin: { contract: 'wrap.near', native: true } }, 'me.near', '0');
-  const partly = W.depositActions({ depositAddress: dep, amountIn: '1000', origin: { contract: 'wrap.near', native: true } }, 'me.near', '400');
-  assert.equal(partly.actions.find(a => a.params.methodName === 'near_deposit').params.deposit, '600', 'only the missing part is wrapped');
-  const covered = W.depositActions({ depositAddress: dep, amountIn: '1000', origin: { contract: 'wrap.near', native: true } }, 'me.near', '1000');
-  assert.ok(!covered.actions.some(a => a.params.methodName === 'near_deposit'), 'enough wNEAR: nothing to wrap');
-  assert.deepEqual(near.actions.map(a => a.params.methodName), ['storage_deposit', 'near_deposit', 'storage_deposit', 'ft_transfer']);
-  assert.equal(near.actions[1].params.deposit, '1000');
-  assert.equal(near.actions[3].params.args.receiver_id, dep);
+  const usdt = W.depositActions('USDT', '2000000');
+  assert.equal(usdt.receiverId, 'usdt.tether-token.near');
+  assert.deepEqual(usdt.actions.map(a => a.params.methodName), ['ft_transfer_call']);
+  assert.deepEqual(usdt.actions[0].params.args, { receiver_id: 'intents.near', amount: '2000000', msg: '' });
+  assert.equal(usdt.actions[0].params.deposit, '1');
+  const near = W.depositActions('NEAR', '1000', '400');
+  assert.equal(near.receiverId, 'wrap.near');
+  assert.equal(near.actions[0].params.methodName, 'near_deposit');
+  assert.equal(near.actions[0].params.deposit, '600', 'only the missing part is wrapped');
+  assert.ok(!W.depositActions('NEAR', '1000', '1000').actions.some(a => a.params.methodName === 'near_deposit'));
 });

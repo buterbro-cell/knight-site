@@ -68,3 +68,32 @@ test('send with another token: recipient still gets exactly the requested token;
   assert.equal(same.originAsset, pay.ASSETS['USDT@near'].assetId);
   assert.throws(() => pay.buildQuote({ action: 'send', amount: '5', token: 'USDT', payWith: 'DOGE', to: 'anna.near', from: 'me.near' }), /unsupported/);
 });
+
+test('Intents rail: paid from the payer\'s Intents balance, payout to the recipient\'s private balance', () => {
+  const q = pay.buildQuote({ action: 'send', amount: '1', token: 'USDT', to: 'ro52.near', from: 'me.near', source: 'private' });
+  assert.equal(q.depositType, 'CONFIDENTIAL_INTENTS');
+  assert.equal(q.refundType, 'CONFIDENTIAL_INTENTS');
+  assert.equal(q.recipientType, 'CONFIDENTIAL_INTENTS');
+  const pub = pay.buildQuote({ action: 'send', amount: '1', token: 'USDT', to: 'ro52.near', from: 'me.near' });
+  assert.equal(pub.depositType, 'INTENTS');
+  assert.throws(() => pay.buildQuote({ action: 'send', amount: '1', token: 'USDT', to: 'ro52.near', from: 'me.near', source: 'chain' }), /rail/);
+});
+
+test('the payer signs only one transfer of the origin token, at most the quoted amount, to the deposit address', () => {
+  const dep = 'd'.repeat(64), msg = (o = {}) => JSON.stringify({ deadline: 'x', signer_id: 'me.near', intents: [{ intent: 'transfer', receiver_id: dep, tokens: { 'imt:abc:nep141:wrap.near': '100' } }], ...o });
+  const ctx = { signer: 'me.near', depositAddress: dep, asset: 'nep141:wrap.near', maxAmount: '100' };
+  assert.ok(pay.checkIntent(msg(), ctx));
+  assert.throws(() => pay.checkIntent(msg(), { ...ctx, maxAmount: '99' }), /unexpected/);
+  assert.throws(() => pay.checkIntent(msg({ signer_id: 'evil.near' }), ctx), /unexpected/);
+  assert.throws(() => pay.checkIntent(msg({ intents: [{ intent: 'transfer', receiver_id: 'evil.near', tokens: { 'nep141:wrap.near': '1' } }] }), ctx), /unexpected/);
+  assert.throws(() => pay.checkIntent(msg({ intents: [{ intent: 'ft_withdraw', token: 'wrap.near', receiver_id: dep, amount: '1' }] }), ctx), /unexpected/);
+  assert.throws(() => pay.checkIntent(msg({ intents: [{ intent: 'transfer', receiver_id: dep, tokens: { 'nep141:usdt.tether-token.near': '1' } }] }), ctx), /unexpected/);
+});
+
+test('wallet signature (base64) becomes NEAR Intents signedData', () => {
+  const nonce = Buffer.alloc(32, 7).toString('base64');
+  const s = pay.signedFromWallet({ message: '{}', nonce, recipient: 'intents.near', publicKey: 'ed25519:' + '2'.repeat(44), signature: Buffer.alloc(64, 1).toString('base64') });
+  assert.equal(s.standard, 'nep413');
+  assert.match(s.signature, /^ed25519:[1-9A-HJ-NP-Za-km-z]+$/);
+  assert.throws(() => pay.signedFromWallet({ message: '{}', nonce, recipient: 'evil.near', publicKey: 'ed25519:' + '2'.repeat(44), signature: 'x' }), /payload/);
+});

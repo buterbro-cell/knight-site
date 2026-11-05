@@ -468,17 +468,40 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  // ---- Private payments through NEAR Intents (confidential quotes). We never hold keys or funds:
-  // the visitor's own wallet sends to a one-time deposit address; the payout cannot be linked to that deposit.
+  // ---- Private payments through NEAR Intents (lib/pay.js). We never hold keys or funds: the visitor's own wallet
+  // signs each intent; the payout lands on the recipient's Confidential Intents balance.
   if (url.pathname === '/api/pay/config') return send(res, 200, { enabled: !!process.env.ONECLICK_JWT, maxUsd: pay.MAX_USD, assets: Object.keys(pay.ASSETS), agentWallet: agentWallet.mode(), agentLimits: agentWallet.LIMITS });
+  // A user session with NEAR Intents (needed for confidential quotes and the private balance): the wallet signs an
+  // empty intent; the token goes back to this browser tab only, we do not keep it.
+  if (url.pathname === '/api/pay/auth-challenge') {
+    if (allow(req, 'pay')) return send(res, 429, { error: 'too_often' });
+    try { return send(res, 200, await pay.authChallenge(String(url.searchParams.get('account') || ''))); } catch (e) { return send(res, 400, { error: e.message }); }
+  }
+  if (url.pathname === '/api/pay/auth' && req.method === 'POST') {
+    if (allow(req, 'pay')) return send(res, 429, { error: 'too_often' });
+    let b; try { b = JSON.parse((await readBody(req, 4e3)).toString('utf8')); } catch { return send(res, 400, { error: 'bad_request' }); }
+    try { const a = await pay.authWith(pay.signedFromWallet(b)); return a.ok ? send(res, 200, { token: a.token, expiresIn: a.expiresIn }) : send(res, 401, { error: 'auth_failed', message: a.message }); }
+    catch (e) { return send(res, 400, { error: 'auth_failed', message: e.message }); }
+  }
+  if (url.pathname === '/api/pay/private') {
+    try { return send(res, 200, await pay.privateBalances(String(req.headers['x-intents-session'] || ''))); } catch (e) { return send(res, e.message === 'session_expired' ? 401 : 400, { error: e.message }); }
+  }
   if (url.pathname === '/api/pay/quote' && req.method === 'POST') {
     if (!process.env.ONECLICK_JWT) return send(res, 503, { error: 'payments_off' });
     if (allow(req, 'pay')) return send(res, 429, { error: 'too_often' });
     let b; try { b = JSON.parse((await readBody(req, 4e3)).toString('utf8')); } catch { return send(res, 400, { error: 'bad_request' }); }
+    const userToken = String(req.headers['x-intents-session'] || '') || undefined;
+    const source = b.source === 'private' ? 'private' : 'intents';
     // a business profile may only send to its own address (paid review); free-form sends come from the personal assistant
     const prof = PROFILES[String(b.profile || '')];
     if (prof && prof.paidReview) b = { action: 'send', amount: prof.paidReview.price, token: prof.paidReview.token, to: prof.paidReview.recipient, from: b.from, payWith: b.payWith };
-    try { return send(res, 200, await pay.quote(b)); } catch (e) { return send(res, 400, { error: 'quote_failed', message: e.message }); }
+    try { return send(res, 200, await pay.quote({ ...b, source, toRail: 'private' }, { userToken })); }
+    catch (e) { return send(res, e.message === 'session_expired' ? 401 : 400, { error: 'quote_failed', message: e.message }); }
+  }
+  // The wallet's signature over the intent 1Click generated for the quote → executed inside NEAR Intents
+  if (url.pathname === '/api/pay/submit-intent' && req.method === 'POST') {
+    let b; try { b = JSON.parse((await readBody(req, 6e3)).toString('utf8')); } catch { return send(res, 400, { error: 'bad_request' }); }
+    try { return send(res, 200, await pay.submitIntent(pay.signedFromWallet(b))); } catch (e) { return send(res, 400, { error: 'submit_failed', message: e.message }); }
   }
   if (url.pathname === '/api/pay/submit' && req.method === 'POST') {
     let b; try { b = JSON.parse((await readBody(req, 2e3)).toString('utf8')); } catch { return send(res, 400, { error: 'bad_request' }); }
