@@ -130,7 +130,8 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   // ---------------- Пузырь ----------------
   function say(text, opts={}){
     bubble.classList.toggle('user', !!opts.user);
-    if(opts.dots) bubble.innerHTML='<span class="dots"><span></span><span></span><span></span></span>';
+    const dots='<span class="dots"><span></span><span></span><span></span></span>';
+    if(opts.dots) bubble.innerHTML=opts.under?`<div style="opacity:.85">${esc(opts.under)}</div>${dots}`:dots;
     else bubble.textContent=text;
     bubble.classList.add('show'); fadeLong();
   }
@@ -319,7 +320,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     stopSpeaking();
     say(question,{user:true}); setMode('think'); setStatus(t('thinking')); hideProof();
     const myAsk=++askId;
-    const dotsTimer=setTimeout(()=>{ if(myAsk===askId && mode==='think') say('',{dots:true}); },400);
+    const dotsTimer=setTimeout(()=>{ if(myAsk===askId && mode==='think') say('',{dots:true,under:'🎙 '+question,user:true}); },400);   // the question stays readable until the answer starts
     history.push({role:'user',content:question});
     let answer=null;
     if(!demo){
@@ -767,7 +768,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       const meterDead=ac.state!=='running'||!meterMoved, size=parts.reduce((a,b)=>a+b.size,0);
       let diag=`[rec ${Math.round(size/1024)} KB · ${mr.mimeType||'?'} · meter ${ac.state}${meterMoved?'':' silent'} · peak ${peak.toFixed(3)}`;
       if(!heard && !(meterDead && size>6000)){ if(mode==='listen'){ setMode('idle'); hideBubble(); } speak(t('noHear')).then(()=>setStatus(diag+']')); return; }
-      setStatus(t('transcribing')); setMode('think');
+      setStatus(t('transcribing')); setMode('think'); say('',{dots:true,user:true});
       let blob=new Blob(parts,{type:mr.mimeType||'audio/webm'});
       // Whisper accepts 16 kHz mono WAV from every browser; the recorder's own webm/mp4 is the fallback
       try{ blob=await toWav(blob); diag+=' → wav '+Math.round(blob.size/1024)+' KB'; }catch(e){ diag+=' (no wav)'; }
@@ -786,7 +787,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       if(rms>peak) peak=rms; if(rms>0.002) meterMoved=true;
       if(rms>0.02){ heard=true; lastLoud=now; }
       // no level meter → no silence detection: stop after 8 s or on a second tap
-      if((heard&&now-lastLoud>1300)||now-t0>15000||(!heard&&now-t0>(meterMoved?6000:8000))) return stopRecording();
+      if((heard&&now-lastLoud>1000)||now-t0>15000||(!heard&&now-t0>(meterMoved?6000:8000))) return stopRecording();
       requestAnimationFrame(tick);
     };
     mr.start(250); recognizing=true; mic.classList.add('rec'); setMode('listen'); setStatus(t('listening')); say('…',{user:true});
