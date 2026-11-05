@@ -730,14 +730,16 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     catch(e){ showText(true); speak(t('micDenied')); return; }
     const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'].find(m=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m))||'';
     const mr=new MediaRecorder(stream,mime?{mimeType:mime}:{}); const parts=[];
-    const AC=window.AudioContext||window.webkitAudioContext; const ac=new AC(); const srcN=ac.createMediaStreamSource(stream); const an=ac.createAnalyser(); an.fftSize=1024; srcN.connect(an);
-    const data=new Uint8Array(an.fftSize); let heard=false, lastLoud=performance.now(); const t0=performance.now();
+    const AC=window.AudioContext||window.webkitAudioContext; const ac=new AC(); try{ if(ac.state!=='running') ac.resume(); }catch(e){} const srcN=ac.createMediaStreamSource(stream); const an=ac.createAnalyser(); an.fftSize=1024; srcN.connect(an);
+    const data=new Uint8Array(an.fftSize); let heard=false, meterMoved=false, lastLoud=performance.now(); const t0=performance.now();
     recState={mr,stream,ac,stopped:false};
     mr.ondataavailable=e=>{ if(e.data&&e.data.size) parts.push(e.data); };
     mr.onstop=async()=>{
       stream.getTracks().forEach(tr=>tr.stop()); try{ac.close();}catch(e){}
       mic.classList.remove('rec'); recognizing=false; recState=null;
-      if(!heard){ if(mode==='listen'){ setMode('idle'); hideBubble(); } speak(t('noHear')); return; }
+      // mobile browsers may keep the level meter muted (AudioContext not running): then trust the recording itself
+      const meterDead=ac.state!=='running'||!meterMoved, size=parts.reduce((a,b)=>a+b.size,0);
+      if(!heard && !(meterDead && size>6000)){ if(mode==='listen'){ setMode('idle'); hideBubble(); } speak(t('noHear')); return; }
       setStatus(t('transcribing')); setMode('think');
       const blob=new Blob(parts,{type:mr.mimeType||'audio/webm'});
       try{
@@ -752,8 +754,10 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       if(!recState||recState.stopped) return;
       an.getByteTimeDomainData(data); let sum=0; for(const v of data){ const x=(v-128)/128; sum+=x*x; }
       const rms=Math.sqrt(sum/data.length), now=performance.now();
-      if(rms>0.035){ heard=true; lastLoud=now; }
-      if((heard&&now-lastLoud>1300)||now-t0>15000||(!heard&&now-t0>6000)) return stopRecording();
+      if(rms>0.002) meterMoved=true;
+      if(rms>0.02){ heard=true; lastLoud=now; }
+      // no level meter → no silence detection: stop after 8 s or on a second tap
+      if((heard&&now-lastLoud>1300)||now-t0>15000||(!heard&&now-t0>(meterMoved?6000:8000))) return stopRecording();
       requestAnimationFrame(tick);
     };
     mr.start(250); recognizing=true; mic.classList.add('rec'); setMode('listen'); setStatus(t('listening')); say('…',{user:true});
