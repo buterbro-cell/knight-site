@@ -660,6 +660,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   const fmtUnits=(v,d,dp)=>{ try{ const b=BigInt(v||'0'), s=10n**BigInt(d); const i=b/s, f=(b%s).toString().padStart(d,'0').slice(0,dp); return i+'.'+f; }catch(e){ return '0'; } };
   async function openAgent(){
     const sh=$('psheet'); $('pmodal').classList.remove('hidden');
+    sh.innerHTML=`<h2>${esc(t('agTitle'))}</h2><div class="pay-st">…</div>`;
     const w=await loadWallet();
     const draw=async(msg)=>{
       let i; try{ i=await w.agentInfo(); }catch(e){ sh.innerHTML=`<h2>${esc(t('agTitle'))}</h2><div class="sub">${esc(t('agOff'))}</div><div class="btns"><button id="aX">OK</button></div>`; $('aX').onclick=closePay; return; }
