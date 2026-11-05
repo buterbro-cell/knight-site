@@ -723,6 +723,19 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   // ---------------- Voice via Whisper in a TEE (recorded here, transcribed inside the enclave) ----------------
   let sttServer=false, recState=null;
   const canRecord=()=>sttServer && window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+  async function toWav(blob){
+    const AC=window.AudioContext||window.webkitAudioContext; const c=new AC();
+    let buf; try{ buf=await c.decodeAudioData(await blob.arrayBuffer()); } finally { try{ c.close(); }catch(e){} }
+    const rate=16000, n=Math.max(1,Math.round(buf.duration*rate));
+    const off=new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(1,n,rate);
+    const s=off.createBufferSource(); s.buffer=buf; s.connect(off.destination); s.start();
+    const pcm=(await off.startRendering()).getChannelData(0);
+    const out=new DataView(new ArrayBuffer(44+pcm.length*2)); const w=(o,str)=>{ for(let i=0;i<str.length;i++) out.setUint8(o+i,str.charCodeAt(i)); };
+    w(0,'RIFF'); out.setUint32(4,36+pcm.length*2,true); w(8,'WAVE'); w(12,'fmt '); out.setUint32(16,16,true); out.setUint16(20,1,true); out.setUint16(22,1,true);
+    out.setUint32(24,rate,true); out.setUint32(28,rate*2,true); out.setUint16(32,2,true); out.setUint16(34,16,true); w(36,'data'); out.setUint32(40,pcm.length*2,true);
+    for(let i=0;i<pcm.length;i++){ const v=Math.max(-1,Math.min(1,pcm[i])); out.setInt16(44+i*2,v<0?v*0x8000:v*0x7fff,true); }
+    return new Blob([out],{type:'audio/wav'});
+  }
   async function startRecording(){
     stopSpeaking();
     let stream;
@@ -739,12 +752,14 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       mic.classList.remove('rec'); recognizing=false; recState=null;
       // mobile browsers may keep the level meter muted (AudioContext not running): then trust the recording itself
       const meterDead=ac.state!=='running'||!meterMoved, size=parts.reduce((a,b)=>a+b.size,0);
-      const diag=`[rec ${Math.round(size/1024)} KB · ${mr.mimeType||'?'} · meter ${ac.state}${meterMoved?'':' silent'} · peak ${peak.toFixed(3)}`;
+      let diag=`[rec ${Math.round(size/1024)} KB · ${mr.mimeType||'?'} · meter ${ac.state}${meterMoved?'':' silent'} · peak ${peak.toFixed(3)}`;
       if(!heard && !(meterDead && size>6000)){ if(mode==='listen'){ setMode('idle'); hideBubble(); } speak(t('noHear')).then(()=>setStatus(diag+']')); return; }
       setStatus(t('transcribing')); setMode('think');
-      const blob=new Blob(parts,{type:mr.mimeType||'audio/webm'});
+      let blob=new Blob(parts,{type:mr.mimeType||'audio/webm'});
+      // Whisper accepts 16 kHz mono WAV from every browser; the recorder's own webm/mp4 is the fallback
+      try{ blob=await toWav(blob); diag+=' → wav '+Math.round(blob.size/1024)+' KB'; }catch(e){ diag+=' (no wav)'; }
       try{
-        const r=await fetch('api/stt?lang='+lang,{method:'POST',headers:{'Content-Type':blob.type},body:blob});
+        const r=await fetch('api/stt?lang='+lang,{method:'POST',headers:{'Content-Type':blob.type.split(';')[0]},body:blob});
         const d=await r.json().catch(()=>({}));
         if(r.status===429){ speak(d.error==='daily_limit'?t('limitDay'):t('limitUser')); return; }
         if(!r.ok||!d.text){ throw new Error('stt '+r.status+' '+(d.error||'')+(d.detail?' '+d.detail:'')+(r.ok&&!d.text?' no text':'')); }

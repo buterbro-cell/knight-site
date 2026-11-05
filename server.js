@@ -312,8 +312,9 @@ async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_P
 // ---------- Speech-to-text via Whisper in a TEE ----------
 async function transcribe(audio, mime, lang) {
   const fd = new FormData();
+  mime = String(mime || 'audio/webm').split(';')[0].trim().toLowerCase();   // "audio/webm;codecs=opus" → "audio/webm"
   const ext = /mp4|aac|m4a/.test(mime) ? 'm4a' : /ogg/.test(mime) ? 'ogg' : /wav/.test(mime) ? 'wav' : 'webm';
-  fd.append('file', new Blob([audio], { type: mime || 'audio/webm' }), 'voice.' + ext);
+  fd.append('file', new Blob([audio], { type: mime }), 'voice.' + ext);
   fd.append('model', sttModel);
   if (lang) fd.append('language', lang);
   const r = await fetch(`${BASE}/v1/audio/transcriptions`, { method: 'POST', headers: { Authorization: `Bearer ${KEY}` }, body: fd, signal: AbortSignal.timeout(45000) });
