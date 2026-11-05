@@ -30,7 +30,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       vAnswer:'Последний ответ', vNoStore:'🔒 Сервер этого сайта ничего не сохраняет: ни вопросы, ни ответы, ни документы, ни голос. Только счётчики токенов для расходов.',
       vInfo:'справочно', vThrottled:'Повторная проверка — не чаще нескольких раз в час, показан последний результат.', vSelf:'Как проверить самому, не доверяя этому сайту', vSelfText:'1) Скачайте исходный отчёт аттестации — в нём nonce и подписанные доказательства Intel и NVIDIA. 2) Проверьте его официальным инструментом NEAR AI: github.com/nearai/nearai-cloud-verifier. 3) Подпись ответа выше проверяется так: ethers.verifyMessage(signed_text, signature) должен вернуть signing_address, а этот адрес — совпасть с ключом из отчёта.', vRaw:'Скачать исходный отчёт', vRelay:'Наш сервер-посредник', vRelayNo:'⚠️ Наш сервер пока работает не в TEE: он ничего не хранит (это видно в открытом коде), но криптографически это не доказано.', vRelayTC:'Открыть отчёт Phala Trust Center', vRelayRaw:'Скачать отчёт сервера', vRelayIntro:'Между вашим браузером и NEAR AI стоит наш сервер. Он тоже работает в защищённой среде Intel TDX, и это проверено здесь же:',
       vCh:'Проверьте сами: своё число', vChText:'Придумайте любое число или слово. Мы попросим железо NEAR AI вписать его (в виде sha256) внутрь отчёта, подписанного Intel. Заранее такой отчёт не подготовить — значит, проверка идёт вживую.', vChPh:'например 58371', vChBtn:'Проверить', vChWait:'Запрашиваю отчёт у NEAR AI… (10–30 сек)', vChOk:'✅ Ваше число найдено внутри отчёта, подписанного Intel', vChBad:'❌ Ваше число в отчёте не найдено', vChErr:'Не получилось — попробуйте чуть позже (не чаще пары раз в несколько минут).', vChWord:'Ваше слово', vChHash:'sha256 → nonce', vChRaw:'Скачать этот отчёт', proofOk:'🔏 Ответ подписан внутри TEE — проверено', proofFail:'⚠️ Подпись ответа не подтвердилась — подробнее',
-      lbDoc:'Документ', lbKbd:'Текст', lbHush:'Тише', dropT:'Отпусти файл — рыцарь разберёт', docAria:'Загрузить документ', dTitle:'Документ', dSub:'Рыцарь приватно разберёт анализы, выписку, чеки или договор — можно просто сфотографировать. Файл уходит только в защищённую среду и нигде не сохраняется.', dUpload:'📁 Загрузить свой файл', dUploadS:'Фото или скриншот (JPG, PNG, WebP), PDF, TXT, CSV', dSamples:'Или вымышленный пример (для проверки):', dClose:'Закрыть',
+      wConnect:'Кошелёк', wTitle:'Подключить кошелёк NEAR', payTitleSend:'Приватный перевод', payTitleSwap:'Приватный обмен', payTitleReview:'Приватный разбор анализов', payTo:'Получатель', payReceives:'Получит', payYouPay:'Вы отправите', payEta:'Время', paySec:'сек', payPriv:'🔒 Конфиденциально через NEAR Intents: в блокчейне видно ваш депозит и выплату получателю, но связать их между собой нельзя. Ключи и деньги остаются у вас — подписывает ваш кошелёк.', payConnect:'Подключить кошелёк', payConfirm:'Подтвердить в кошельке', payCancel:'Отмена', payQuoting:'Считаю условия в NEAR Intents…', payWallet:'Подтвердите в кошельке…', payProcessing:'Платёж идёт, жду подтверждения…', payDone:'✅ Готово: получатель получил деньги.', payDoneSay:'Готово! Платёж прошёл приватно.', payRefunded:'↩️ Платёж не прошёл, деньги возвращаются вам.', payFailed:'❌ Не получилось. Деньги не списаны или вернутся.', payErr:'Не получилось подготовить платёж: ', payOff:'Платежи сейчас выключены на этом сервере.', payCheckSay:'Проверь карточку и подтверди в своём кошельке.', payLink:'Транзакция', reviewAsk:'Разбор ваших собственных анализов платный — 1 USDC, приватно. Примеры бесплатны.', payPaidSay:'Оплата получена, разбираю документ.', lbDoc:'Документ', lbKbd:'Текст', lbHush:'Тише', dropT:'Отпусти файл — рыцарь разберёт', docAria:'Загрузить документ', dTitle:'Документ', dSub:'Рыцарь приватно разберёт анализы, выписку, чеки или договор — можно просто сфотографировать. Файл уходит только в защищённую среду и нигде не сохраняется.', dUpload:'📁 Загрузить свой файл', dUploadS:'Фото или скриншот (JPG, PNG, WebP), PDF, TXT, CSV', dSamples:'Или вымышленный пример (для проверки):', dClose:'Закрыть',
       imgErr:'Не получилось открыть картинку. Попробуй JPG или PNG.', docPh:'Вопрос к документу — или просто «Спросить»', docReady:'Документ прикреплён. Напиши вопрос, скажи голосом или сразу нажми «Спросить».', docAsk:'Разбери этот документ: что в нём главное и что выглядит необычно или подозрительно?', docAttached:'Документ прикреплён. Сейчас разберу!', docErr:'Не получилось прочитать файл.', docBig:'Файл большой — я прочитаю первые 20 тысяч символов.',
       transcribing:'Распознаю речь (Whisper в TEE)…', noteWhisper:'Голос распознаёт Whisper внутри защищённой среды NEAR AI, ответы — модель в TEE. Сервер сайта ничего не сохраняет. Нажми «TEE ✓» вверху, чтобы увидеть доказательство.',
       speech:'ru-RU'
@@ -59,7 +59,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       vAnswer:'Last answer', vNoStore:'🔒 This server keeps nothing: no questions, answers, documents or voice. Only token counters for cost.',
       vInfo:'info', vThrottled:'Re-verification is limited to a few times per hour — showing the latest result.', vSelf:'Verify it yourself, without trusting this site', vSelfText:'1) Download the raw attestation report — it contains the nonce and the signed Intel and NVIDIA evidence. 2) Check it with NEAR AI’s official tool: github.com/nearai/nearai-cloud-verifier. 3) The answer signature above: ethers.verifyMessage(signed_text, signature) must return signing_address, and that address must match a key in the report.', vRaw:'Download raw report', vRelay:'Our relay server', vRelayNo:'⚠️ Our relay server is not running in a TEE yet: it stores nothing (see the open code), but that is not cryptographically proven.', vRelayTC:'Open the Phala Trust Center report', vRelayRaw:'Download the server report', vRelayIntro:'Our server sits between your browser and NEAR AI. It also runs inside an Intel TDX enclave, verified right here:',
       vCh:'Check it yourself: your own number', vChText:'Type any number or word. We ask NEAR AI hardware to put it (as sha256) inside the Intel-signed report. Such a report cannot be prepared in advance — so the check is live.', vChPh:'e.g. 58371', vChBtn:'Verify', vChWait:'Requesting a report from NEAR AI… (10–30 s)', vChOk:'✅ Your number was found inside the Intel-signed report', vChBad:'❌ Your number was not found in the report', vChErr:'Failed — try again a bit later (a couple of times per few minutes).', vChWord:'Your word', vChHash:'sha256 → nonce', vChRaw:'Download this report', proofOk:'🔏 Answer signed inside the TEE — verified', proofFail:'⚠️ Answer signature not confirmed — details',
-      lbDoc:'Document', lbKbd:'Type', lbHush:'Mute', dropT:'Drop the file — the knight will review it', docAria:'Upload a document', dTitle:'Document', dSub:'The knight privately reviews lab results, a statement, receipts or a contract — a photo is fine. The file goes only into the enclave and is never stored.', dUpload:'📁 Upload your file', dUploadS:'Photo or screenshot (JPG, PNG, WebP), PDF, TXT, CSV', dSamples:'Or a fictional sample (for testing):', dClose:'Close',
+      wConnect:'Wallet', wTitle:'Connect a NEAR wallet', payTitleSend:'Private transfer', payTitleSwap:'Private swap', payTitleReview:'Private lab-results review', payTo:'Recipient', payReceives:'Receives', payYouPay:'You send', payEta:'Time', paySec:'sec', payPriv:'🔒 Confidential through NEAR Intents: the chain shows your deposit and the payout, but they cannot be linked to each other. Your keys and money stay with you — your wallet signs.', payConnect:'Connect wallet', payConfirm:'Confirm in wallet', payCancel:'Cancel', payQuoting:'Getting terms from NEAR Intents…', payWallet:'Confirm in your wallet…', payProcessing:'Payment in progress…', payDone:'✅ Done: the recipient got the money.', payDoneSay:'Done! The payment went through privately.', payRefunded:'↩️ The payment did not go through; your money is being refunded.', payFailed:'❌ It failed. Nothing was taken, or it will be refunded.', payErr:'Could not prepare the payment: ', payOff:'Payments are switched off on this server.', payCheckSay:'Check the card and confirm in your wallet.', payLink:'Transaction', reviewAsk:'A review of your own results costs 1 USDC, paid privately. The samples are free.', payPaidSay:'Payment received, reviewing the document.', lbDoc:'Document', lbKbd:'Type', lbHush:'Mute', dropT:'Drop the file — the knight will review it', docAria:'Upload a document', dTitle:'Document', dSub:'The knight privately reviews lab results, a statement, receipts or a contract — a photo is fine. The file goes only into the enclave and is never stored.', dUpload:'📁 Upload your file', dUploadS:'Photo or screenshot (JPG, PNG, WebP), PDF, TXT, CSV', dSamples:'Or a fictional sample (for testing):', dClose:'Close',
       imgErr:'Could not open the image. Try JPG or PNG.', docPh:'Ask about the document — or just tap “Ask”', docReady:'Document attached. Type or say your question, or just tap “Ask”.', docAsk:'Review this document: what matters most and what looks unusual or suspicious?', docAttached:'Document attached. Let me take a look!', docErr:'Could not read the file.', docBig:'Large file — I will read the first 20 thousand characters.',
       transcribing:'Transcribing (Whisper in TEE)…', noteWhisper:'Speech is transcribed by Whisper inside a NEAR AI enclave, answers come from a model in a TEE. This server stores nothing. Tap “TEE ✓” on top for the proof.',
       speech:'en-US'
@@ -324,7 +324,8 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     let answer=null;
     if(!demo){
       try{
-        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6),stream:true,document:attachedDoc||undefined,profile:BIZ||undefined})});
+        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6),stream:true,document:attachedDoc||undefined,profile:BIZ||undefined,paidDeposit:(attachedDoc&&paidFor[attachedDoc.name])||undefined})});
+        if(r.status===402 && PROFILE && PROFILE.paidReview){ clearTimeout(dotsTimer); history.pop(); const q2=question; setMode('idle'); say(t('reviewAsk')); openPay({review:true, then:dep=>{ paidFor[attachedDoc.name]=dep; ask(q2); }}); return; }
         if(r.status===404||r.status===405) throw new Error('no-server');
         if(myAsk!==askId) return;
         if(r.ok && (r.headers.get('content-type')||'').includes('text/plain') && r.body){
@@ -355,7 +356,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   async function streamAnswer(r,myAsk){
     const reader=r.body.getReader(), dec=new TextDecoder();
     const src=makeSource(); src.fullText='';
-    let pending='', full='', speaking=null, id=null, searching=false, proofBuf=null;
+    let pending='', full='', speaking=null, id=null, searching=false, proofBuf=null, payBuf=null;
     const flush=(final)=>{
       // Режем на фразы: первая — как можно раньше (после первого знака препинания), дальше — по предложениям
       while(true){
@@ -374,6 +375,12 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       if(done) break;
       let piece=dec.decode(value,{stream:true});
       if(proofBuf!==null){ proofBuf+=piece; continue; }
+      // \u0003…\u0003 = a payment the assistant prepared (shown as a card, never sent without the wallet)
+      while(true){
+        if(payBuf!==null){ const e=piece.indexOf('\u0003'); if(e<0){ payBuf+=piece; piece=''; break; } payBuf+=piece.slice(0,e); piece=piece.slice(e+1); try{ const p=JSON.parse(payBuf); setTimeout(()=>openPay({proposal:p}),0); }catch(e){} payBuf=null; continue; }
+        const s0=piece.indexOf('\u0003'); if(s0<0) break; const before=piece.slice(0,s0); payBuf=''; const rest=piece.slice(s0+1);
+        piece=rest; if(before){ full+=before; pending+=before; } 
+      }
       const pm=piece.indexOf('\u0002');   // after this mark the server sends the signature check of the answer
       if(pm>=0){ proofBuf=piece.slice(pm+1); piece=piece.slice(0,pm); }
       if(piece.includes('\u0007')){ // рыцарь пошёл искать информацию
@@ -572,6 +579,54 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       if(/\.(png|jpe?g|webp)$/i.test(name)){ const d=await imageData(new File([await r.blob()],name,{type:'image/png'})); if(!d) throw 0; return attachAndAsk(name,null,ask,d); }
       attachAndAsk(name,await r.text(),ask); }catch(e){ closeDocs(); speak(t('docErr')); }
   });
+
+  // ---------------- Private payments (NEAR Intents, confidential) — wallet.js is loaded on first use ----------------
+  const paidFor={};            // document name → deposit address of the payment that unlocked its review (this tab only)
+  let W=null, payCfg=null;
+  const loadWallet=async()=>{ if(!W){ W=await import(new URL('wallet.js',APP_SRC).href); W.onChange(a=>showWallet(a)); await W.restore(); } return W; };
+  function showWallet(a){ const b=$('wbtn'); if(!b) return; b.classList.toggle('on',!!a); $('wtext').textContent=a?('✓ '+(a.length>18?a.slice(0,8)+'…'+a.slice(-6):a)):t('wConnect'); }
+  fetch('api/pay/config',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(c=>{ payCfg=c; if(c&&c.enabled&&(!BIZ||(PROFILE&&PROFILE.paidReview)||BIZ==='clinic')){ $('wbtn').classList.remove('hidden'); showWallet(null); } }).catch(()=>{});
+  $('wbtn').addEventListener('click',async()=>{ try{ const w=await loadWallet(); w.getAccount()?await w.disconnect():await w.connect(); }catch(e){} });
+  const closePay=()=>$('pmodal').classList.add('hidden');
+  $('pmodal').addEventListener('click',e=>{ if(e.target.id==='pmodal') closePay(); });
+  const fmtAcct=a=>a&&a.length>28?a.slice(0,12)+'…'+a.slice(-8):a;
+  // ctx: {proposal:{action,amount,token,toToken,toChain,to}} from the assistant, or {review:true, then(dep)} for a paid review
+  async function openPay(ctx){
+    if(!payCfg||!payCfg.enabled){ say(t('payOff')); return; }
+    const sh=$('psheet'); $('pmodal').classList.remove('hidden');
+    const p=ctx.proposal||{};
+    const title=ctx.review?t('payTitleReview'):(p.action==='swap'?t('payTitleSwap'):t('payTitleSend'));
+    const render=(inner,btns)=>{ sh.innerHTML=`<h2>${esc(title)}</h2>${inner}<div class="btns">${btns}</div>`; };
+    let w; try{ w=await loadWallet(); }catch(e){ render(`<div class="sub">${esc(t('payErr')+e.message)}</div>`,`<button id="pX">${esc(t('payCancel'))}</button>`); $('pX').onclick=closePay; return; }
+    const step=async()=>{
+      if(!w.getAccount()){
+        render(`<div class="pay-priv">${esc(t('payPriv'))}</div>`,`<button id="pX">${esc(t('payCancel'))}</button><button class="primary" id="pC">${esc(t('payConnect'))}</button>`);
+        $('pX').onclick=closePay; $('pC').onclick=async()=>{ try{ await w.connect(); }catch(e){} step(); }; return;
+      }
+      render(`<div class="pay-st">${esc(t('payQuoting'))}</div>`,'');
+      let q; try{ q=await w.getQuote(ctx.review?{profile:BIZ,from:w.getAccount()}:{...p,from:w.getAccount()}); }
+      catch(e){ render(`<div class="sub">${esc(t('payErr')+e.message)}</div>`,`<button id="pX">${esc(t('payCancel'))}</button>`); $('pX').onclick=closePay; return; }
+      const rows=[[t('payTo'),fmtAcct(q.recipient)+(q.dest&&q.dest.chain!=='near'?' ('+q.dest.chain+')':'')],[t('payReceives'),`${q.amountOutFormatted} ${q.dest?q.dest.symbol:''}`],[t('payYouPay'),`${q.amountInFormatted} ${q.origin?q.origin.symbol:''}`],[t('payEta'),`~${q.timeEstimate||20} ${t('paySec')}`]];
+      render(rows.map(([k,v])=>`<div class="pay-row"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')+`<div class="pay-priv">${esc(t('payPriv'))}</div><div class="pay-st" id="pSt"></div>`,
+        `<button id="pX">${esc(t('payCancel'))}</button><button class="primary" id="pOk">${esc(t('payConfirm'))}</button>`);
+      if(!ctx.review) speak(t('payCheckSay'));
+      $('pX').onclick=closePay;
+      $('pOk').onclick=async()=>{
+        const st=$('pSt'); $('pOk').disabled=true; $('pX').disabled=true; st.textContent=t('payWallet');
+        try{ await w.payQuote(q); }catch(e){ st.textContent=t('payErr')+(e&&e.message||e); $('pX').disabled=false; return; }
+        st.textContent=t('payProcessing');
+        const fin=await w.waitDone(q.depositAddress,s=>{ if(s.status==='PROCESSING'||s.status==='KNOWN_DEPOSIT_TX') st.textContent=t('payProcessing'); });
+        const link=(fin.destTx&&fin.destTx[0])||(fin.originTx&&fin.originTx[0]);
+        if(fin.status==='SUCCESS'){
+          st.innerHTML=esc(t('payDone'))+(link?` <a href="${esc(link)}" target="_blank" rel="noopener">${esc(t('payLink'))} ↗</a>`:'');
+          $('pX').disabled=false; $('pX').textContent='OK';
+          if(ctx.review){ setTimeout(()=>{ closePay(); say(t('payPaidSay')); ctx.then&&ctx.then(q.depositAddress); },900); }
+          else speak(t('payDoneSay'));
+        } else { st.textContent=fin.status==='REFUNDED'?t('payRefunded'):t('payFailed'); $('pX').disabled=false; }
+      };
+    };
+    step();
+  }
 
   // ---------------- Voice via Whisper in a TEE (recorded here, transcribed inside the enclave) ----------------
   let sttServer=false, recState=null;

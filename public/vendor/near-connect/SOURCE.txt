@@ -1,0 +1,2 @@
+@hot-labs/near-connect 0.12.0 (MIT), cdn/hot-connect.es.js from github.com/azbang/hot-connector at 9cee11c.
+Wallet code itself is loaded by the library from the wallets' manifest and runs in a sandboxed iframe.

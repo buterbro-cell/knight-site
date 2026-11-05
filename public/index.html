@@ -16,6 +16,10 @@
     background:radial-gradient(closest-side,rgba(120,180,255,.35),transparent);animation:k3dload 1.4s ease-in-out infinite}
   @keyframes k3dload{50%{opacity:.35;transform:translateX(-50%) scale(.9)}}
   /* Embedded in a business website (widget.js): room for the close button, no footer text */
+  .wbtn{margin-right:6px}.wbtn.on{background:rgba(52,211,153,.16);color:#7ef0c0}
+  .pay-row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid rgba(160,200,255,.12);font-size:14px}.pay-row b{text-align:right;word-break:break-all}
+  .pay-priv{margin-top:10px;font-size:12.5px;line-height:1.45;color:#9ff0cf;background:rgba(52,211,153,.1);border-radius:12px;padding:9px 11px}
+  .pay-st{margin-top:12px;font-weight:800}.pay-st a{color:#93c5fd}
   html.embed header{padding-left:46px}
   html.embed #note{display:none}
   .official{display:inline-block;margin-top:3px;font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px}
@@ -34,6 +38,7 @@
   <header>
     <div class="brand" id="title">Спроси рыцаря NEAR<small id="subtitle">Приватный ИИ на NEAR AI</small></div>
     <div class="hdr-right">
+      <button class="vbtn wbtn hidden" id="wbtn" aria-label="Кошелёк"><span id="wtext">Кошелёк</span></button>
       <button class="vbtn wait" id="vbtn" aria-label="Проверка TEE"><span class="dot"></span><span id="vtext">TEE…</span></button>
       <div class="lang" role="group" aria-label="Язык">
         <button data-l="ru" class="on">RU</button><button data-l="en">EN</button>
@@ -87,6 +92,8 @@
 
 <!-- Verified panel: attestation checked on the server with a fresh random nonce -->
 <div class="modal hidden" id="vmodal"><div class="sheet" id="vsheet"></div></div>
+<!-- Private payment card: what the wallet will sign, confirmed by the visitor -->
+<div class="modal hidden" id="pmodal"><div class="sheet" id="psheet"></div></div>
 <!-- Document picker -->
 <div class="modal hidden" id="dmodal"><div class="sheet">
   <h2 id="dTitle">Документ</h2>
