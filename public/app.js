@@ -1,6 +1,7 @@
 // Sir Near — the assistant page: voice, streamed answers, Verified panel, documents, business profiles, 3D knight hookup.
   // 3D knight when the browser has WebGL2; otherwise still pictures with simple CSS motion
   window.__use3d = !!document.createElement('canvas').getContext('webgl2');
+const APP_SRC = (document.currentScript && document.currentScript.src) || location.href;
 (() => {
   'use strict';
   // ---------------- Тексты ----------------
@@ -538,10 +539,12 @@
   $('dClose').addEventListener('click',closeDocs);
   $('dmodal').addEventListener('click',e=>{ if(e.target.id==='dmodal') closeDocs(); });
   $('dUpload').addEventListener('click',()=>$('dFile').click());
+  // pdf.js is served from this site (public/vendor/pdfjs, Apache-2.0) — no third-party CDN sees the page or the file
+  let pdfjsLib=null;
   async function pdfText(file){
-    if(!window.pdfjsLib){
-      await new Promise((ok,bad)=>{ const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'; sc.onload=ok; sc.onerror=bad; document.head.appendChild(sc); });
-      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    if(!pdfjsLib){
+      pdfjsLib=await import(new URL('vendor/pdfjs/pdf.min.mjs',APP_SRC).href);
+      pdfjsLib.GlobalWorkerOptions.workerSrc=new URL('vendor/pdfjs/pdf.worker.min.mjs',APP_SRC).href;
     }
     const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise; let out='';
     for(let i=1;i<=Math.min(pdf.numPages,30);i++){ const pg=await pdf.getPage(i); const tc=await pg.getTextContent(); out+=tc.items.map(x=>x.str).join(' ')+'\n'; if(out.length>20000) break; }
