@@ -34,22 +34,23 @@ const TGAS30 = '30000000000000';
 const STORAGE = '1250000000000000000000';   // 0.00125 NEAR: register an account on a token contract (refunded if already registered)
 
 // The transaction the wallet will show and sign: tokens go to the quote's one-time deposit address
-export function depositActions(q, from) {
+export function depositActions(q, from, wnear = '0') {
   const fc = (methodName, args, deposit) => ({ type: 'FunctionCall', params: { methodName, args, gas: TGAS30, deposit } });
   const actions = [];
-  if (q.origin.native) {   // NEAR: wrap into wNEAR first
+  if (q.origin.native) {   // NEAR: use wNEAR already held, wrap only the rest
+    let need = BigInt(q.amountIn) - BigInt(wnear || '0');
     actions.push(fc('storage_deposit', { account_id: from, registration_only: true }, STORAGE));
-    actions.push(fc('near_deposit', {}, q.amountIn));
+    if (need > 0n) actions.push(fc('near_deposit', {}, need.toString()));
   }
   actions.push(fc('storage_deposit', { account_id: q.depositAddress, registration_only: true }, STORAGE));
   actions.push(fc('ft_transfer', { receiver_id: q.depositAddress, amount: q.amountIn }, '1'));
   return { receiverId: q.origin.contract, actions };
 }
 
-export async function payQuote(q) {
+export async function payQuote(q, wnear = '0') {
   if (!account) throw new Error('wallet not connected');
   const w = await conn().wallet();
-  const tx = depositActions(q, account);
+  const tx = depositActions(q, account, wnear);
   const out = await w.signAndSendTransaction({ signerId: account, receiverId: tx.receiverId, actions: tx.actions, network: 'mainnet' });
   const hash = out && ((out.transaction && out.transaction.hash) || (out.transaction_outcome && out.transaction_outcome.id));
   if (hash) fetch('api/pay/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ depositAddress: q.depositAddress, txHash: hash, nearSenderAccount: account }) }).catch(() => {});
@@ -99,12 +100,9 @@ async function agentPost(path, body) {
 }
 export const agentPay = proposal => agentPost('api/agent/pay', { proposal });
 export const agentWithdraw = () => agentPost('api/agent/withdraw', {});
-// Top up from the owner's wallet: some NEAR for gas (creates the implicit account) + USDC
-export async function topUp(agentAccount, usdcContract, usdcUnits, nearYocto) {
+// Gas for the agent wallet: a plain NEAR transfer (also creates the implicit account). Tokens go through NEAR Intents.
+export async function sendGas(agentAccount, nearYocto) {
   const w = await conn().wallet();
-  const txs = [{ receiverId: agentAccount, actions: [{ type: 'Transfer', params: { deposit: nearYocto } }] }];
-  if (BigInt(usdcUnits || '0') > 0n) txs.push({ receiverId: usdcContract, actions: [
-    { type: 'FunctionCall', params: { methodName: 'storage_deposit', args: { account_id: agentAccount, registration_only: true }, gas: TGAS30, deposit: STORAGE } },
-    { type: 'FunctionCall', params: { methodName: 'ft_transfer', args: { receiver_id: agentAccount, amount: String(usdcUnits) }, gas: TGAS30, deposit: '1' } }] });
-  return w.signAndSendTransactions({ transactions: txs, network: 'mainnet' });
+  const out = await w.signAndSendTransaction({ signerId: account, receiverId: agentAccount, actions: [{ type: 'Transfer', params: { deposit: nearYocto } }], network: 'mainnet' });
+  return out && ((out.transaction && out.transaction.hash) || (out.transaction_outcome && out.transaction_outcome.id));
 }

@@ -82,15 +82,15 @@
   ],
   "paidReview": {
     "price": "1",
-    "token": "USDC",
+    "token": "USDT",
     "recipient": "ro52.near",
     "label": {
       "en": "Private review of your own results",
       "ru": "Приватный разбор ваших анализов"
     },
     "note": {
-      "en": "1 USDC, paid privately through NEAR Intents: the clinic is paid, but your wallet is not linked to the payment. The fictional samples stay free.",
-      "ru": "1 USDC, оплата приватно через NEAR Intents: клиника получает деньги, но ваш кошелёк с платежом не связан. Вымышленные примеры — бесплатно."
+      "en": "1 USDT, paid privately through NEAR Intents: the clinic is paid, but your wallet is not linked to the payment. The fictional samples stay free.",
+      "ru": "1 USDT, оплата приватно через NEAR Intents: клиника получает деньги, но ваш кошелёк с платежом не связан. Вымышленные примеры — бесплатно."
     }
   }
 }

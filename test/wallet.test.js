@@ -13,7 +13,11 @@ test('deposit transaction for USDC and for NEAR', async t => {
   assert.deepEqual(usdc.actions.map(a => a.params.methodName), ['storage_deposit', 'ft_transfer']);
   assert.deepEqual(usdc.actions[1].params.args, { receiver_id: dep, amount: '2025218' });
   assert.equal(usdc.actions[1].params.deposit, '1');
-  const near = W.depositActions({ depositAddress: dep, amountIn: '1000', origin: { contract: 'wrap.near', native: true } }, 'me.near');
+  const near = W.depositActions({ depositAddress: dep, amountIn: '1000', origin: { contract: 'wrap.near', native: true } }, 'me.near', '0');
+  const partly = W.depositActions({ depositAddress: dep, amountIn: '1000', origin: { contract: 'wrap.near', native: true } }, 'me.near', '400');
+  assert.equal(partly.actions.find(a => a.params.methodName === 'near_deposit').params.deposit, '600', 'only the missing part is wrapped');
+  const covered = W.depositActions({ depositAddress: dep, amountIn: '1000', origin: { contract: 'wrap.near', native: true } }, 'me.near', '1000');
+  assert.ok(!covered.actions.some(a => a.params.methodName === 'near_deposit'), 'enough wNEAR: nothing to wrap');
   assert.deepEqual(near.actions.map(a => a.params.methodName), ['storage_deposit', 'near_deposit', 'storage_deposit', 'ft_transfer']);
   assert.equal(near.actions[1].params.deposit, '1000');
   assert.equal(near.actions[3].params.args.receiver_id, dep);
