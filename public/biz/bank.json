@@ -79,5 +79,6 @@
   },
   "domains": [
     "owlbridge-bank.example"
-  ]
+  ],
+  "payments": true
 }

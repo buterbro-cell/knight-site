@@ -585,7 +585,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   let W=null, payCfg=null;
   const loadWallet=async()=>{ if(!W){ W=await import(new URL('wallet.js',APP_SRC).href); W.onChange(a=>showWallet(a)); await W.restore(); } return W; };
   function showWallet(a){ const b=$('wbtn'); if(!b) return; b.classList.toggle('on',!!a); $('wtext').textContent=a?('✓ '+(a.length>18?a.slice(0,8)+'…'+a.slice(-6):a)):t('wConnect'); }
-  fetch('api/pay/config',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(c=>{ payCfg=c; if(c&&c.enabled&&(!BIZ||(PROFILE&&PROFILE.paidReview)||BIZ==='clinic')){ $('wbtn').classList.remove('hidden'); showWallet(null); } }).catch(()=>{});
+  fetch('api/pay/config',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(c=>{ payCfg=c; return (window.__profileReady||Promise.resolve()).then(()=>{ if(c&&c.enabled&&(!BIZ||(PROFILE&&(PROFILE.paidReview||PROFILE.payments)))){ $('wbtn').classList.remove('hidden'); showWallet(null); } }); }).catch(()=>{});
   $('wbtn').addEventListener('click',async()=>{ try{ const w=await loadWallet(); w.getAccount()?await w.disconnect():await w.connect(); }catch(e){} });
   const closePay=()=>$('pmodal').classList.add('hidden');
   $('pmodal').addEventListener('click',e=>{ if(e.target.id==='pmodal') closePay(); });
@@ -769,7 +769,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     el.textContent= ok ? (lang==='ru'?'✓ Официальный помощник на ':'✓ Official assistant on ')+host
                        : (lang==='ru'?'⚠ Этот сайт не в списке сайтов ':'⚠ This site is not listed for ')+pick(PROFILE.name);
   }
-  const profileReady = BIZ ? fetch('biz/'+BIZ+'.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(p=>{ PROFILE=p; applyProfile(); }).catch(()=>{}) : Promise.resolve();
+  const profileReady = window.__profileReady = BIZ ? fetch('biz/'+BIZ+'.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(p=>{ PROFILE=p; applyProfile(); }).catch(()=>{}) : Promise.resolve();
   // Background: the business's own room (biz/<id>.json → background), otherwise the default data-center hall
   profileReady.then(()=>{
     const b=PROFILE&&PROFILE.background;

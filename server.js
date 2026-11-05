@@ -215,11 +215,11 @@ async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_P
   try {
     const convo = [{ role: 'system', content: payTool ? system + PAY_PROMPT : system }, ...messages];
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-      const withTools = tools && toolsOn && round < MAX_TOOL_ROUNDS;
+      const withTools = (tools || payTool) && toolsOn && round < MAX_TOOL_ROUNDS;
       const requestBody = JSON.stringify({
         model: MODEL, messages: convo,
         max_tokens: maxTokens, temperature: 0.6, stream: true, stream_options: { include_usage: true },
-        ...(withTools ? { tools: payTool ? [...TOOLS, PAY_TOOL] : TOOLS, tool_choice: 'auto' } : {}),
+        ...(withTools ? { tools: payTool ? (tools ? [...TOOLS, PAY_TOOL] : [PAY_TOOL]) : TOOLS, tool_choice: 'auto' } : {}),
       });
       const r = await fetch(API_URL, { method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${KEY}` }, body: requestBody });
       if (!r.ok) {
@@ -392,7 +392,7 @@ const server = http.createServer(async (req, res) => {
     // Business profile: its own instructions, no outside tools (nothing leaves the TEE model call)
     const prof = PROFILES[String(body.profile || '')];
     const hasImage = parsed.hasImage;
-    const payTool = !prof && !body.document && !!process.env.ONECLICK_JWT;   // never with a document attached (injection)
+    const payTool = (!prof || !!prof.payments) && !body.document && !!process.env.ONECLICK_JWT;   // never with a document attached (injection)
     const opts = { ...(prof ? { system: prof.prompt, tools: false } : {}), ...(hasImage ? { maxTokens: 4000 } : {}), payTool };
     try { await askModelStream(msgs, res, opts); lastError = null; }
     catch (e) {
