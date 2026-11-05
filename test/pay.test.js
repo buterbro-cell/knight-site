@@ -97,3 +97,11 @@ test('wallet signature (base64) becomes NEAR Intents signedData', () => {
   assert.match(s.signature, /^ed25519:[1-9A-HJ-NP-Za-km-z]+$/);
   assert.throws(() => pay.signedFromWallet({ message: '{}', nonce, recipient: 'evil.near', publicKey: 'ed25519:' + '2'.repeat(44), signature: 'x' }), /payload/);
 });
+
+test('spoken NEAR addresses: only the misheard suffix is fixed', () => {
+  assert.equal(pay.normalizeRecipient('ro52.nir'), 'ro52.near');
+  assert.equal(pay.normalizeRecipient('RO52 dot near'), 'ro52.near');
+  assert.equal(pay.normalizeRecipient('anna.neer'), 'anna.near');
+  assert.equal(pay.normalizeRecipient('mcloven1.tg'), 'mcloven1.tg');
+  assert.equal(pay.normalizeRecipient('ro52.near'), 'ro52.near');
+});

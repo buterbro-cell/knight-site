@@ -139,6 +139,7 @@ export async function agentSession() {
   session = j; try { localStorage.setItem('sirnear.agentSession', JSON.stringify(j)); } catch (e) {}
   return j.token;
 }
+export const hasAgentSession = () => !!(session && session.owner === account && Date.now() < session.expiresAt - 60e3);
 export async function agentInfo() {
   const r = await fetch('api/agent/info?owner=' + encodeURIComponent(account), { cache: 'no-store' });
   const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.message || j.error); return j;
