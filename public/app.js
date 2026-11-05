@@ -627,8 +627,8 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       const getQ=(sym,source)=>w.getQuote(ctx.review?{profile:BIZ,from:w.getAccount(),payWith:sym,source}:{...p,payWith:canSwitch?sym:undefined,from:w.getAccount(),source});
       // 2) where the money comes from: private balance → public Intents balance → top it up from the wallet
       const plan=async sym=>{
-        let q=await getQ(sym,'private'); const need=BigInt(q.amountIn||'0');
-        if(B(priv,sym)>=need) return {q,src:'private',top:0n};
+        let q=null;
+        if(B(priv,sym)>0n){ try{ q=await getQ(sym,'private'); if(B(priv,sym)>=BigInt(q.amountIn||'0')) return {q,src:'private',top:0n}; }catch(e){} }
         q=await getQ(sym,'intents');
         const n2=BigInt(q.amountIn||'0'), have=B(pubB,sym);
         if(have>=n2) return {q,src:'intents',top:0n};
