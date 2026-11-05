@@ -324,7 +324,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     let answer=null;
     if(!demo){
       try{
-        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6),stream:true,document:attachedDoc||undefined,profile:BIZ||undefined,paidDeposit:(attachedDoc&&paidFor[attachedDoc.name])||undefined,intentsSession:(attachedDoc&&paidFor[attachedDoc.name]&&W&&W.sessionToken())||undefined})});
+        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6),stream:true,document:attachedDoc||undefined,profile:BIZ||undefined,owner:(!BIZ&&W&&W.getAccount())||undefined,paidDeposit:(attachedDoc&&paidFor[attachedDoc.name])||undefined,intentsSession:(attachedDoc&&paidFor[attachedDoc.name]&&W&&W.sessionToken())||undefined})});
         if(r.status===402 && PROFILE && PROFILE.paidReview){ clearTimeout(dotsTimer); history.pop(); const q2=question; setMode('idle'); say(t('reviewAsk')); openPay({review:true, then:dep=>{ paidFor[attachedDoc.name]=dep; ask(q2); }}); return; }
         if(r.status===404||r.status===405) throw new Error('no-server');
         if(myAsk!==askId) return;
@@ -377,7 +377,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       if(proofBuf!==null){ proofBuf+=piece; continue; }
       // \u0003…\u0003 = a payment the assistant prepared (shown as a card, never sent without the wallet)
       while(true){
-        if(payBuf!==null){ const e=piece.indexOf('\u0003'); if(e<0){ payBuf+=piece; piece=''; break; } payBuf+=piece.slice(0,e); piece=piece.slice(e+1); try{ const p=JSON.parse(payBuf); setTimeout(()=>openPay({proposal:p}),0); }catch(e){} payBuf=null; continue; }
+        if(payBuf!==null){ const e=piece.indexOf('\u0003'); if(e<0){ payBuf+=piece; piece=''; break; } payBuf+=piece.slice(0,e); piece=piece.slice(e+1); try{ const p=JSON.parse(payBuf); setTimeout(()=>p.payFrom==='agent'&&agentOn()?agentRun(p):openPay({proposal:p}),0); }catch(e){} payBuf=null; continue; }
         const s0=piece.indexOf('\u0003'); if(s0<0) break; const before=piece.slice(0,s0); payBuf=''; const rest=piece.slice(s0+1);
         piece=rest; if(before){ full+=before; pending+=before; } 
       }
@@ -694,6 +694,19 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   // ---------------- Full mode: agent wallet (key only inside the server TEE) ----------------
   const agentOn=()=>!BIZ && payCfg && (payCfg.agentWallet==='tee'||payCfg.agentWallet==='dev');
   const fmtUnits=(v,d,dp)=>{ try{ const b=BigInt(v||'0'), s=10n**BigInt(d); const i=b/s, f=(b%s).toString().padStart(d,'0').slice(0,dp); return i+'.'+f; }catch(e){ return '0'; } };
+  // Voice payment from the agent wallet: no card to confirm — the agent pays itself (session + limits on the server)
+  async function agentRun(p){
+    const sh=$('psheet'); $('pmodal').classList.remove('hidden');
+    const draw=(msg,done)=>{ sh.innerHTML=`<h2>${esc(t('agTitle'))}</h2><div class="pay-row"><span>${esc(t('payTo'))}</span><b>${esc(fmtAcct(p.to||''))}</b></div><div class="pay-row"><span>${esc(t('payReceives'))}</span><b>${esc(p.amount+' '+p.token)}</b></div><div class="pay-st" id="aSt">${msg}</div>${done?`<div class="btns"><button id="aX">OK</button></div>`:''}`; if(done) $('aX').onclick=closePay; };
+    const w=await loadWallet();
+    try{
+      draw(esc(t('agSession'))); await w.agentSession();
+      draw(esc(t('agPaying'))); const r=await w.agentPay(p);
+      const fin=await w.waitDone(r.depositAddress,x=>draw(esc(t('payProcessing')+' ['+x.status+']')),{agent:true});
+      if(fin.status==='SUCCESS'){ draw(esc(t('payDone')),true); speak(t('payDoneSay')); }
+      else draw(esc(fin.status==='REFUNDED'?t('payRefunded'):t('payFailed')),true);
+    }catch(e){ draw(esc(t('payErr')+((e&&e.message)||t('payDeclined'))),true); }
+  }
   async function openAgent(){
     const sh=$('psheet'); $('pmodal').classList.remove('hidden');
     sh.innerHTML=`<h2>${esc(t('agTitle'))}</h2><div class="pay-st">…</div>`;
