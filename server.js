@@ -18,6 +18,8 @@ const path = require('path');
 const crypto = require('crypto');
 const { attest, verifyResponseSignature, libsReady } = require('./lib/attest');
 const { selftest } = require('./lib/selftest');
+const { parseChatInput } = require('./lib/input');
+const { createLimiter } = require('./lib/ratelimit');
 const relay = require('./lib/selfattest');   // attestation of this server when it runs in a TEE (Phala / dstack)
 const util = require('util');
 
@@ -110,31 +112,15 @@ try {
   }
 } catch (e) { console.error('Profiles:', e.message); }
 
-// ---------- Abuse protection (salted IP hashes + timestamps only) ----------
-const SALT = crypto.randomBytes(16);   // new every start: hashes can't be linked across restarts
-const ipHash = ip => crypto.createHmac('sha256', SALT).update(String(ip)).digest('base64url').slice(0, 16);
+// ---------- Abuse protection (salted IP hashes + timestamps only, see lib/ratelimit.js) ----------
 // Behind a proxy (Phala dstack gateway, Northflank) the visitor's address comes in a forwarding header
 const clientIp = req => (TRUST_PROXY && ((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || String(req.headers['x-real-ip'] || '').trim())) || req.socket.remoteAddress;
 // Separate budgets per action, so voice playback or re-checking the proof never eats the question quota.
 // Per visitor per window: questions PER_USER_LIMIT, speech-to-text 2x, voice playback 15x (one request per sentence), proof checks 10.
 const BUDGET = { chat: PER_USER_LIMIT, stt: PER_USER_LIMIT * 2, tts: PER_USER_LIMIT * 15, verify: 10 };
-const hits = new Map();
-let day = new Date().toISOString().slice(0, 10), dayCount = 0;
-setInterval(() => {
-  const cut = Date.now() - PER_USER_WINDOW_MIN * 60e3;
-  for (const [h, arr] of hits) { const a = arr.filter(t => t > cut); a.length ? hits.set(h, a) : hits.delete(h); }
-}, 60e3).unref();
-function allow(req, kind = 'chat') {
-  const today = new Date().toISOString().slice(0, 10);
-  if (today !== day) { day = today; dayCount = 0; }
-  if (kind === 'chat' && dayCount >= DAILY_LIMIT) return 'daily';
-  const h = kind + ':' + ipHash(clientIp(req));
-  const cut = Date.now() - PER_USER_WINDOW_MIN * 60e3;
-  const arr = (hits.get(h) || []).filter(t => t > cut);
-  if (arr.length >= (BUDGET[kind] || PER_USER_LIMIT)) return 'user';
-  arr.push(Date.now()); hits.set(h, arr); if (kind === 'chat') dayCount++;
-  return null;
-}
+const limiter = createLimiter({ budget: BUDGET, defaultLimit: PER_USER_LIMIT, windowMin: PER_USER_WINDOW_MIN, dailyLimit: DAILY_LIMIT });
+setInterval(limiter.sweep, 60e3).unref();
+const allow = (req, kind = 'chat') => limiter.allow(clientIp(req), kind);
 
 // Concurrency limit towards NEAR AI
 const MAX_PARALLEL = Number(process.env.MAX_PARALLEL || 100);
@@ -368,32 +354,18 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/chat' && req.method === 'POST') {
     let body;
     try { body = JSON.parse((await readBody(req, 1.6e6)).toString('utf8')); } catch (e) { lastReject = `${new Date().toISOString()} chat body: ${e.message} (${req.headers['content-length'] || '?'} bytes)`; return send(res, e.message === 'too big' ? 413 : 400, { error: 'bad_request' }); }
-    const msgs = (Array.isArray(body.messages) ? body.messages : [])
-      .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-      .slice(-6).map(m => ({ role: m.role, content: m.content.slice(0, MAX_QUESTION_CHARS) }));
-    if (!msgs.length || msgs[msgs.length - 1].role !== 'user' || !msgs[msgs.length - 1].content.trim()) return send(res, 400, { error: 'empty' });
-    // Optional document (receipts, statement, contract) — only for this request, never stored
-    if (body.document && typeof body.document.text === 'string' && body.document.text.trim()) {
-      const name = String(body.document.name || 'document').slice(0, 80).replace(/[\r\n]/g, ' ');
-      const last = msgs[msgs.length - 1];
-      last.content = `Документ пользователя «${name}» (обрабатывается приватно, не сохраняется):\n<<<\n${body.document.text.slice(0, MAX_DOC_CHARS)}\n>>>\n\nВопрос: ${last.content}`;
-    } else if (body.document && typeof body.document.image === 'string') {
-      // Photo of a document: goes to the TEE model as an image part (OpenAI format), only for this request, never stored
-      const img = body.document.image;
-      if (img.length > 1.4e6 || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(img)) { lastReject = `${new Date().toISOString()} bad image: ${img.slice(0, 22)}… ${img.length} chars`; return send(res, 400, { error: 'bad_image' }); }
-      const name = String(body.document.name || 'photo').slice(0, 80).replace(/[\r\n]/g, ' ');
-      const last = msgs[msgs.length - 1];
-      last.content = [
-        { type: 'text', text: `Фото документа пользователя «${name}» (обрабатывается приватно, не сохраняется). Сначала внимательно прочитай всё, что на нём написано.\n\nВопрос: ${last.content}` },
-        { type: 'image_url', image_url: { url: img } },
-      ];
+    const parsed = parseChatInput(body, { maxQuestion: MAX_QUESTION_CHARS, maxDoc: MAX_DOC_CHARS });
+    if (parsed.error) {
+      if (parsed.detail) lastReject = `${new Date().toISOString()} ${parsed.error}: ${parsed.detail}`;
+      return send(res, 400, { error: parsed.error });
     }
+    const msgs = parsed.msgs;
     const blocked = allow(req);
     if (blocked) return send(res, 429, { error: blocked === 'daily' ? 'daily_limit' : 'user_limit' });
     if (!KEY) return send(res, 500, { error: 'no_key' });
     // Business profile: its own instructions, no outside tools (nothing leaves the TEE model call)
     const prof = PROFILES[String(body.profile || '')];
-    const hasImage = Array.isArray(msgs[msgs.length - 1].content);
+    const hasImage = parsed.hasImage;
     const opts = { ...(prof ? { system: prof.prompt, tools: false } : {}), ...(hasImage ? { maxTokens: 4000 } : {}) };
     try { await askModelStream(msgs, res, opts); lastError = null; }
     catch (e) {
@@ -433,6 +405,16 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/selftest') {
     if (selftestBusy || Date.now() - selftestAt < 60e3 || allow(req, 'verify')) return send(res, 429, { error: 'too_often', retryInSec: 60 });
     selftestBusy = true; selftestAt = Date.now();
+    if (url.searchParams.get('bundle') === '1') {
+      // Same run, saved as an evidence file anyone can re-check offline: node scripts/verify-bundle.js <file>
+      const bundle = {}; const lines = [];
+      try { await selftest((...x) => lines.push(util.format(...x)), bundle); }
+      catch (e) { lines.push('Error: ' + e.message); }
+      finally { selftestBusy = false; }
+      if (!bundle.format) return send(res, 502, { error: 'selftest_failed', log: lines.join('\n') });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': `attachment; filename="evidence-${bundle.captured_at.slice(0, 19).replace(/[:T]/g, '-')}.json"`, 'Cache-Control': 'no-store' });
+      return res.end(JSON.stringify(bundle, null, 1));
+    }
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     res.write(`$ node scripts/verify.js   (run live on this server, ${new Date().toISOString()})\n\n`);
     try { await selftest((...a) => res.write(util.format(...a) + '\n')); }
@@ -498,7 +480,7 @@ const server = http.createServer(async (req, res) => {
     if (!DEV_KEY) return send(res, 403, { error: 'no_dev_key' });
     const given = String(req.headers['x-dev-key'] || '');
     if (!(given.length === DEV_KEY.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(DEV_KEY)))) return send(res, 403, { error: 'bad_key' });
-    return send(res, 200, { ...stats, model: MODEL, price: priceFor(MODEL), lastError, dailyLimit: DAILY_LIMIT, todayCount: dayCount, attestationOk: attestation?.ok ?? null });
+    return send(res, 200, { ...stats, model: MODEL, price: priceFor(MODEL), lastError, dailyLimit: DAILY_LIMIT, todayCount: limiter.todayCount(), attestationOk: attestation?.ok ?? null });
   }
 
   // Owner only: which NEAR AI organization this key belongs to and its remaining balance

@@ -6,7 +6,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "verify": "node scripts/verify.js"
+    "verify": "node scripts/verify.js",
+    "verify-bundle": "node scripts/verify-bundle.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@phala/dcap-qvl-node": "^0.3.3",
