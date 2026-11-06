@@ -211,7 +211,7 @@ const PAY_TOOL = { type: 'function', function: { name: 'prepare_payment', descri
   pay_from: { type: 'string', enum: ['wallet', 'agent'], description: 'agent = pay from the user\'s agent wallet (only if the system message says the user has one); wallet = the user\'s own wallet signs' },
   to: { type: 'string', description: 'recipient: a NEAR account (anna.near) or, with to_chain, an address on that chain (0x…, base58, T…); copy it EXACTLY, never change letter case; omit for swaps' }, to_token: { type: 'string', enum: ['NEAR', 'USDT'], description: 'swap: what the user gets' } }, required: ['action', 'amount', 'token'] } } };
 // Full mode: what the assistant knows about the user's agent wallet (public data: address and balances)
-const AGENT_PROMPT = (i, f) => `\n\nКОШЕЛЁК АГЕНТА: у пользователя есть твой собственный кошелёк агента (полный режим). Его ключ существует только внутри TEE, и платишь из него ты сам — без окна кошелька, в пределах лимитов $${i.limits.perActionUsd} за раз и $${i.limits.perDayUsd} в день. Адрес: ${i.account}. Баланс сейчас: ${f(i.balances.USDT, 6)} USDT и ${f(i.balances.NEAR, 24)} NEAR (приватный баланс в NEAR Intents).${i.nearUsd ? ` Цена NEAR сейчас ≈ $${i.nearUsd.toFixed(3)}.` : ''} Если спрашивают про твой кошелёк или баланс — отвечай по этим данным. Если пользователь просит заплатить «из кошелька агента», «со своего кошелька», «сам» — или просто просит заплатить, а баланса агента хватает, — вызывай prepare_payment с pay_from="agent". Обмен (swap) внутри кошелька агента выполняй сразу, без переспросов. Перед КАЖДЫМ переводом задай ровно один короткий вопрос: сумма цифрами, монета и получатель (контакт — по имени, адрес — по буквам, например «r-o-5-2 dot near») — «Отправляю 1 USDT Другу (ro52.near)? Скажи да». После «да» сразу вызывай prepare_payment, больше ничего не спрашивай. Если баланса не хватает — скажи об этом и предложи пополнить или заплатить из кошелька пользователя (pay_from="wallet").`;
+const AGENT_PROMPT = (i, f) => `\n\nКОШЕЛЁК АГЕНТА: у пользователя есть твой собственный кошелёк агента (полный режим). Его ключ существует только внутри TEE, и платишь из него ты сам — без окна кошелька, в пределах лимитов $${i.limits.perActionUsd} за раз и $${i.limits.perDayUsd} в день. Адрес: ${i.account}. Баланс сейчас: ${f(i.balances.USDT, 6)} USDT и ${f(i.balances.NEAR, 24)} NEAR (приватный баланс в NEAR Intents).${i.nearUsd ? ` Цена NEAR сейчас ≈ $${i.nearUsd.toFixed(3)}.` : ''} Если спрашивают про твой кошелёк или баланс — отвечай по этим данным. По умолчанию платит кошелёк агента (pay_from="agent"); из кошелька пользователя (pay_from="wallet") — только пополнение кошелька агента или когда пользователь прямо просит «с моего кошелька». Обмен (swap) внутри кошелька агента выполняй сразу, без переспросов. Перед КАЖДЫМ переводом задай ровно один короткий вопрос: сумма цифрами, монета и получатель (контакт — по имени, адрес — по буквам, например «r-o-5-2 dot near») — «Отправляю 1 USDT Другу (ro52.near)? Скажи да». После «да» сразу вызывай prepare_payment, больше ничего не спрашивай. Если баланса не хватает — скажи об этом и предложи пополнить или заплатить из кошелька пользователя (pay_from="wallet").`;
 const agentCache = new Map();
 async function agentContext(owner) {
   if (agentWallet.mode() === 'off' || !pay.isNearAccount(owner)) return '';
@@ -271,7 +271,7 @@ function recipientConfirmed(messages, to, typed, contacts = [], amount = '') {
   const namedAmount = !a || new RegExp('(^|[^0-9.,])' + a.replace('.', '[.,]') + '([^0-9]|[.,]0*([^0-9]|$)|$)').test(prev.content);
   return namedRecipient && namedAmount;
 }
-async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_PROMPT_KB, tools = true, maxTokens = MAX_ANSWER_TOKENS, payTool = false, agentInfo = '', typed = false, contacts = [], spend = [] } = {}) {
+async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_PROMPT_KB, tools = true, maxTokens = MAX_ANSWER_TOKENS, payTool = false, agentInfo = '', agentAccount = '', typed = false, contacts = [], spend = [] } = {}) {
   await slot();
   let started = false, firstMs = null;
   const usageSum = { prompt_tokens: 0, completion_tokens: 0, prompt_tokens_details: { cached_tokens: 0 } };
@@ -371,6 +371,12 @@ async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_P
         // Nothing is sent here: the proposal goes to the browser, the visitor checks it and signs in their own wallet
         let a = {}; try { a = JSON.parse(c.function.arguments || '{}'); } catch {}
         const prop = { action: a.action === 'swap' ? 'swap' : 'send', amount: String(a.amount ?? ''), token: String(a.token || 'USDT').toUpperCase(), payWith: a.pay_with ? String(a.pay_with).toUpperCase() : undefined, toToken: a.to_token ? String(a.to_token).toUpperCase() : undefined, toChain: a.to_chain ? String(a.to_chain).toLowerCase() : undefined, to: a.to ? ((!a.to_chain || a.to_chain === 'near') ? pay.normalizeRecipient(a.to) : String(a.to).trim()) : undefined, payFrom: a.pay_from === 'agent' && agentInfo ? 'agent' : 'wallet' };
+        // With an agent wallet the agent pays by default; the user's own wallet only for a top-up of the agent or when asked
+        if (agentInfo && agentAccount) {
+          const said = lastUserText(messages);
+          const ownWallet = /(с|из|со)\s+(моего|своего|моей)\s+(кошел|wallet)|from my (own )?wallet|my wallet|мой кошел[её]к/i.test(said);
+          prop.payFrom = prop.to === agentAccount || ownWallet ? 'wallet' : 'agent';
+        }
         // The agent pays with no card, so the recipient must be confirmed first: a "yes" right after the assistant
         // repeated the address, or the address typed (not spoken) by the user
         // the exact saved address wins over a sloppy copy of it (daymonmc.tg → daymon_mc.tg)
@@ -499,7 +505,7 @@ const server = http.createServer(async (req, res) => {
     const hasImage = parsed.hasImage;
     const payTool = (!prof || !!prof.payments) && !body.document && !!process.env.ONECLICK_JWT;   // never with a document attached (injection)
     const agentInfo = payTool && !prof ? await agentContext(String(body.owner || '')) : '';
-    const opts = { ...(prof ? { system: prof.prompt, tools: false } : {}), ...(hasImage ? { maxTokens: 4000 } : {}), payTool, agentInfo, typed: body.typed === true, contacts: payTool ? cleanContacts(body.contacts) : [], spend: payTool ? cleanSpend(body.spend) : [] };
+    const opts = { ...(prof ? { system: prof.prompt, tools: false } : {}), ...(hasImage ? { maxTokens: 4000 } : {}), payTool, agentInfo, agentAccount: agentInfo ? (await agentWallet.agentKey(String(body.owner || '')).catch(() => null) || {}).implicitAccount : '', typed: body.typed === true, contacts: payTool ? cleanContacts(body.contacts) : [], spend: payTool ? cleanSpend(body.spend) : [] };
     try { await askModelStream(msgs, res, opts); lastError = null; }
     catch (e) {
       lastError = new Date().toISOString() + ' ' + e.message; stats.errors++;
