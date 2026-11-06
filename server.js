@@ -558,7 +558,7 @@ const server = http.createServer(async (req, res) => {
 
   // ---- Private payments through NEAR Intents (lib/pay.js). We never hold keys or funds: the visitor's own wallet
   // signs each intent; the payout lands on the recipient's Confidential Intents balance.
-  if (url.pathname === '/api/pay/config') return send(res, 200, { enabled: !!process.env.ONECLICK_JWT, maxUsd: pay.MAX_USD, assets: Object.keys(pay.ASSETS), agentWallet: agentWallet.mode(), agentLimits: agentWallet.LIMITS });
+  if (url.pathname === '/api/pay/config') return send(res, 200, { enabled: !!process.env.ONECLICK_JWT, maxUsd: pay.MAX_USD, assets: Object.keys(pay.ASSETS), agentWallet: agentWallet.mode(), agentLimits: agentWallet.LIMITS, nearUsd: await pay.tokens().then(l => Number((l.find(t => t.assetId === 'nep141:wrap.near') || {}).price) || null).catch(() => null) });
   // A user session with NEAR Intents (needed for confidential quotes and the private balance): the wallet signs an
   // empty intent; the token goes back to this browser tab only, we do not keep it.
   if (url.pathname === '/api/pay/auth-challenge') {
