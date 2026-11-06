@@ -653,7 +653,7 @@ const server = http.createServer(async (req, res) => {
   // Diagnostic for private payments: which NEAR Intents quote variants work right now (dry, nothing is paid)
   if (url.pathname === '/api/pay/probe') {
     if (allow(req, 'verify')) return send(res, 429, { error: 'too_often' });
-    try { return send(res, 200, await pay.probe()); } catch (e) { return send(res, 502, { error: e.message }); }
+    try { return send(res, 200, url.searchParams.get('part') === 'cross' ? await pay.probeCross() : await pay.probe()); } catch (e) { return send(res, 502, { error: e.message }); }
   }
 
   // Visitor's own challenge: they type any word/number, nonce = sha256(word).
