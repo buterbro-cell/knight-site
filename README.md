@@ -256,7 +256,6 @@ Full output: [`docs/verify-output.txt`](docs/verify-output.txt).
 | `public/demo/index.html` | fictional clinic and bank websites with the assistant embedded |
 | `public/samples/` | fictional documents |
 | `Dockerfile`, `docker-compose.phala.yml`, `.github/workflows/image.yml` | build and TEE deployment |
-| `README.ru.md` | short guide in Russian |
 
 ## Built during the hackathon, and with what
 
