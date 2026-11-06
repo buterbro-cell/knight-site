@@ -715,7 +715,8 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
         const link=(fin.destTx&&fin.destTx[0])||(fin.originTx&&fin.originTx[0]);
         if(fin.status==='SUCCESS'){
           if(ctx.review) logSpend({amount:PROFILE.paidReview.price,token:PROFILE.paidReview.token||'USDT',to:PROFILE.paidReview.recipient,kind:'review',via:'wallet'});
-          else logSpend({amount:p.action==='swap'?p.amount:(q.amountOutFormatted||p.amount),token:p.action==='swap'?(q.origin&&q.origin.symbol||p.token):(q.dest&&q.dest.symbol||p.token),to:p.action==='swap'?'swap → '+(p.toToken||''):q.recipient,kind:p.action==='swap'?'swap':'send',via:'wallet'});
+          if(!ctx.review&&p.action==='send'&&agentAvail()&&!w.hasAgentSession()){ try{ const ai=await w.agentInfo(); if(ai&&ai.account===p.to){ st.textContent=t('agSession'); await w.agentSession(); } }catch(e){} }
+          if(ctx.review){} else logSpend({amount:p.action==='swap'?p.amount:(q.amountOutFormatted||p.amount),token:p.action==='swap'?(q.origin&&q.origin.symbol||p.token):(q.dest&&q.dest.symbol||p.token),to:p.action==='swap'?'swap → '+(p.toToken||''):q.recipient,kind:p.action==='swap'?'swap':'send',via:'wallet'});
           st.innerHTML=esc(t('payDone'))+(link?` <a href="${esc(link)}" target="_blank" rel="noopener">${esc(t('payLink'))} ↗</a>`:'');
           $('pX').disabled=false; $('pX').textContent='OK';
           if(ctx.review){ setTimeout(()=>{ closePay(); say(t('payPaidSay')); ctx.then&&ctx.then(q.depositAddress); },900); }
@@ -761,7 +762,12 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
         $('aX').onclick=closePay;
         await new Promise((res,rej)=>{ $('aA').onclick=async()=>{ try{ draw(esc(t('agSession'))); await w.agentSession(); res(); }catch(e){ rej(e); } }; });
       }
-      draw(esc(t('agPaying'))); const r=await w.agentPay(p);
+      draw(esc(t('agPaying'))); let r;
+      try{ r=await w.agentPay(p); }
+      catch(e){ if(e.code!=='need_allow') throw e;
+        draw(esc(t('agNeedAllow'))); sh.insertAdjacentHTML('beforeend',`<div class="btns"><button id="aX">${esc(t('payCancel'))}</button><button class="primary" id="aA">${esc(t('agAllow'))}</button></div>`); $('aX').onclick=closePay;
+        await new Promise((res,rej)=>{ $('aA').onclick=async()=>{ try{ draw(esc(t('agSession'))); await w.agentSession(); res(); }catch(e2){ rej(e2); } }; });
+        draw(esc(t('agPaying'))); r=await w.agentPay(p); }
       const fin=await w.waitDone(r.depositAddress,x=>draw(esc(t('payProcessing')+' ['+x.status+']')),{agent:true});
       if(fin.status==='SUCCESS'){ logSpend({amount:p.amount,token:p.token,to:p.to,kind:p.action==='swap'?'swap':'send',via:'agent'}); draw(esc(t('payDone')),true); speak(t('payDoneSay')); }
       else draw(esc(fin.status==='REFUNDED'?t('payRefunded'):t('payFailed')),true);
@@ -788,7 +794,11 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       if(p.op==='create'){
         draw(`<div class="pay-st">${esc(t('dcaCreating'))}</div>`);
         let atUtcMin; if(p.atTime){ const [hh,mm]=p.atTime.split(':').map(Number); const d=new Date(); d.setHours(hh,mm,0,0); atUtcMin=d.getUTCHours()*60+d.getUTCMinutes(); }
-        const o=await w.agentDca({op:'create',amount:p.amount,token:p.token,toToken:p.toToken,everyHours:p.everyHours,runs:p.runs,forDays:p.forDays,atUtcMin,whenBelow:p.whenBelow,whenAbove:p.whenAbove});
+        const body={op:'create',amount:p.amount,token:p.token,toToken:p.toToken,everyHours:p.everyHours,runs:p.runs,forDays:p.forDays,atUtcMin,whenBelow:p.whenBelow,whenAbove:p.whenAbove};
+        let o; try{ o=await w.agentDca(body); }catch(e){ if(e.code!=='need_allow') throw e;
+          draw(`<div class="pay-st">${esc(t('agNeedAllow'))}</div><div class="btns"><button id="aX">${esc(t('payCancel'))}</button><button class="primary" id="aA">${esc(t('agAllow'))}</button></div>`); $('aX').onclick=closePay;
+          await new Promise((res,rej)=>{ $('aA').onclick=async()=>{ try{ await w.agentSession(); res(); }catch(e2){ rej(e2); } }; });
+          o=await w.agentDca(body); }
         const isLimit=o.whenBelow!=null||o.whenAbove!=null;
         draw(`<div class="pay-row"><span>${esc(t('dcaPlan'))}</span><b>${esc(fmtPlan(o))}</b></div><div class="pay-st" id="dSt">${esc(isLimit?t('lmWait'):o.atUtcMin!=null?t('dcaNext').replace('{x}',new Date(o.nextAt).toLocaleString([], {weekday:'short',hour:'2-digit',minute:'2-digit'})):t('dcaFirst'))}</div>`);
         // without a time of day the first purchase runs at once on the server: show its result
@@ -804,7 +814,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
         draw((l.length?l.map(o=>`<div class="pay-row"><span>${esc(fmtPlan(o))}<br><small>${esc(fmtLast(o))}</small></span><button data-c="${esc(o.id)}">${esc(t('dcaCancel'))}</button></div>`).join(''):`<div class="sub">${esc(t('dcaNone'))}</div>`),true);
         sh.querySelectorAll('[data-c]').forEach(b=>b.onclick=async()=>{ await w.agentDca({op:'cancel',id:b.dataset.c}); b.closest('.pay-row').remove(); });
       }
-    }catch(e){ draw(`<div class="sub">${esc(t('payErr')+((e&&e.message)||t('payDeclined')))}</div>`,true); }
+    }catch(e){ draw(`<div class="sub">${esc(e&&e.code==='need_allow'?t('agNeedAllow'):t('payErr')+((e&&e.message)||t('payDeclined')))}</div>`,true); }
   }
   // ---- screen actions the assistant proposes: save a contact, show a payment request
   async function actRun(p){ if(p.kind==='contact') return contactSave(p); if(p.kind==='request') return requestShow(p); }

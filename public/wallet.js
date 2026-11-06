@@ -144,11 +144,13 @@ export async function agentInfo() {
   const r = await fetch('api/agent/info?owner=' + encodeURIComponent(account), { cache: 'no-store' });
   const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.message || j.error); return j;
 }
-async function agentPost(path, body, retry = true) {
-  const token = await agentSession();
-  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, ...body }) });
+// Commands never open the wallet by themselves: without a valid session they fail with need_allow,
+// and the page offers the one "allow" signature (or takes it during a top-up of the agent).
+async function agentPost(path, body) {
+  if (!hasAgentSession()) { const e = new Error('need_allow'); e.code = 'need_allow'; throw e; }
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: session.token, ...body }) });
   const j = await r.json().catch(() => ({}));
-  if (r.status === 401 && retry) { session = null; try { localStorage.removeItem('sirnear.agentSession'); } catch (e) {} return agentPost(path, body, false); }
+  if (r.status === 401) { session = null; try { localStorage.removeItem('sirnear.agentSession'); } catch (e) {} const e = new Error('need_allow'); e.code = 'need_allow'; throw e; }
   if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status)); return j;
 }
 // New limits for the agent wallet: the owner signs the exact values (no gas)
