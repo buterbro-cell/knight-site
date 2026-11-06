@@ -302,7 +302,8 @@ async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_P
         let v = raw.replace(/<think>[\s\S]*?<\/think>/g, '');
         const open = v.indexOf('<think>'); if (open >= 0) v = v.slice(0, open);
         const lt = v.lastIndexOf('<'); if (lt >= 0 && v.length - lt < 8 && '<think>'.startsWith(v.slice(lt))) v = v.slice(0, lt);
-        return v.replace(/[*_#`>]+/g, '').replace(/^\s+/, '');
+        // markdown off, but keep underscores inside words: they are part of addresses (daymon_mc.tg)
+        return v.replace(/[*#`>]+/g, '').replace(/(?<![A-Za-z0-9])_+|_+(?![A-Za-z0-9])/g, '').replace(/^\s+/, '');
       };
       const out = delta => {
         raw += delta;
@@ -371,6 +372,8 @@ async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_P
         const prop = { action: a.action === 'swap' ? 'swap' : 'send', amount: String(a.amount ?? ''), token: String(a.token || 'USDT').toUpperCase(), payWith: a.pay_with ? String(a.pay_with).toUpperCase() : undefined, toToken: a.to_token ? String(a.to_token).toUpperCase() : undefined, toChain: a.to_chain ? String(a.to_chain).toLowerCase() : undefined, to: a.to ? ((!a.to_chain || a.to_chain === 'near') ? pay.normalizeRecipient(a.to) : String(a.to).trim()) : undefined, payFrom: a.pay_from === 'agent' && agentInfo ? 'agent' : 'wallet' };
         // The agent pays with no card, so the recipient must be confirmed first: a "yes" right after the assistant
         // repeated the address, or the address typed (not spoken) by the user
+        // the exact saved address wins over a sloppy copy of it (daymonmc.tg → daymon_mc.tg)
+        if (prop.to && (!prop.toChain || prop.toChain === 'near')) { const c = contacts.find(x => x.account !== prop.to && alnum(x.account) === alnum(prop.to)); if (c) prop.to = c.account; }
         // a swap stays in the agent's own wallet: no recipient, nothing to confirm (limits still apply)
         if (prop.payFrom === 'agent' && prop.action !== 'swap' && !recipientConfirmed(messages, prop.to, typed, contacts, prop.amount)) {
           const c = contacts.find(x => x.account === prop.to);
