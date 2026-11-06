@@ -329,14 +329,8 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   const YES_RE=/^\s*(yes|yeah|yep|yup|correct|right|confirm(ed)?|sure|ok(ay)?|go( ahead)?|да|ага|угу|верно|правильно|подтверждаю|ок|окей|точно|давай|отправляй)(?=$|[\s.,!?)])/iu;
   function hidePending(){ const b=document.getElementById('pendBar'); if(b) b.remove(); }
   // show the exact transfer and a tap alternative to saying "yes"
-  function confirmPending(p){
-    pendingPay={p,at:Date.now()}; hidePending();
-    const bar=document.createElement('div'); bar.id='pendBar'; bar.className='pend';
-    bar.innerHTML=`<span>${esc(p.amount+' '+p.token)} → <b>${esc(p.to)}</b></span><button id="pendNo">✕</button><button class="primary" id="pendYes">${esc(t('pendYes'))}</button>`;
-    document.body.appendChild(bar);
-    $('pendYes').onclick=()=>{ const pp=pendingPay; pendingPay=null; hidePending(); if(pp) agentRun(pp.p); };
-    $('pendNo').onclick=()=>{ pendingPay=null; hidePending(); };
-  }
+  // the next "yes" (spoken or typed) runs exactly this proposal; no extra buttons
+  function confirmPending(p){ pendingPay={p,at:Date.now()}; }
   async function ask(question,{typed=false}={}){
     typedAsk=typed; bubble.classList.remove('open'); question=question.trim();
     // the single confirmation of an agent transfer: "yes" runs exactly the proposal shown, anything else cancels it
