@@ -46,3 +46,15 @@ test('DCA: only NEAR↔USDT, sane periods', () => {
   assert.throws(() => d.validate({ amount: '1', token: 'USDT', toToken: 'NEAR', everyHours: 0.01 }), /period/);
   assert.throws(() => d.validate({ amount: '-1', token: 'USDT', toToken: 'NEAR', everyHours: 24 }), /amount/);
 });
+
+test('DCA: a time of day and a duration in days', async () => {
+  const t0 = Date.UTC(2026, 10, 6, 11, 40); let t = t0; const aw = fake();
+  const d = create({ agentWallet: aw, now: () => t });
+  const o = await d.add('me.near', { amount: '1', token: 'USDT', toToken: 'NEAR', everyHours: 24, forDays: 14, atUtcMin: 6 * 60 });   // 06:00 UTC = 09:00 Moscow
+  assert.equal(o.runs, 14);
+  assert.equal(o.nextAt, Date.UTC(2026, 10, 7, 6, 0), 'first buy tomorrow at 06:00 UTC, not now');
+  await d.tick(); assert.equal(aw.calls.length, 0);
+  t = Date.UTC(2026, 10, 7, 6, 0, 30); await d.tick(); assert.equal(aw.calls.length, 1);
+  const [x] = await d.list('me.near'); assert.equal(x.nextAt, Date.UTC(2026, 10, 8, 6, 0), 'next day, same time');
+  assert.throws(() => d.validate({ amount: '1', token: 'USDT', toToken: 'NEAR', everyHours: 12, atUtcMin: 60 }), /whole days/);
+});
