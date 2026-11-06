@@ -56,8 +56,9 @@ const MAX_TOOL_ROUNDS = 3;
 const SEARCH_MARK = '\u0007';   // "the knight is looking something up"
 const PROOF_MARK = '\u0002';   // followed by JSON with the signature check of this answer
 const PAY_MARK = '\u0003';     // …JSON…: a payment the assistant prepared (card, or the agent wallet after a confirmed recipient)
-const DCA_MARK = '\u0004';
-const ACT_MARK = '\u0005';     // …JSON…: a screen action (save a contact, show a payment request)     // …JSON…: a standing-order operation (create / list / cancel) the browser runs with the owner's session
+const DCA_MARK = '\u0004';     // …JSON…: a standing-order operation (create / list / cancel) the browser runs with the owner's session
+const ACT_MARK = '\u0005';     // …JSON…: a screen action (save a contact, show a payment request)
+const CONFIRM_MARK = '\u0006'; // …JSON…: an agent transfer waiting for the user's single "yes"
 
 // Prices per 1M tokens [input, output, cached input] from near.ai/models — used only for the /dev page
 const PRICES = {
@@ -376,8 +377,14 @@ async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_P
         if (prop.to && (!prop.toChain || prop.toChain === 'near')) { const c = contacts.find(x => x.account !== prop.to && alnum(x.account) === alnum(prop.to)); if (c) prop.to = c.account; }
         // a swap stays in the agent's own wallet: no recipient, nothing to confirm (limits still apply)
         if (prop.payFrom === 'agent' && prop.action !== 'swap' && !recipientConfirmed(messages, prop.to, typed, contacts, prop.amount)) {
+          // Deterministic single confirmation: the browser keeps this exact proposal and runs it on the user's next "yes"
+          // (or a tap) — the model is not asked again, so it cannot loop or change the amount or the address.
           const c = contacts.find(x => x.account === prop.to);
-          return Promise.resolve(`NOT executed yet. Ask ONE short confirmation question with the amount as digits, the token and the recipient — ${c ? `the contact name "${c.name}" (${prop.to})` : `the address spelled out character by character (for example "r-o-5-2 dot near")`} — e.g. "Send ${prop.amount} ${prop.token} to ${c ? c.name : prop.to}? Say yes." If the address is hard to say, the user may type it. Call prepare_payment again right after their "yes". Recipient you heard: ${prop.to || '(none)'}.`);
+          const ru = /[а-яё]/i.test(lastUserText(messages));
+          const who = c ? `${c.name} (${prop.to})` : `${prop.to}${prop.toChain && prop.toChain !== 'near' ? ' — ' + (pay.CHAINS[prop.toChain] || {}).name : ''}`;
+          const q = ru ? `Отправляю ${prop.amount} ${prop.token} → ${who}. Верно? Скажи «да».` : `Sending ${prop.amount} ${prop.token} → ${who}. Correct? Say "yes".`;
+          begin(); res.write(CONFIRM_MARK + JSON.stringify({ ...prop, question: q }) + CONFIRM_MARK);
+          return Promise.resolve(`NOT sent yet: the screen now asks the user to confirm. Reply with exactly this one sentence and nothing else: ${q}`);
         }
         if (payTool) { begin(); res.write(PAY_MARK + JSON.stringify(prop) + PAY_MARK); }
         if (prop.payFrom === 'agent') return Promise.resolve('The agent wallet is sending this payment now (the screen shows the status). In one short sentence say you are sending it; do not claim it has arrived.');
