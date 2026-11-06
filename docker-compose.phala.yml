@@ -1,5 +1,6 @@
 # Phala Cloud (dstack) deployment: the whole relay server runs inside an Intel TDX confidential VM.
-# Paste this into Phala Cloud → Deploy → Docker Compose. Set NEAR_AI_KEY and DEV_KEY as encrypted secrets.
+# Paste this into Phala Cloud → Deploy → Docker Compose. Set NEAR_AI_KEY, DEV_KEY and ONECLICK_JWT as encrypted secrets.
+# UPDATE THE EXISTING APP IN PLACE — never re-create it: agent wallet keys are derived from this app's TEE identity.
 # For full verifiability pin the image by digest (see the GitHub Actions "image" job summary):
 #   image: ghcr.io/buterbro-cell/knight-site@sha256:<digest>
 services:
@@ -13,6 +14,9 @@ services:
     environment:
       - NEAR_AI_KEY=${NEAR_AI_KEY}
       - DEV_KEY=${DEV_KEY}
+      # NEAR Intents partner key (1Click) for private payments; set as an encrypted secret. NEVER set AGENT_DEV_SEED here:
+      # on Phala the agent keys come from the TEE (dstack GetKey).
+      - ONECLICK_JWT=${ONECLICK_JWT}
       - TRUST_PROXY=1
     volumes:
       # dstack guest agent: lets the app request Intel TDX quotes about itself (lib/selfattest.js)
