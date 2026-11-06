@@ -71,6 +71,8 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   const QS=new URLSearchParams(location.search), BIZ=(QS.get('biz')||'').replace(/[^a-z0-9_-]/gi,''), EMBED=QS.get('embed')==='1';
   if(QS.get('lang')==='ru'||QS.get('lang')==='en') lang=QS.get('lang');
   if(EMBED) document.documentElement.classList.add('embed');
+  // installable as an app on the home screen (the service worker caches nothing)
+  else if('serviceWorker' in navigator && !BIZ){ try{ navigator.serviceWorker.register('sw.js'); }catch(e){} }
   const t = k => T[lang][k];
 
   // ---------------- Элементы ----------------
