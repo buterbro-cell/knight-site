@@ -314,8 +314,9 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   // ---------------- Общение с сервером ----------------
   let demo=false;
   const history=[];
-  async function ask(question){
-    question=question.trim(); if(!question) return;
+  let typedAsk=false;
+  async function ask(question,{typed=false}={}){
+    typedAsk=typed; question=question.trim(); if(!question) return;
     if(typeof pendingAsk!=='undefined' && pendingAsk){ pendingAsk=null; q.placeholder=t('placeholder'); }
     stopSpeaking();
     say(question,{user:true}); setMode('think'); setStatus(t('thinking')); hideProof();
@@ -325,7 +326,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     let answer=null;
     if(!demo){
       try{
-        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6),stream:true,document:attachedDoc||undefined,profile:BIZ||undefined,owner:(!BIZ&&W&&W.getAccount())||undefined,paidDeposit:(attachedDoc&&paidFor[attachedDoc.name])||undefined,intentsSession:(attachedDoc&&paidFor[attachedDoc.name]&&W&&W.sessionToken())||undefined})});
+        const r=await fetch('api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history.slice(-6),stream:true,document:attachedDoc||undefined,profile:BIZ||undefined,typed:typedAsk||undefined,owner:(!BIZ&&W&&W.getAccount())||undefined,paidDeposit:(attachedDoc&&paidFor[attachedDoc.name])||undefined,intentsSession:(attachedDoc&&paidFor[attachedDoc.name]&&W&&W.sessionToken())||undefined})});
         if(r.status===402 && PROFILE && PROFILE.paidReview){ clearTimeout(dotsTimer); history.pop(); const q2=question; setMode('idle'); say(t('reviewAsk')); openPay({review:true, then:dep=>{ paidFor[attachedDoc.name]=dep; ask(q2); }}); return; }
         if(r.status===404||r.status===405) throw new Error('no-server');
         if(myAsk!==askId) return;
@@ -815,7 +816,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   form.addEventListener('submit',e=>{ e.preventDefault(); let v=q.value.trim(); q.value='';
     if(!v && attachedDoc && pendingAsk) v=pendingAsk;
     if(v){ pendingAsk=null; q.placeholder=t('placeholder'); }
-    ask(v); });
+    ask(v,{typed:true}); });
 
   let tickleIdx=0, started=false;
   charEl.addEventListener('click',()=>{
