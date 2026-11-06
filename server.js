@@ -592,7 +592,9 @@ const server = http.createServer(async (req, res) => {
     // a business profile may only send to its own address (paid review); free-form sends come from the personal assistant
     const prof = PROFILES[String(b.profile || '')];
     if (prof && prof.paidReview) b = { action: 'send', amount: prof.paidReview.price, token: prof.paidReview.token, to: prof.paidReview.recipient, from: b.from, payWith: b.payWith };
-    try { return send(res, 200, await pay.quote({ ...b, source, toRail: 'private' }, { userToken })); }
+    // unshield (move my own private balance to my public Intents balance, to withdraw it to my wallet)
+    const unshield = b.unshield === true && !prof;
+    try { return send(res, 200, await pay.quote(unshield ? { action: 'send', amount: b.amount, token: b.token, to: b.from, from: b.from, source: 'private', toRail: 'intents', unshield: true } : { ...b, source, toRail: 'private' }, { userToken })); }
     catch (e) { return send(res, e.message === 'session_expired' ? 401 : 400, { error: 'quote_failed', message: e.message }); }
   }
   // The wallet's signature over the intent 1Click generated for the quote → executed inside NEAR Intents
