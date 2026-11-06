@@ -210,7 +210,7 @@ const PAY_TOOL = { type: 'function', function: { name: 'prepare_payment', descri
   pay_from: { type: 'string', enum: ['wallet', 'agent'], description: 'agent = pay from the user\'s agent wallet (only if the system message says the user has one); wallet = the user\'s own wallet signs' },
   to: { type: 'string', description: 'recipient: a NEAR account (anna.near) or, with to_chain, an address on that chain (0x…, base58, T…); copy it EXACTLY, never change letter case; omit for swaps' }, to_token: { type: 'string', enum: ['NEAR', 'USDT'], description: 'swap: what the user gets' } }, required: ['action', 'amount', 'token'] } } };
 // Full mode: what the assistant knows about the user's agent wallet (public data: address and balances)
-const AGENT_PROMPT = (i, f) => `\n\nКОШЕЛЁК АГЕНТА: у пользователя есть твой собственный кошелёк агента (полный режим). Его ключ существует только внутри TEE, и платишь из него ты сам — без окна кошелька, в пределах лимитов $${i.limits.perActionUsd} за раз и $${i.limits.perDayUsd} в день. Адрес: ${i.account}. Баланс сейчас: ${f(i.balances.USDT, 6)} USDT и ${f(i.balances.NEAR, 24)} NEAR (приватный баланс в NEAR Intents).${i.nearUsd ? ` Цена NEAR сейчас ≈ $${i.nearUsd.toFixed(3)}.` : ''} Если спрашивают про твой кошелёк или баланс — отвечай по этим данным. Если пользователь просит заплатить «из кошелька агента», «со своего кошелька», «сам» — или просто просит заплатить, а баланса агента хватает, — вызывай prepare_payment с pay_from="agent". Обмен (swap) внутри кошелька агента выполняй сразу, без переспросов. Для перевода сначала обязательно переспроси получателя по буквам (например «r-o-5-2 dot near»), сумму и монету — и вызывай инструмент только после «да» или адреса, набранного текстом. Если баланса не хватает — скажи об этом и предложи пополнить или заплатить из кошелька пользователя (pay_from="wallet").`;
+const AGENT_PROMPT = (i, f) => `\n\nКОШЕЛЁК АГЕНТА: у пользователя есть твой собственный кошелёк агента (полный режим). Его ключ существует только внутри TEE, и платишь из него ты сам — без окна кошелька, в пределах лимитов $${i.limits.perActionUsd} за раз и $${i.limits.perDayUsd} в день. Адрес: ${i.account}. Баланс сейчас: ${f(i.balances.USDT, 6)} USDT и ${f(i.balances.NEAR, 24)} NEAR (приватный баланс в NEAR Intents).${i.nearUsd ? ` Цена NEAR сейчас ≈ $${i.nearUsd.toFixed(3)}.` : ''} Если спрашивают про твой кошелёк или баланс — отвечай по этим данным. Если пользователь просит заплатить «из кошелька агента», «со своего кошелька», «сам» — или просто просит заплатить, а баланса агента хватает, — вызывай prepare_payment с pay_from="agent". Обмен (swap) внутри кошелька агента выполняй сразу, без переспросов. Перед КАЖДЫМ переводом задай ровно один короткий вопрос: сумма цифрами, монета и получатель (контакт — по имени, адрес — по буквам, например «r-o-5-2 dot near») — «Отправляю 1 USDT Другу (ro52.near)? Скажи да». После «да» сразу вызывай prepare_payment, больше ничего не спрашивай. Если баланса не хватает — скажи об этом и предложи пополнить или заплатить из кошелька пользователя (pay_from="wallet").`;
 const agentCache = new Map();
 async function agentContext(owner) {
   if (agentWallet.mode() === 'off' || !pay.isNearAccount(owner)) return '';
@@ -242,26 +242,33 @@ function cleanSpend(list) {
     .filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x.at) && x.amount && x.token);
 }
 const CONTACTS_PROMPT = c => !c.length ? `\n\nКОНТАКТЫ: у пользователя пока нет сохранённых контактов. Если он хочет запомнить адрес под именем («сохрани ro52.near как Клиника») — вызови save_contact.` :
-  `\n\nКОНТАКТЫ пользователя (хранятся только на его устройстве): ${c.map(x => `${x.name} = ${x.account}`).join('; ')}. Если пользователь называет контакт по имени — бери адрес отсюда; переспрашивать по буквам не нужно, достаточно назвать имя и сумму. Новый контакт — save_contact.`;
+  `\n\nКОНТАКТЫ пользователя (хранятся только на его устройстве): ${c.map(x => `${x.name} = ${x.account}`).join('; ')}. Если пользователь называет контакт по имени — бери адрес отсюда; по буквам не переспрашивай, в подтверждении назови имя контакта и сумму. Новый контакт — save_contact.`;
 const SPEND_PROMPT = l => `\n\nИСТОРИЯ ПЛАТЕЖЕЙ (последние 30 дней, с устройства пользователя и из его планов; дата, сумма, монета, кому/что, откуда): ${l.length ? l.map(x => `${x.at} ${x.amount} ${x.token} → ${x.to || x.kind} (${x.kind}, ${x.via})`).join('; ') : 'пусто'}. На вопросы «сколько я потратил», «куда ушли деньги» отвечай по этим данным: сложи по монетам, назови главное; не выдумывай платежей, которых тут нет.`;
 const REQUEST_PROMPT = `\n\nЗАПРОС ДЕНЕГ: если пользователь хочет попросить или получить деньги («попроси у Ани 3 USDT», «выстави счёт на 5 NEAR») — вызови request_payment: на экране появятся ссылка и QR-код, по которым другой человек приватно заплатит пользователю.`;
 const CONTACT_TOOL = { type: 'function', function: { name: 'save_contact', description: 'Save a NEAR address under a name in the user\'s contacts (kept only on the user\'s device; the user confirms on screen).', parameters: { type: 'object', properties: { name: { type: 'string' }, account: { type: 'string', description: 'NEAR account, e.g. ro52.near' } }, required: ['name', 'account'] } } };
 const REQUEST_TOOL = { type: 'function', function: { name: 'request_payment', description: 'Create a payment request (link + QR) so someone else can pay the user privately.', parameters: { type: 'object', properties: { amount: { type: 'string' }, token: { type: 'string', enum: ['USDT', 'NEAR'] }, from_name: { type: 'string', description: 'who is asked to pay, if said' }, note: { type: 'string', description: 'what it is for, if said' } }, required: ['amount', 'token'] } } };
 
 // ---------- Streaming answer with tools and proof ----------
-const YES = /^\s*(yes|yeah|yep|yup|correct|right|confirm(ed)?|sure|ok(ay)?|go( ahead)?|да|ага|угу|верно|правильно|подтверждаю|ок|окей|точно|давай)\b/i;
+const YES = /^\s*(yes|yeah|yep|yup|correct|right|confirm(ed)?|sure|ok(ay)?|go( ahead)?|да|ага|угу|верно|правильно|подтверждаю|ок|окей|точно|давай)(?=$|[\s.,!?)])/iu;
 const lastUserText = m => { const u = m.filter(x => x.role === 'user').pop(); return typeof (u && u.content) === 'string' ? u.content : ''; };
 const alnum = x => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-function recipientConfirmed(messages, to, typed, contacts = []) {
+// Exactly one confirmation before the agent sends money: the user's last message is a "yes", and the assistant
+// message right before it named this recipient (its address, or the saved contact's name) and this amount.
+function recipientConfirmed(messages, to, typed, contacts = [], amount = '') {
   if (!to) return false;
   const users = messages.filter(m => m.role === 'user'), last = users[users.length - 1];
   const lastText = typeof (last && last.content) === 'string' ? last.content : '';
-  // a saved contact named in the request needs no spelling: the address comes from the user's own list
-  if (contacts.some(c => c.account === to && lastText.toLowerCase().includes(c.name.toLowerCase()))) return true;
-  if (typed && lastText.toLowerCase().includes(to)) return true;
+  if (!YES.test(lastText)) return false;
   const i = messages.lastIndexOf(last), prev = messages.slice(0, i).reverse().find(m => m.role === 'assistant');
+  if (!prev || typeof prev.content !== 'string') return false;
+  const said = prev.content.toLowerCase(), saidAl = alnum(prev.content);
   const name = alnum(to.replace(/\.(near|tg)$/, ''));
-  return YES.test(lastText) && !!prev && name.length > 0 && alnum(prev.content).includes(name);
+  const contact = contacts.find(c => c.account === to);
+  const namedRecipient = (name.length > 0 && saidAl.includes(name)) || (!!contact && said.includes(contact.name.toLowerCase()));
+  // the amount as digits, with a dot or a comma ("1", "0.5", "0,5")
+  const a = String(amount || '').replace(/\.?0+$/, '');
+  const namedAmount = !a || new RegExp('(^|[^0-9.,])' + a.replace('.', '[.,]') + '([^0-9]|[.,]0*([^0-9]|$)|$)').test(prev.content);
+  return namedRecipient && namedAmount;
 }
 async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_PROMPT_KB, tools = true, maxTokens = MAX_ANSWER_TOKENS, payTool = false, agentInfo = '', typed = false, contacts = [], spend = [] } = {}) {
   await slot();
@@ -365,8 +372,9 @@ async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_P
         // The agent pays with no card, so the recipient must be confirmed first: a "yes" right after the assistant
         // repeated the address, or the address typed (not spoken) by the user
         // a swap stays in the agent's own wallet: no recipient, nothing to confirm (limits still apply)
-        if (prop.payFrom === 'agent' && prop.action !== 'swap' && !recipientConfirmed(messages, prop.to, typed, contacts)) {
-          return Promise.resolve(`NOT executed yet. Ask the user to confirm: repeat the recipient spelled out character by character (for example "r-o-5-2 dot near"), the amount and the token, and ask them to say "yes", or to type the address if it is hard to say. Call prepare_payment again only after they confirm. Recipient you heard: ${prop.to || '(none)'}.`);
+        if (prop.payFrom === 'agent' && prop.action !== 'swap' && !recipientConfirmed(messages, prop.to, typed, contacts, prop.amount)) {
+          const c = contacts.find(x => x.account === prop.to);
+          return Promise.resolve(`NOT executed yet. Ask ONE short confirmation question with the amount as digits, the token and the recipient — ${c ? `the contact name "${c.name}" (${prop.to})` : `the address spelled out character by character (for example "r-o-5-2 dot near")`} — e.g. "Send ${prop.amount} ${prop.token} to ${c ? c.name : prop.to}? Say yes." If the address is hard to say, the user may type it. Call prepare_payment again right after their "yes". Recipient you heard: ${prop.to || '(none)'}.`);
         }
         if (payTool) { begin(); res.write(PAY_MARK + JSON.stringify(prop) + PAY_MARK); }
         if (prop.payFrom === 'agent') return Promise.resolve('The agent wallet is sending this payment now (the screen shows the status). In one short sentence say you are sending it; do not claim it has arrived.');
