@@ -148,9 +148,11 @@ export async function agentInfo() {
 // and the page offers the one "allow" signature (or takes it during a top-up of the agent).
 async function agentPost(path, body) {
   if (!hasAgentSession()) { const e = new Error('need_allow'); e.code = 'need_allow'; throw e; }
-  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: session.token, ...body }) });
+  const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: session.token, ...body }) };
+  // one retry on a network failure (the server may be restarting for a moment)
+  let r; try { r = await fetch(path, opts); } catch (e) { await new Promise(x => setTimeout(x, 2500)); r = await fetch(path, opts); }
   const j = await r.json().catch(() => ({}));
-  if (r.status === 401) { session = null; try { localStorage.removeItem('sirnear.agentSession'); } catch (e) {} const e = new Error('need_allow'); e.code = 'need_allow'; throw e; }
+  if (r.status === 401) { session = null; try { localStorage.removeItem('sirnear.agentSession'); } catch (e) {} const e = new Error('need_allow'); e.code = 'need_allow'; e.reason = j.reason; throw e; }
   if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status)); return j;
 }
 // New limits for the agent wallet: the owner signs the exact values (no gas)

@@ -660,7 +660,7 @@ const server = http.createServer(async (req, res) => {
       // withdraw needs no session: the money can only go back to the owner's own balance
       if (url.pathname === '/api/agent/withdraw') return send(res, 200, await agentWallet.withdraw(String(b.owner || '')));
       const owner = agentWallet.checkToken(b.token);
-      if (!owner) return send(res, 401, { error: 'session_expired' });
+      if (!owner) return send(res, 401, { error: 'session_expired', reason: agentWallet.tokenProblem(b.token) });
       if (url.pathname === '/api/agent/dca') {
         if (b.op === 'list') return send(res, 200, { orders: await dca.list(owner) });
         if (b.op === 'cancel') return send(res, 200, await dca.cancel(owner, b.id));

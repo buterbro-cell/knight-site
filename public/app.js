@@ -767,7 +767,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       catch(e){ if(e.code!=='need_allow') throw e;
         draw(esc(t('agNeedAllow'))); sh.insertAdjacentHTML('beforeend',`<div class="btns"><button id="aX">${esc(t('payCancel'))}</button><button class="primary" id="aA">${esc(t('agAllow'))}</button></div>`); $('aX').onclick=closePay;
         await new Promise((res,rej)=>{ $('aA').onclick=async()=>{ try{ draw(esc(t('agSession'))); await w.agentSession(); res(); }catch(e2){ rej(e2); } }; });
-        draw(esc(t('agPaying'))); r=await w.agentPay(p); }
+        draw(esc(t('agPaying'))); try{ r=await w.agentPay(p); }catch(e3){ throw new Error(e3.code==='need_allow'?'session refused right after signing ('+(e3.reason||'?')+')':e3.message); } }
       const fin=await w.waitDone(r.depositAddress,x=>draw(esc(t('payProcessing')+' ['+x.status+']')),{agent:true});
       if(fin.status==='SUCCESS'){ logSpend({amount:p.amount,token:p.token,to:p.to,kind:p.action==='swap'?'swap':'send',via:'agent'}); draw(esc(t('payDone')),true); speak(t('payDoneSay')); }
       else draw(esc(fin.status==='REFUNDED'?t('payRefunded'):t('payFailed')),true);
@@ -798,7 +798,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
         let o; try{ o=await w.agentDca(body); }catch(e){ if(e.code!=='need_allow') throw e;
           draw(`<div class="pay-st">${esc(t('agNeedAllow'))}</div><div class="btns"><button id="aX">${esc(t('payCancel'))}</button><button class="primary" id="aA">${esc(t('agAllow'))}</button></div>`); $('aX').onclick=closePay;
           await new Promise((res,rej)=>{ $('aA').onclick=async()=>{ try{ await w.agentSession(); res(); }catch(e2){ rej(e2); } }; });
-          o=await w.agentDca(body); }
+          try{ o=await w.agentDca(body); }catch(e3){ throw new Error(e3.code==='need_allow'?'session refused right after signing ('+(e3.reason||'?')+')':e3.message); } }
         const isLimit=o.whenBelow!=null||o.whenAbove!=null;
         draw(`<div class="pay-row"><span>${esc(t('dcaPlan'))}</span><b>${esc(fmtPlan(o))}</b></div><div class="pay-st" id="dSt">${esc(isLimit?t('lmWait'):o.atUtcMin!=null?t('dcaNext').replace('{x}',new Date(o.nextAt).toLocaleString([], {weekday:'short',hour:'2-digit',minute:'2-digit'})):t('dcaFirst'))}</div>`);
         // without a time of day the first purchase runs at once on the server: show its result
