@@ -105,3 +105,17 @@ test('spoken NEAR addresses: only the misheard suffix is fixed', () => {
   assert.equal(pay.normalizeRecipient('mcloven1.tg'), 'mcloven1.tg');
   assert.equal(pay.normalizeRecipient('ro52.near'), 'ro52.near');
 });
+
+test('other chains: addresses are checked per chain, unknown chains refused', () => {
+  assert.ok(pay.validAddress('bsc', '0x2527D02599Ba641c19FEa793cD0F167589a0f10D'));
+  assert.ok(!pay.validAddress('bsc', 'anna.near'));
+  assert.ok(pay.validAddress('sol', '13QkxhNMrTPxoCkRdYdJ65tFuwXPhL5gLS2Z5Nr6gjRK'));
+  assert.ok(pay.validAddress('tron', 'TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9'));
+  assert.ok(!pay.validAddress('tron', '0x2527D02599Ba641c19FEa793cD0F167589a0f10D'));
+  assert.ok(!pay.validAddress('doge', 'D123'));
+  pay.ASSETS['USDT@bsc'] = pay.ASSETS['USDT@bsc'] || { assetId: 'nep141:bsc-test.omft.near', decimals: 18, symbol: 'USDT', chain: 'bsc', usd: 1 };
+  const q = pay.buildQuote({ action: 'send', amount: '2', token: 'USDT', toChain: 'bsc', to: '0x2527D02599Ba641c19FEa793cD0F167589a0f10D', from: 'me.near', source: 'private' });
+  assert.equal(q.recipientType, 'DESTINATION_CHAIN');
+  assert.equal(q.depositType, 'CONFIDENTIAL_INTENTS');
+  assert.throws(() => pay.buildQuote({ action: 'send', amount: '2', token: 'USDT', toChain: 'bsc', to: 'anna.near', from: 'me.near' }), /BNB Chain address/);
+});

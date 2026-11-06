@@ -3,6 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
 process.env.AGENT_DEV_SEED = 'test-seed';
+process.env.DATA_DIR = require('fs').mkdtempSync(require('path').join(require('os').tmpdir(), 'aw-'));
 const aw = require('../lib/agentwallet');
 const near = require('../lib/near');
 
@@ -42,13 +43,31 @@ test('tokens cannot be forged or extended', () => {
   assert.equal(aw.checkToken(''), null);
 });
 
-test('limits: per action and per day; a failed payment gives the budget back', () => {
+test('limits: per action and per day; a failed payment gives the budget back', async () => {
   const { perActionUsd, perDayUsd } = aw.LIMITS;
-  assert.throws(() => aw.reserve('lim.near', perActionUsd + 1), /per action/);
-  const undo = aw.reserve('lim.near', perActionUsd);
+  await assert.rejects(aw.reserve('lim.near', perActionUsd + 1), /per action/);
+  const undo = await aw.reserve('lim.near', perActionUsd);
   let total = perActionUsd;
-  while (total + perActionUsd <= perDayUsd) { aw.reserve('lim.near', perActionUsd); total += perActionUsd; }
-  assert.throws(() => aw.reserve('lim.near', perActionUsd), /per day/);
-  undo();
-  assert.doesNotThrow(() => aw.reserve('lim.near', Math.min(perActionUsd, perDayUsd - total + perActionUsd)));
+  while (total + perActionUsd <= perDayUsd) { await aw.reserve('lim.near', perActionUsd); total += perActionUsd; }
+  await assert.rejects(aw.reserve('lim.near', perActionUsd), /per day/);
+  await undo();
+  await assert.doesNotReject(aw.reserve('lim.near', Math.min(perActionUsd, perDayUsd - total + perActionUsd)));
+});
+
+function signedLimits(owner, key, a, d, { at = Date.now(), msgOwner = owner } = {}) {
+  const message = aw.limitsMessage(msgOwner, a, d, at), nonce = crypto.randomBytes(32);
+  const hash = crypto.createHash('sha256').update(near.nep413Bytes({ message, nonce, recipient: aw.RECIPIENT })).digest();
+  return { accountId: owner, publicKey: key.publicKey, signature: near.sign(key, hash).toString('base64'), message, nonce: nonce.toString('base64') };
+}
+test('the owner sets the limits with a signature; caps apply; others cannot', async () => {
+  const k = near.randomKey();
+  const r = await aw.setLimits(signedLimits('set.near', k, 50, 120), { checkKey: fullAccess() });
+  assert.deepEqual(r.limits, { perActionUsd: 50, perDayUsd: 120 });
+  assert.deepEqual(await aw.limitsFor('set.near'), { perActionUsd: 50, perDayUsd: 120 });
+  await assert.doesNotReject(aw.reserve('set.near', 40));
+  await assert.rejects(aw.reserve('set.near', 51), /\$50 per action/);
+  await assert.rejects(aw.setLimits(signedLimits('set.near', k, 50, 120, { msgOwner: 'other.near' }), { checkKey: fullAccess() }), /message/);
+  await assert.rejects(aw.setLimits(signedLimits('set.near', k, 100000, 200000), { checkKey: fullAccess() }), /per action/);
+  await assert.rejects(aw.setLimits(signedLimits('set.near', k, 20, 10), { checkKey: fullAccess() }), /per day/);
+  await assert.rejects(aw.setLimits(signedLimits('set.near', k, 5, 5), { checkKey: async () => ({ permission: { FunctionCall: {} } }) }), /full-access/);
 });

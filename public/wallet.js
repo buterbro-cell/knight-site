@@ -151,6 +151,15 @@ async function agentPost(path, body, retry = true) {
   if (r.status === 401 && retry) { session = null; try { localStorage.removeItem('sirnear.agentSession'); } catch (e) {} return agentPost(path, body, false); }
   if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status)); return j;
 }
+// New limits for the agent wallet: the owner signs the exact values (no gas)
+export async function agentSetLimits(perAction, perDay) {
+  const w = await conn().wallet();
+  const message = `Sir Near: set my agent wallet limits for ${account}: $${perAction} per action, $${perDay} per day. ${Date.now()}`;
+  const nonce = crypto.getRandomValues(new Uint8Array(32));
+  const s = await w.signMessage({ message, recipient: 'sir-near', nonce, network: 'mainnet' });
+  const r = await fetch('api/agent/limits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: s.accountId || account, publicKey: s.publicKey, signature: s.signature, message, nonce: btoa(String.fromCharCode(...nonce)) }) });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status)); return j;
+}
 export const agentPay = proposal => agentPost('api/agent/pay', { proposal });
 export const agentDca = body => agentPost('api/agent/dca', body);
 // Withdraw needs no signature: the money can only go back to the owner

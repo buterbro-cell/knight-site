@@ -9,9 +9,11 @@ const root = path.join(__dirname, '..');
 const sources = ['server.js', 'tools.js', ...fs.readdirSync(path.join(root, 'lib')).map(f => 'lib/' + f)];
 const code = Object.fromEntries(sources.map(f => [f, fs.readFileSync(path.join(root, f), 'utf8')]));
 
-test('no file writes anywhere in the server code, except the encrypted standing orders', () => {
-  // lib/dca.js keeps only the plans the owner created (tokens, amount, period), AES-256-GCM with a TEE-derived key
-  for (const [f, src] of Object.entries(code)) if (!/lib[\\/]dca\.js$/.test(f)) assert.doesNotMatch(src, /writeFile|appendFile|createWriteStream|fs\.write/, f);
+test('no file writes anywhere in the server code, except the encrypted owner settings and standing orders', () => {
+  // lib/dca.js: the plans the owner created; lib/store.js: the owner's agent limits and the day's spending.
+  // Both AES-256-GCM with a TEE-derived key; no conversation data.
+  for (const [f, src] of Object.entries(code)) if (!/lib[\\/](dca|store)\.js$/.test(f)) assert.doesNotMatch(src, /writeFile|appendFile|createWriteStream|fs\.write/, f);
+  const st = Object.entries(code).find(([f]) => /lib[\\/]store\.js$/.test(f)); if (st) assert.match(st[1], /aes-256-gcm/);
   const dca = Object.entries(code).find(([f]) => /lib[\\/]dca\.js$/.test(f));
   if (dca) { assert.match(dca[1], /aes-256-gcm/); assert.doesNotMatch(dca[1], /\b(messages|question|answer|audio)\b\s*[:=]/); }
 });
