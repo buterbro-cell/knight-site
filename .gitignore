@@ -2,3 +2,4 @@ piper/
 node_modules/
 .env
 cloudflared
+data/

@@ -152,6 +152,7 @@ async function agentPost(path, body, retry = true) {
   if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status)); return j;
 }
 export const agentPay = proposal => agentPost('api/agent/pay', { proposal });
+export const agentDca = body => agentPost('api/agent/dca', body);
 // Withdraw needs no signature: the money can only go back to the owner
 export async function agentWithdraw() {
   const r = await fetch('api/agent/withdraw', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ owner: account }) });
