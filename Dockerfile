@@ -23,7 +23,9 @@ RUN if [ "$WITH_VOICE" = "1" ]; then \
       rm -rf /var/lib/apt/lists/* ; \
     fi
 
-ENV PORT=3000 TRUST_PROXY=1 NODE_ENV=production
+# the only data at rest: encrypted standing orders (lib/dca.js); mount a volume here to keep them across re-creates
+RUN mkdir -p /app/data && chown node:node /app/data
+ENV PORT=3000 TRUST_PROXY=1 NODE_ENV=production DATA_DIR=/app/data
 EXPOSE 3000
 USER node
 CMD ["node", "server.js"]

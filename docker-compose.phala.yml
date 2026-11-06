@@ -17,3 +17,7 @@ services:
     volumes:
       # dstack guest agent: lets the app request Intel TDX quotes about itself (lib/selfattest.js)
       - /var/run/dstack.sock:/var/run/dstack.sock
+      # encrypted standing orders (DCA) — the only data at rest, key from the TEE (lib/dca.js)
+      - orders:/app/data
+volumes:
+  orders:
