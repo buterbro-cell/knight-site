@@ -1,6 +1,6 @@
 # AGENTS.md — for AI reviewers
 
-Sir Near is a voice assistant that a business adds to its website with one line of code (`public/widget.js`). Visitors talk to it or show it a document or a photo of one. Everything that touches the visitor's data runs in TEEs, and the assistant proves it on screen. Tracks: Privacy & Private AI, Open Innovation.
+Sir Near is a voice assistant that a business adds to its website with one line of code (`public/widget.js`). Visitors talk to it or show it a document or a photo of one. Everything that touches the visitor's data runs in TEEs, and the assistant proves it on screen. Tracks: Privacy & Private AI, Agent Economy (the assistant's own agent wallet pays, buys on schedule and buys services through NEAR Intents).
 
 ## How to check quickly
 
@@ -19,7 +19,7 @@ Sir Near is a voice assistant that a business adds to its website with one line 
 | A real signed answer can be re-verified offline (signature, hashes, Intel quotes with saved collateral, binding, nonce, compose) | `scripts/verify-bundle.js`, `lib/bundle.js`; `/api/selftest?bundle=1` | `evidence/*.json`; `test/bundle.test.js` (verifies, and tampering fails); CI step |
 | A visitor can choose the nonce (sha256 of their word), so the report cannot be pre-recorded | `server.js` `/api/attestation/challenge` | live endpoint; `test/attest.test.js` (replayed report fails) |
 | Our relay server also runs in Intel TDX (Phala dstack) and attests itself | `lib/selfattest.js`; `server.js` `/api/attestation/self`; `docker-compose.phala.yml` pins the image digest built by `.github/workflows/image.yml` | Phala Trust Center link in `README.md`; `/api/health` → `relayInTee` |
-| Nothing is stored: no files, no database, no content in logs | `server.js` (request data lives in local variables only) | `test/privacy.test.js` |
+| Nothing about conversations is stored: no database, no content in logs; the only file is the owner's standing orders (DCA / limit orders), AES-256-GCM with a TEE-derived key | `server.js`, `lib/dca.js` | `test/privacy.test.js`, `test/dca.test.js` |
 | Rate limiting keeps only salted IP hashes and timestamps; salt is new per process | `lib/ratelimit.js` | `test/ratelimit.test.js` |
 | Documents and photos are attached to the current question only, treated as data (anti-prompt-injection rule), images limited to jpeg/png/webp ≤ 1.4 MB | `lib/input.js` | `test/input.test.js` |
 | Photos are read by the TEE model itself (DeepSeek V4.1 Flash, native vision) and shrunk in the browser first | `public/app.js` `imageData()`, `lib/input.js` | manual: demo → Document → "Photo of a blood test" |
@@ -33,11 +33,13 @@ Sir Near is a voice assistant that a business adds to its website with one line 
 | Payments are confidential NEAR Intents quotes (payer and payout unlinkable) | `lib/pay.js` (`confidentiality: 'advanced'`, partner key in `X-API-Key`) | `/api/pay/probe` (dry quotes) |
 | Paid private review: answer unlocked only after the server verifies SUCCESS to the clinic's address, one payment per document; samples free | `server.js` paid-review gate, `lib/pay.js` `checkPaid()`, `consumeDeposit()` | `test/pay.test.js` |
 | Full mode: agent wallet key only inside the TEE; owner-only sessions (NEP-413, full-access key checked on chain); $10/action, $25/day | `lib/agentwallet.js` | `test/agentwallet.test.js` |
+| Agent voice payments only after the recipient is confirmed (repeated spelled-out + "yes", a typed address, or a saved contact); misheard `.near` suffixes fixed; recipients must exist on chain | `server.js` `recipientConfirmed()`, `lib/pay.js` `normalizeRecipient()`, `recipientExists()` | `test/pay.test.js` |
+| Recurring purchases and limit orders from the agent wallet, through the same limits | `lib/dca.js`, `server.js` (`schedule_purchase`) | `test/dca.test.js` |
 | NEAR transactions and NEP-413 without SDKs, byte-identical to near-api-js | `lib/near.js` | `test/near-tx.test.js` (CI), `test/near.test.js` |
 
 ## Not built (stated as such in README → Roadmap)
 
-Scheduled payments from the agent wallet; bring-your-own relay.
+Bring-your-own relay; voice transactions signed in the user's own wallet without a tap.
 
 ## Known limits
 

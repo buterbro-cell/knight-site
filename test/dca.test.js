@@ -58,3 +58,15 @@ test('DCA: a time of day and a duration in days', async () => {
   const [x] = await d.list('me.near'); assert.equal(x.nextAt, Date.UTC(2026, 10, 8, 6, 0), 'next day, same time');
   assert.throws(() => d.validate({ amount: '1', token: 'USDT', toToken: 'NEAR', everyHours: 12, atUtcMin: 60 }), /whole days/);
 });
+
+test('limit order: buys once when NEAR drops below the level, then is gone', async () => {
+  let t = 3e12, px = 2.5; const aw = fake();
+  const d = create({ agentWallet: aw, now: () => t, price: async () => px, file: path.join(process.env.DATA_DIR, 'limit.bin') });
+  await d.add('me.near', { amount: '5', token: 'USDT', toToken: 'NEAR', whenBelow: 2 });
+  await d.tick(); t += 60e3; await d.tick(); assert.equal(aw.calls.length, 0, 'price above the level: wait');
+  px = 1.95; t += 60e3; await d.tick();
+  assert.equal(aw.calls.length, 1);
+  t += 60e3; await d.tick(); assert.equal(aw.calls.length, 1, 'one purchase only');
+  assert.equal((await d.list('me.near')).length, 0);
+  await assert.rejects(d.add('me.near', { amount: '1', token: 'USDT', toToken: 'NEAR', whenBelow: 2, whenAbove: 3 }), /one price level/);
+});
