@@ -57,6 +57,15 @@ export async function intentsSession({ fresh = false } = {}) {
   const signed = await signRaw(c);
   const j = await post('api/pay/auth', signed).catch(e => { e.publicKey = signed.publicKey; throw e; });
   intents = { account, token: j.token, publicKey: signed.publicKey, at: Date.now() };
+  // the same signature also opens the agent-wallet session for 24 h (one wallet popup instead of two)
+  if (!hasAgentSession()) await openAgentFrom(signed).catch(() => {});
+  return j.token;
+}
+async function openAgentFrom(signed) {
+  const r = await fetch('api/agent/session-intents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: account, ...signed }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.token) throw new Error(j.message || j.error || ('HTTP ' + r.status));
+  session = j; try { localStorage.setItem('sirnear.agentSession', JSON.stringify(j)); } catch (e) {}
   return j.token;
 }
 const H = () => (intents && intents.account === account ? { 'X-Intents-Session': intents.token } : {});
@@ -128,6 +137,13 @@ let session = null;
 try { session = JSON.parse(localStorage.getItem('sirnear.agentSession') || 'null'); } catch (e) {}
 export async function agentSession() {
   if (session && session.owner === account && Date.now() < session.expiresAt - 60e3) return session.token;
+  // one signature (an empty NEAR Intents login) opens both sessions
+  const c = await (await fetch('api/pay/auth-challenge?account=' + encodeURIComponent(account), { cache: 'no-store' })).json();
+  if (c && c.message) {
+    const signed = await signRaw(c);
+    post('api/pay/auth', signed).then(j => { intents = { account, token: j.token, publicKey: signed.publicKey, at: Date.now() }; }).catch(() => {});
+    return openAgentFrom(signed);
+  }
   const w = await conn().wallet();
   const message = `Sir Near: let my agent wallet act for ${account} for 24 hours, within its limits. ${Date.now()}`;
   const nonce = crypto.getRandomValues(new Uint8Array(32));

@@ -655,6 +655,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method !== 'POST') return send(res, 405, { error: 'post' });
       const b = JSON.parse((await readBody(req, 4e3)).toString('utf8') || '{}');
       if (url.pathname === '/api/agent/session') return send(res, 200, await agentWallet.openSession(b));
+      if (url.pathname === '/api/agent/session-intents') return send(res, 200, await agentWallet.openSessionFromIntents(b));
       // limits change only with the owner's own signature over the exact new values
       if (url.pathname === '/api/agent/limits') return send(res, 200, await agentWallet.setLimits(b));
       // withdraw needs no session: the money can only go back to the owner's own balance

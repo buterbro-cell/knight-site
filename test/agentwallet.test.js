@@ -71,3 +71,22 @@ test('the owner sets the limits with a signature; caps apply; others cannot', as
   await assert.rejects(aw.setLimits(signedLimits('set.near', k, 20, 10), { checkKey: fullAccess() }), /per day/);
   await assert.rejects(aw.setLimits(signedLimits('set.near', k, 5, 5), { checkKey: async () => ({ permission: { FunctionCall: {} } }) }), /full-access/);
 });
+
+test('one signature for both: the NEAR Intents login (empty intent) also opens the agent session', async () => {
+  const k = near.randomKey();
+  const mk = (o = {}) => {
+    const message = JSON.stringify({ deadline: new Date(Date.now() + 60e3).toISOString(), intents: [], signer_id: 'one.near', ...o });
+    const nonce = crypto.randomBytes(32);
+    const hash = crypto.createHash('sha256').update(near.nep413Bytes({ message, nonce, recipient: 'intents.near' })).digest();
+    return { accountId: 'one.near', publicKey: k.publicKey, signature: near.sign(k, hash).toString('base64'), message, nonce: nonce.toString('base64'), recipient: 'intents.near' };
+  };
+  const noKeys = async () => [];
+  const s = await aw.openSessionFromIntents(mk(), { checkKey: fullAccess(), intentsKeys: noKeys });
+  assert.equal(aw.checkToken(s.token), 'one.near');
+  const viaIntents = await aw.openSessionFromIntents(mk(), { checkKey: async () => null, intentsKeys: async () => [k.publicKey] });
+  assert.equal(aw.checkToken(viaIntents.token), 'one.near');
+  await assert.rejects(aw.openSessionFromIntents(mk({ signer_id: 'other.near' }), { checkKey: fullAccess(), intentsKeys: noKeys }), /message/);
+  await assert.rejects(aw.openSessionFromIntents(mk({ intents: [{ intent: 'transfer' }] }), { checkKey: fullAccess(), intentsKeys: noKeys }), /message/);
+  await assert.rejects(aw.openSessionFromIntents(mk({ deadline: new Date(Date.now() + 3600e3).toISOString() }), { checkKey: fullAccess(), intentsKeys: noKeys }), /message/);
+  await assert.rejects(aw.openSessionFromIntents(mk(), { checkKey: async () => null, intentsKeys: noKeys }), /full-access/);
+});
