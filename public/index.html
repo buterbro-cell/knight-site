@@ -26,6 +26,10 @@
   .pay-row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid rgba(160,200,255,.12);font-size:14px}.pay-row b{text-align:right;word-break:break-all}
   .pay-priv{margin-top:10px;font-size:12.5px;line-height:1.45;color:#9ff0cf;background:rgba(52,211,153,.1);border-radius:12px;padding:9px 11px}
   .pay-st{margin-top:12px;font-weight:800}
+  .ibtn{width:32px;padding:0;justify-content:center;font-size:15px}
+  .info h3{margin:16px 0 6px;font-size:15px;color:#9fc3ff}.info p,.info li{font-size:14px;line-height:1.45;color:#dbe8ff}.info ul{margin:4px 0;padding-left:18px}
+  .info li{margin:3px 0}.info code{font-size:12.5px;background:rgba(255,255,255,.08);border-radius:6px;padding:1px 5px}.info .tag{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px;margin-left:6px;background:rgba(52,211,153,.18);color:#7ef0c0}
+  .info .soon{background:rgba(251,191,36,.18);color:#fcd57a}
   #psheet input{box-sizing:border-box;border:1px solid rgba(160,200,255,.25);border-radius:12px;padding:11px 13px;font:inherit;font-size:16px;background:rgba(255,255,255,.08);color:#fff;outline:none}
   #psheet .pay-row button{padding:6px 10px;flex:none}
   #psheet svg{display:block;width:100%;height:auto}.pay-st a{color:#93c5fd}
@@ -47,6 +51,7 @@
   <header>
     <div class="brand" id="title">Спроси рыцаря NEAR<small id="subtitle">Приватный ИИ на NEAR AI</small></div>
     <div class="hdr-right">
+      <button class="vbtn ibtn hidden" id="ibtn" aria-label="About the agent">?</button>
       <button class="vbtn wbtn hidden" id="wbtn" aria-label="Кошелёк"><span id="wtext">Кошелёк</span></button>
       <button class="vbtn wait" id="vbtn" aria-label="Проверка TEE"><span class="dot"></span><span id="vtext">TEE…</span></button>
       <div class="lang" role="group" aria-label="Язык">

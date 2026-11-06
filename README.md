@@ -131,7 +131,10 @@ flowchart LR
 
 ## Roadmap — not built yet
 
-- **Scheduled payments from the agent wallet:** "pay the electricity bill when it arrives", "buy NEAR for 10 USDT every Monday" — the cases where no one is there to tap a wallet.
+- **Voice transactions in your own wallet:** confirmed by voice, with no tap.
+- **Top up from other chains:** USDT on BNB, ETH, Solana or TRON → the agent balance, through a NEAR Intents deposit address.
+- **Notifications** for scheduled purchases and limit orders.
+- **Agent-to-agent:** the agent hires other agents and pays for APIs, data and compute.
 - **On-chain limits for the agent wallet** (a policy contract), on top of the limits enforced in the TEE.
 - **Bring-your-own relay:** a business runs the open-source relay in its own TEE and the assistant verifies it the same way it verifies ours.
 
