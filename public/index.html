@@ -3,21 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Спроси рыцаря NEAR</title>
-<meta name="description" content="Говорящий рыцарь отвечает голосом на вопросы про NEAR, NEAR AI и приватность">
+<title>SECRA — приватный ИИ-агент на NEAR</title>
+<meta name="description" content="SECRA — голосовой ИИ-агент на NEAR: отвечает в защищённой среде и платит приватно через NEAR Intents">
 <link rel="stylesheet" href="app.css">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0a1638">
 <link rel="apple-touch-icon" href="icons/apple-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Sir Near">
+<meta name="apple-mobile-web-app-title" content="SECRA">
 <script type="importmap">{"imports":{"three":"./3d/vendor/three/build/three.module.min.js","three/addons/":"./3d/vendor/three/examples/jsm/"}}</script>
 <style>
-  /* 3D knight (knight3d.js): replaces pictures and video once loaded */
+  /* 3D SECRA (knight3d.js): replaces pictures and video once loaded */
   .stage.k3d .char{aspect-ratio:702/1060;animation:none!important;touch-action:none}
   .stage.k3d .char img, .stage.k3d .char>canvas:not(.k3d){display:none}
-  /* while the 3D knight downloads: a soft pulsing glow instead of the old pictures */
+  /* while the 3D model downloads: a soft pulsing glow instead of the old pictures */
   .stage.k3d .char:not(:has(canvas.k3d))::after{content:"";position:absolute;left:50%;bottom:8%;width:46%;aspect-ratio:1;transform:translateX(-50%);border-radius:50%;
     background:radial-gradient(closest-side,rgba(120,180,255,.35),transparent);animation:k3dload 1.4s ease-in-out infinite}
   @keyframes k3dload{50%{opacity:.35;transform:translateX(-50%) scale(.9)}}
@@ -51,7 +51,7 @@
   <div class="shade"></div>
   <div class="stars"></div>
   <header>
-    <div class="brand" id="title">Спроси рыцаря NEAR<small id="subtitle">Приватный ИИ на NEAR AI</small></div>
+    <div class="brand" id="title">SECRA<small id="subtitle">Приватный ИИ на NEAR AI</small></div>
     <div class="hdr-right">
       <button class="vbtn ibtn hidden" id="ibtn" aria-label="About the agent">?</button>
       <button class="vbtn wbtn hidden" id="wbtn" aria-label="Кошелёк"><span id="wtext">Кошелёк</span></button>
@@ -67,7 +67,7 @@
     <div class="floor"></div>
     <div class="bubble" id="bubble" aria-live="polite"></div>
     <button class="bexp" id="bexp" aria-label="Show more" type="button">⌄</button>
-    <div class="char" id="char" role="img" aria-label="Рыцарь">
+    <div class="char" id="char" role="img" aria-label="SECRA">
       <img data-f="idle"  src="img/idle.webp"  alt="" class="show">
       <img data-f="blink" src="img/blink.webp" alt="">
       <img data-f="talk1" src="img/talk1.webp" alt="">
@@ -81,7 +81,7 @@
     <div class="status"><span id="status"></span> <span class="badge" id="demo">ДЕМО</span></div>
     <div class="proof hidden" id="proof"></div>
     <div class="docchip hidden" id="docchip"><span id="docicon">📄</span> <span id="docname"></span><button id="docx" aria-label="Убрать документ">✕</button></div>
-    <button class="start" id="start">Поздороваться с рыцарем</button>
+    <button class="start" id="start">Поздороваться с SECRA</button>
     <div class="row hidden" id="row">
       <button class="small doc" id="docbtn" aria-label="Загрузить документ">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-7M9 14l3-3 3 3"/></svg>
@@ -126,7 +126,7 @@
   <input type="file" id="dFile" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.txt,.csv,.md,.json,.pdf,text/plain,text/csv,application/pdf" hidden>
 </div></div>
 
-<div class="drop hidden" id="drop"><div id="dropT">Отпусти файл — рыцарь разберёт</div></div>
+<div class="drop hidden" id="drop"><div id="dropT">Отпусти файл — SECRA разберёт</div></div>
 
 <script src="app.js"></script>
 </body>

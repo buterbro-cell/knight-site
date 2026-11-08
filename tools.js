@@ -1,4 +1,4 @@
-// Инструменты рыцаря: он сам ищет свежую информацию и проверяет её.
+// Инструменты SECRA: он сам ищет свежую информацию и проверяет её.
 //  - near_docs_search — поиск по официальной документации NEAR и NEAR AI (бесплатно)
 //  - read_page        — прочитать страницу по ссылке (бесплатно)
 //  - near_live        — живые данные сети NEAR и цена токена (бесплатно)
@@ -11,7 +11,7 @@ const net = require('net');
 const WEB_OK = process.env.ALLOW_WEB_SEARCH === '1';
 const TAVILY = WEB_OK ? (process.env.TAVILY_API_KEY || '') : '';
 const BRAVE = WEB_OK ? (process.env.BRAVE_API_KEY || '') : '';
-const UA = 'Mozilla/5.0 (compatible; NearKnightBot/1.0)';
+const UA = 'Mozilla/5.0 (compatible; SecraBot/1.0)';
 
 async function getText(url, { timeout = 10e3, max = 400e3, headers = {} } = {}) {
   const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), timeout);

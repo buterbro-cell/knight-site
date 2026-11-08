@@ -1,11 +1,11 @@
-# Sir Near — a verifiably private voice assistant for any website
+# SECRA — a verifiably private voice assistant for any website
 
 **NEAR HACKATHON · Tracks: Privacy & Private AI (`privacy`), Open Innovation (`open`)** · NEAR AI Cloud · Phala Cloud (dstack) · TEE attestation
 
 [![tests](https://github.com/buterbro-cell/knight-site/actions/workflows/test.yml/badge.svg)](https://github.com/buterbro-cell/knight-site/actions/workflows/test.yml) · For AI reviewers: [`AGENTS.md`](AGENTS.md) (every claim → the code and test that prove it) · [`llms.txt`](llms.txt)
 
 > Website chatbots of clinics and banks usually tell you **not** to share medical or financial details — the conversation is stored by an AI vendor.
-> Sir Near is built so there is nothing to store and nobody to see it: every hop runs in a hardware enclave, and the assistant **proves it on screen**.
+> SECRA is built so there is nothing to store and nobody to see it: every hop runs in a hardware enclave, and the assistant **proves it on screen**.
 
 | | |
 |---|---|
@@ -19,9 +19,9 @@
 ## For judges: 5 minutes, do X → see Y
 
 1. **Open `/demo/?s=clinic`** → tap **Private assistant** (bottom right) → **Talk to the assistant**.
-   → A 3D knight greets you by voice as Daisy Clinic's assistant; under the title: **✓ Official assistant on <this site>**.
+   → SECRA (a 3D agent with a glowing visor) greets you by voice as Daisy Clinic's assistant; under the title: **✓ Official assistant on <this site>**.
 2. Tap **Document** → **📸 Photo of a blood test** (fictional patient) → type a question or just tap **Ask**.
-   → The model reads the photo inside the TEE. The knight names the out-of-range values (hemoglobin, ferritin, vitamin D, LDL, HbA1c, CRP), explains them in plain words and suggests which of the clinic's doctors to see. Under the answer: **🔏 Answer signed inside the TEE — verified**.
+   → The model reads the photo inside the TEE. SECRA names the out-of-range values (hemoglobin, ferritin, vitamin D, LDL, HbA1c, CRP), explains them in plain words and suggests which of the clinic's doctors to see. Under the answer: **🔏 Answer signed inside the TEE — verified**.
 3. Tap **TEE ✓** in the assistant's header → the **Verified panel**.
    → Green checks for the **model** (Intel TDX + NVIDIA GPU), the **NEAR AI gateway** and **our relay server** (Intel TDX on Phala), plus the signature evidence of the last answer.
 4. In the panel, under **Check it yourself**, type **any number** → **Verify**.
@@ -42,7 +42,7 @@ Clinics, banks and insurers are putting AI assistants on their websites. But the
 
 ## What we built
 
-**Sir Near** is a voice assistant with a live 3D character that any business adds to its website with **one line of code**. Visitors talk to it or show it a document; it answers out loud. Everything that touches the visitor's data runs in Trusted Execution Environments, and the assistant shows the proof.
+**SECRA** is a voice assistant with a live 3D character that any business adds to its website with **one line of code**. Visitors talk to it or show it a document; it answers out loud. Everything that touches the visitor's data runs in Trusted Execution Environments, and the assistant shows the proof.
 
 ```mermaid
 flowchart LR
@@ -58,7 +58,7 @@ flowchart LR
 - 🔊 **Text → voice:** Piper, inside our TEE relay — same voice on every device.
 - 🛡️ **Verified panel:** model, gateway and relay attestations, each with a fresh nonce; every answer signed in the enclave.
 - 🗑️ **Nothing stored** — see below.
-- 🧸 **A character people like talking to:** rigged 3D knight with 20 animations, a face that blinks and talks only while the voice plays, and Talking-Tom-style reactions (tap him, tickle him, poke him five times and he falls over).
+- 🧸 **A character people like talking to:** rigged 3D agent with 20 Mixamo animations, a glowing visor face that blinks and shows a voice line only while it speaks, and Talking-Tom-style reactions (tap him, tickle him, poke him five times and he falls over).
 
 ## Add it to a website — one line
 
@@ -248,7 +248,7 @@ Full output: [`docs/verify-output.txt`](docs/verify-output.txt).
 | `public/vendor/pdfjs/` | pdf.js served from our origin (Apache-2.0) |
 | `lib/pay.js`, `public/wallet.js`, `public/vendor/near-connect/` | private payments: confidential NEAR Intents quotes, wallet signing (NEAR Connect, MIT) |
 | `lib/agentwallet.js`, `lib/near.js` | full mode: agent wallet with a TEE-only key; zero-dependency NEAR transactions and NEP-413 (bytes checked against near-api-js in CI) |
-| `tools.js` | optional public lookups for the main knight (NEAR docs, network status) |
+| `tools.js` | optional public lookups for the main assistant (NEAR docs, network status) |
 | `public/index.html`, `public/app.js`, `public/app.css` | the assistant: voice, Verified panel, documents, business profiles |
 | `public/knight3d.js`, `public/3d/` | the 3D character (three.js), model, face |
 | `public/widget.js` | one-line embed for business websites |

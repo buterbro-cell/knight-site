@@ -1,6 +1,6 @@
 # Threat model
 
-What a visitor gives Sir Near — voice, questions, documents, photos of documents — and who could try to see it, change it, or misuse the assistant. For each threat, the defence, where it is in the code, how it is tested, and what is **not** covered.
+What a visitor gives SECRA — voice, questions, documents, photos of documents — and who could try to see it, change it, or misuse the assistant. For each threat, the defence, where it is in the code, how it is tested, and what is **not** covered.
 
 Assets: the visitor's audio, question text, document text, document photos, and the answers.
 

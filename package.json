@@ -1,8 +1,8 @@
 {
-  "name": "near-knight",
+  "name": "secra",
   "version": "1.0.0",
   "private": true,
-  "description": "Voice AI knight on NEAR AI Cloud: private inference in TEE, verified attestation, nothing stored server-side",
+  "description": "SECRA — voice AI agent on NEAR AI Cloud: private inference in TEE, verified attestation, nothing stored server-side",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

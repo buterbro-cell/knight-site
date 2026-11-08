@@ -1,6 +1,6 @@
 {
-  "name": "Sir Near — private voice agent",
-  "short_name": "Sir Near",
+  "name": "SECRA — private voice agent",
+  "short_name": "SECRA",
   "description": "Voice assistant on NEAR AI: private answers in a TEE, private payments through NEAR Intents.",
   "start_url": "./?app=1",
   "scope": "./",

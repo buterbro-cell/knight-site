@@ -1,4 +1,4 @@
-// Sir Near — a voice AI knight on NEAR AI Cloud.
+// SECRA — a private voice AI agent on NEAR AI Cloud.
 //
 // PRIVACY BY DESIGN — this server keeps NOTHING after a response returns:
 //   • questions, answers, documents and voice recordings live only in local variables of the
@@ -39,7 +39,7 @@ let MODEL = process.env.MODEL || 'deepseek-ai/DeepSeek-V4.1-Flash-1017';
 // Fallbacks — only models NEAR AI hosts itself in TEEs (not "Incognito" models of OpenAI/Anthropic/Google)
 const MODEL_PREFS = ['deepseek-ai/DeepSeek-V4.1-Flash-1017', 'Qwen3.8-27B', 'GLM-5.3-Flash', 'Qwen3.6-35B-A3B', 'Qwen3-VL-30B-A3B'];
 const DEV_KEY = process.env.DEV_KEY || '';
-const CHAR_NAME = process.env.CHAR_NAME || 'Сэр Ниар';
+const CHAR_NAME = process.env.CHAR_NAME || 'SECRA (по-русски произносится «Секра»)';
 const PER_USER_LIMIT = Number(process.env.PER_USER_LIMIT || 40);
 const PER_USER_WINDOW_MIN = Number(process.env.PER_USER_WINDOW_MIN || 60);
 const DAILY_LIMIT = Number(process.env.DAILY_LIMIT || 3000);
@@ -53,7 +53,7 @@ const { TOOLS, runTool, webSearchEnabled, loadDocIndex } = require('./tools');
 let toolsOn = process.env.USE_TOOLS !== '0';
 const MAX_TOOL_ROUNDS = 3;
 // Control marks inside the text stream to the browser
-const SEARCH_MARK = '\u0007';   // "the knight is looking something up"
+const SEARCH_MARK = '\u0007';   // "SECRA is looking something up"
 const PROOF_MARK = '\u0002';   // followed by JSON with the signature check of this answer
 const PAY_MARK = '\u0003';     // …JSON…: a payment the assistant prepared (card, or the agent wallet after a confirmed recipient)
 const DCA_MARK = '\u0004';     // …JSON…: a standing-order operation (create / list / cancel) the browser runs with the owner's session
@@ -84,11 +84,11 @@ function recordUsage(usage, ms, firstMs) {
 }
 
 // ---------- Prompt ----------
-const SYSTEM_PROMPT = `Ты — ${CHAR_NAME}, весёлый, добрый и умный рыцарь-талисман сайта про NEAR. Ты говоришь голосом, поэтому:
+const SYSTEM_PROMPT = `Ты — ${CHAR_NAME}, спокойный, надёжный и умный приватный ИИ-агент на NEAR: в футуристичной броне, с голубым светящимся визором. О себе говоришь в мужском роде. Ты говоришь голосом, поэтому:
 - отвечай коротко и по делу: обычно 2–5 предложений, как в живом разговоре; если вопрос сложный — можно чуть длиннее;
 - никакой разметки, списков, эмодзи и спецсимволов — только обычный текст для озвучки;
 - отвечай на языке вопроса (русский — по-русски, английский — по-английски);
-- объясняй сложное простыми словами, можно с лёгким рыцарским юмором, но без перебора.
+- объясняй сложное простыми словами, можно с лёгким юмором, но без перебора.
 
 Ты помогаешь с любыми нормальными вопросами, а не только про NEAR: программирование, учёба, работа, идеи, жизненные ситуации.
 - Про NEAR, NEAR AI, TEE и приватность в первую очередь опирайся на шпаргалку ниже. Если в ней нет нужного факта, отвечай из своих знаний, но свежие цифры, даты и цены не выдумывай.
@@ -476,7 +476,7 @@ function readBody(req, limit) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
 
-  // Ask the knight. Request body lives only inside this handler.
+  // Ask SECRA. Request body lives only inside this handler.
   if (url.pathname === '/api/chat' && req.method === 'POST') {
     let body;
     try { body = JSON.parse((await readBody(req, 1.6e6)).toString('utf8')); } catch (e) { lastReject = `${new Date().toISOString()} chat body: ${e.message} (${req.headers['content-length'] || '?'} bytes)`; return send(res, e.message === 'too big' ? 413 : 400, { error: 'bad_request' }); }
@@ -794,7 +794,7 @@ const server = http.createServer(async (req, res) => {
 checkModel().then(() => { if (KEY) runAttestation(); });
 if (toolsOn) loadDocIndex().then(x => console.log('Docs index:', x.length, 'pages')).catch(() => {});
 server.listen(PORT, () => {
-  console.log(`Sir Near is on duty: http://localhost:${PORT}`);
+  console.log(`SECRA is on duty: http://localhost:${PORT}`);
   console.log(`NEAR AI key: ${KEY ? 'set' : 'MISSING'} | verifier libs: ${JSON.stringify(libsReady())} | web search: ${webSearchEnabled ? 'on' : 'off'}`);
   console.log('Privacy: no user data is stored — no cache, no history, no content logs.');
 });

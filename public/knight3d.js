@@ -1,5 +1,5 @@
-// 3D knight for the main page: Mixamo animations, drawn face (blink + mouth synced to speech),
-// sword and shield standing on the floor beside him, and Talking-Tom-style reactions: poke head / body / legs,
+// 3D SECRA for the main page: Mixamo animations, a glowing visor face (blink + voice line synced to speech),
+// and Talking-Tom-style reactions: poke head / body / legs,
 // poke many times → he falls and gets up, rub him → he laughs (tickle).
 // Usage (from index.html): const k = await createKnight(hostEl, { onReact });
 //   k.mode('idle'|'wave'|'listen'|'think'|'talk')   k.talking(true|false)   k.emote('laugh')
@@ -8,17 +8,16 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const ROOT = new URL('./3d/', import.meta.url).href;
-const MODEL_VER = '4a89d21e';   // change when a model file changes, so browsers don't keep an old cached copy
+const MODEL_VER = '30112f8a';   // change when a model file changes, so browsers don't keep an old cached copy
 const DBG = new URLSearchParams(location.search);
 const num = (k, v) => (DBG.has(k) ? +DBG.get(k) : v);
 
-// ---- tuning (world units, knight is ~1.67 tall, faces +Z) ----
-const FACE = { w: num('fw', 0.8), y: num('fy', 0.22), z: num('fz', 0.42), cx: num('cx', 0.9), cy: num('cy', 0.6) };
-// shield stands on the floor at the knight's side, NEAR logo to the front; the sword is stuck in the ground behind it
-const SWORD = { pos: [num('sx', -0.5), num('sy', 0.42), num('sz', -0.25)], rot: [0, 0, num('sr', 148)], scale: num('ss', 0.8) };
-const SHIELD = { pos: [num('hx', -0.53), num('hy', 0.22), num('hz', -0.12)], rot: [num('hrx', -8), num('hry', 12), num('hrz', 6)], scale: num('hs', 0.46) };
+// ---- tuning (world units, SECRA is scaled to ~1.67 tall, faces +Z) ----
+const MODEL_SCALE = 1.67;   // the Tripo/Mixamo model is 1.0 tall
+// glowing visor face: eyes + voice line drawn on a curved patch over the dark visor
+const FACE = { w: num('fw', 0.2), y: num('fy', 0.12), z: num('fz', 0.12), cx: num('cx', 6), cy: num('cy', 4) };
 // chibi body is wide: push the upper arms away from the torso in every animation (like Mixamo's "arm space")
-const ARM_OUT = num('arm', 16) * Math.PI / 180, ARM_AXIS = DBG.get('armax') || 'x';
+const ARM_OUT = num('arm', 0) * Math.PI / 180, ARM_AXIS = DBG.get('armax') || 'x';
 
 export async function createKnight(host, { onReact = () => {} } = {}) {
   // ---------- renderer ----------
@@ -54,11 +53,11 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
 
   // ---------- load ----------
   const L = new GLTFLoader();
-  const [K, SW, SH] = await Promise.all(['knight-anim', 'sword', 'shield'].map(n => L.loadAsync(ROOT + 'models/' + n + '.glb?v=' + MODEL_VER)));
-  const knight = K.scene; S.add(knight);
+  const K = await L.loadAsync(ROOT + 'models/secra.glb?v=' + MODEL_VER);
+  const knight = K.scene; knight.scale.setScalar(MODEL_SCALE); S.add(knight);
   const bone = n => { let b = null; knight.traverse(o => { if (o.name === n) b = o; }); return b; };
   let body = null;
-  [knight, SW.scene, SH.scene].forEach(metalize);
+  knight.traverse(o => { if (o.isMesh) { o.castShadow = true; if (o.material) o.material.envMapIntensity = 1.2; } });
   knight.traverse(o => { if (o.isSkinnedMesh) { body = o; o.frustumCulled = false; } });
 
   // ---------- animation ----------
@@ -71,12 +70,6 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
 
   // weapons: placed in world space on the first idle frame, then they follow their bones
   act('Idle').play(); mixer.setTime(0); knight.updateMatrixWorld(true);
-  const place = (item, cfg) => {
-    const b = cfg.bone && bone(cfg.bone);
-    const m = item.scene; m.scale.setScalar(cfg.scale);
-    m.position.set(...cfg.pos); if (cfg.rel && b) m.position.add(b.getWorldPosition(new THREE.Vector3())); m.quaternion.setFromEuler(new THREE.Euler(...cfg.rot.map(x => x * Math.PI / 180)));
-    S.add(m); m.updateMatrixWorld(true); if (b) b.attach(m);
-  };
 
   const armL = bone('mixamorigLeftArm'), armR = bone('mixamorigRightArm');
   const ax = new THREE.Vector3(ARM_AXIS === 'x' ? 1 : 0, ARM_AXIS === 'y' ? 1 : 0, ARM_AXIS === 'z' ? 1 : 0);
@@ -90,7 +83,6 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
   function unspreadArms() { if (!spread) return; spread = false; if (armL) armL.quaternion.multiply(qLi); if (armR) armR.quaternion.multiply(qRi); }
   function stepSpread(dt) { const target = NO_SPREAD.has(curName) ? 0 : 1; if (spreadK !== target) { spreadK += Math.sign(target - spreadK) * Math.min(Math.abs(target - spreadK), dt * 3); setK(spreadK); } }
   spreadArms(); knight.updateMatrixWorld(true);
-  place(SW, SWORD); place(SH, SHIELD);
   unspreadArms(); act('Idle').stop();
   let cur = null, curName = '';
   function play(name, { loop = true, fade = 0.3, from = 0, speed = 1 } = {}) {
@@ -151,7 +143,7 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
     act('Idle').play(); mixer.setTime(0); knight.updateMatrixWorld(true);
     const geo = new THREE.PlaneGeometry(FACE.w, FACE.w * 0.6, 30, 18), p = geo.attributes.position;
     for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i); p.setZ(i, -x * x * FACE.cx - y * y * FACE.cy); }
-    const patch = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: face.tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+    const patch = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: face.tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4 }));
     const hp = head.getWorldPosition(new THREE.Vector3());
     patch.position.set(0, hp.y + FACE.y, hp.z + FACE.z); patch.renderOrder = 2;
     S.add(patch); patch.updateMatrixWorld(true); head.attach(patch);
@@ -255,58 +247,37 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
 
 function pick(list, not) { const l = list.filter(x => x !== not); return l[Math.floor(Math.random() * l.length)] || list[0]; }
 
-// Grey/white texels become polished metal, blue stays soft (cheap "armor" look from one texture)
-function metalize(root) {
-  root.traverse(o => {
-    if (!o.isMesh) return; o.castShadow = true;
-    const m = o.material; if (!m || !m.map || !m.map.image) return;
-    const img = m.map.image, cv = document.createElement('canvas'); const W = cv.width = Math.min(img.width, 512), H = cv.height = Math.min(img.height, 512);
-    const cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, W, H); const d = cx.getImageData(0, 0, W, H); const p = d.data;
-    for (let i = 0; i < p.length; i += 4) {
-      const r = p[i], g = p[i + 1], b = p[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), sat = mx ? (mx - mn) / mx : 0;
-      const metal = sat < 0.18 && mx > 60 ? 235 : 0; p[i] = 0; p[i + 1] = metal ? 70 : 150; p[i + 2] = metal; p[i + 3] = 255;
-    }
-    cx.putImageData(d, 0, 0); const t = new THREE.CanvasTexture(cv); t.flipY = m.map.flipY; t.colorSpace = THREE.NoColorSpace;
-    m.metalnessMap = t; m.roughnessMap = t; m.metalness = 1; m.roughness = 1; m.envMapIntensity = 1.3; m.needsUpdate = true;
-  });
-}
 
-// Face: 1000×600 canvas. Your own drawings win: PNGs in 3d/face/ (eyes_open.png, mouth_wide.png, …)
-function makeFace() {
+// Face: 1000×600 canvas drawn in code (glowing eyes + voice line), mapped onto the visor
+export function makeFace() {
+  // SECRA's face: light drawn on the dark visor — two eye bars and a voice line, all in a cyan glow
   const FW = 1000, FH = 600, cv = document.createElement('canvas'); cv.width = FW; cv.height = FH;
   const g = cv.getContext('2d'), tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
-  const ART = {};
-  ['eyes_open', 'eyes_closed', 'eyes_happy', 'eyes_x', 'eyes_angry', 'mouth_closed', 'mouth_mid', 'mouth_wide', 'mouth_o', 'mouth_frown'].forEach(n => {
-    const im = new Image(); im.onload = () => { ART[n] = im; draw(); }; im.src = ROOT + 'face/' + n + '.png?v=1';
-  });
   const st = { eyes: 'open', mouth: 'closed', tex, set(e, m) { if (e) st.eyes = e; if (m) st.mouth = m; draw(); } };
-  const INK = '#0b0f1a', EY = 250, EX = [330, 670], MY = 420;
+  const GLOW = '#7ff3ff', EY = 230, EX = [300, 700], MY = 430;
+  function glow(fn, w = 26) { g.save(); g.strokeStyle = GLOW; g.fillStyle = GLOW; g.lineCap = 'round'; g.lineJoin = 'round'; g.shadowColor = GLOW; g.shadowBlur = 40; g.lineWidth = w; fn(); g.restore(); }
   function eye(x, kind) {
-    g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = INK; g.lineWidth = 18;
-    if (kind === 'closed') { g.beginPath(); g.arc(x, EY - 25, 55, 0.2 * Math.PI, 0.8 * Math.PI); g.stroke(); return; }
-    if (kind === 'happy') { g.beginPath(); g.arc(x, EY + 30, 55, 1.15 * Math.PI, 1.85 * Math.PI); g.stroke(); return; }
-    if (kind === 'x') { g.beginPath(); g.moveTo(x - 45, EY - 45); g.lineTo(x + 45, EY + 45); g.moveTo(x + 45, EY - 45); g.lineTo(x - 45, EY + 45); g.stroke(); return; }
-    g.fillStyle = INK; g.beginPath(); g.ellipse(x, EY, 52, 72, 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#fff'; g.beginPath(); g.ellipse(x + 17, EY - 26, 18, 22, 0, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(x - 18, EY + 28, 8, 9, 0, 0, Math.PI * 2); g.fill();
-    if (kind === 'angry') { g.strokeStyle = INK; g.lineWidth = 16; g.beginPath(); const s = x < FW / 2 ? 1 : -1; g.moveTo(x - 60 * s, EY - 105); g.lineTo(x + 40 * s, EY - 70); g.stroke(); }
+    const s = x < FW / 2 ? 1 : -1;
+    glow(() => {
+      g.beginPath();
+      if (kind === 'closed') { g.moveTo(x - 95, EY + 10); g.lineTo(x + 95, EY + 10); g.lineWidth = 14; }
+      else if (kind === 'happy') { g.arc(x, EY + 60, 95, 1.2 * Math.PI, 1.8 * Math.PI); }
+      else if (kind === 'x') { g.moveTo(x - 60, EY - 60); g.lineTo(x + 60, EY + 60); g.moveTo(x + 60, EY - 60); g.lineTo(x - 60, EY + 60); }
+      else if (kind === 'angry') { g.moveTo(x - 100 * s, EY - 30); g.lineTo(x + 100 * s, EY + 25); }
+      else { g.moveTo(x - 100, EY); g.lineTo(x + 100, EY); g.lineWidth = 46; }   // open: a soft bar
+      g.stroke();
+    }, kind === 'open' ? 46 : 26);
   }
+  // voice line: a short flat line at rest, a little waveform while speaking
+  const WAVE = { closed: [0], mid: [0.35, 0.7, 0.45, 0.8, 0.4], wide: [0.6, 1, 0.75, 1, 0.65], o: [0.5, 0.6, 0.5], frown: [0] };
   function mouth(kind) {
-    const mx = FW / 2; g.strokeStyle = INK; g.lineWidth = 15; g.lineCap = 'round';
-    if (kind === 'closed') { g.beginPath(); g.arc(mx - 28, MY, 28, 0.1 * Math.PI, 0.9 * Math.PI); g.stroke(); g.beginPath(); g.arc(mx + 28, MY, 28, 0.1 * Math.PI, 0.9 * Math.PI); g.stroke(); return; }
-    if (kind === 'frown') { g.beginPath(); g.arc(mx, MY + 45, 45, 1.2 * Math.PI, 1.8 * Math.PI); g.stroke(); return; }
-    const h = kind === 'wide' ? 70 : kind === 'mid' ? 45 : 30, w = kind === 'wide' ? 80 : kind === 'o' ? 36 : 60;
-    g.fillStyle = '#3a0f17'; g.beginPath(); g.ellipse(mx, MY + h * 0.35, w, h, 0, 0, Math.PI * 2); g.fill();
-    g.save(); g.clip(); g.fillStyle = '#ff7a93'; g.beginPath(); g.ellipse(mx, MY + h * 1.1, w * 0.7, h * 0.55, 0, 0, Math.PI * 2); g.fill(); g.restore();
-    g.lineWidth = 11; g.beginPath(); g.ellipse(mx, MY + h * 0.35, w, h, 0, 0, Math.PI * 2); g.stroke();
+    const a = WAVE[kind] || [0], n = a.length, mx = FW / 2;
+    glow(() => {
+      if (n === 1) { g.beginPath(); if (kind === 'frown') g.arc(mx, MY + 60, 70, 1.25 * Math.PI, 1.75 * Math.PI); else { g.moveTo(mx - 90, MY); g.lineTo(mx + 90, MY); } g.stroke(); return; }
+      const step = 44; a.forEach((h, i) => { const x = mx + (i - (n - 1) / 2) * step; g.beginPath(); g.moveTo(x, MY - h * 70); g.lineTo(x, MY + h * 70); g.stroke(); });
+    }, 20);
   }
-  function draw() {
-    g.clearRect(0, 0, FW, FH);
-    const e = ART['eyes_' + st.eyes] || (st.eyes !== 'open' ? null : null), m = ART['mouth_' + st.mouth];
-    if (e) g.drawImage(e, 0, 0, FW, FH); else EX.forEach(x => eye(x, st.eyes));
-    if (m) g.drawImage(m, 0, 0, FW, FH); else mouth(st.mouth);
-    tex.needsUpdate = true;
-  }
+  function draw() { g.clearRect(0, 0, FW, FH); EX.forEach(x => eye(x, st.eyes)); mouth(st.mouth); tex.needsUpdate = true; }
   draw();
   return st;
 }

@@ -1,5 +1,5 @@
 /*
- * Sir Near — private voice assistant widget.
+ * SECRA — private voice assistant widget.
  * A business adds ONE line to its website:
  *
  *   <script src="https://YOUR-ASSISTANT-HOST/widget.js" data-biz="clinic" data-lang="en" async></script>

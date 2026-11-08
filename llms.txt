@@ -1,4 +1,4 @@
-# Sir Near
+# SECRA
 
 > A verifiably private voice assistant that any business adds to its website with one line of code. Visitors talk to it or show it a document or a photo of one; every hop runs in a hardware enclave (NEAR AI Cloud TEE for the model, Phala Cloud Intel TDX for our relay), and the assistant proves it on screen. NEAR HACKATHON, tracks: Privacy & Private AI, Open Innovation.
 

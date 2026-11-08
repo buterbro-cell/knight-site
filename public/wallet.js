@@ -145,7 +145,7 @@ export async function agentSession() {
     return openAgentFrom(signed);
   }
   const w = await conn().wallet();
-  const message = `Sir Near: let my agent wallet act for ${account} for 24 hours, within its limits. ${Date.now()}`;
+  const message = `SECRA: let my agent wallet act for ${account} for 24 hours, within its limits. ${Date.now()}`;
   const nonce = crypto.getRandomValues(new Uint8Array(32));
   const s = await w.signMessage({ message, recipient: 'sir-near', nonce, network: 'mainnet' });
   const b64 = btoa(String.fromCharCode(...nonce));
@@ -174,7 +174,7 @@ async function agentPost(path, body) {
 // New limits for the agent wallet: the owner signs the exact values (no gas)
 export async function agentSetLimits(perAction, perDay) {
   const w = await conn().wallet();
-  const message = `Sir Near: set my agent wallet limits for ${account}: $${perAction} per action, $${perDay} per day. ${Date.now()}`;
+  const message = `SECRA: set my agent wallet limits for ${account}: $${perAction} per action, $${perDay} per day. ${Date.now()}`;
   const nonce = crypto.getRandomValues(new Uint8Array(32));
   const s = await w.signMessage({ message, recipient: 'sir-near', nonce, network: 'mainnet' });
   const r = await fetch('api/agent/limits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: s.accountId || account, publicKey: s.publicKey, signature: s.signature, message, nonce: btoa(String.fromCharCode(...nonce)) }) });
