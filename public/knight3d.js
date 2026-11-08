@@ -8,7 +8,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const ROOT = new URL('./3d/', import.meta.url).href;
-const MODEL_VER = 'dcc83a50';   // change when a model file changes, so browsers don't keep an old cached copy
+const MODEL_VER = '9c7a316455';   // change when a model file changes, so browsers don't keep an old cached copy
 const DBG = new URLSearchParams(location.search);
 const num = (k, v) => (DBG.has(k) ? +DBG.get(k) : v);
 

@@ -31,7 +31,7 @@
     padding:6px 11px;border-radius:999px;cursor:pointer}
   .lang button.on{background:var(--accent);color:#fff}
 
-  .stage{position:relative;flex:1;width:100%;max-width:560px;display:flex;align-items:flex-end;justify-content:center;min-height:0}
+  .stage{position:relative;flex:1;width:100%;max-width:640px;display:flex;align-items:flex-end;justify-content:center;min-height:0}
   .floor{position:absolute;bottom:2%;left:50%;width:62%;height:7%;transform:translateX(-50%);
     background:radial-gradient(closest-side,rgba(0,0,0,.45),transparent);filter:blur(2px)}
   .glow{position:absolute;bottom:4%;left:50%;width:86%;aspect-ratio:1;transform:translateX(-50%);
@@ -39,7 +39,7 @@
   .stage.listening .glow{opacity:1;animation:pulse 1.2s ease-in-out infinite}
   @keyframes pulse{50%{transform:translateX(-50%) scale(1.08)}}
 
-  .char{position:relative;height:68%;max-height:560px;aspect-ratio:640/900;margin-bottom:3%;cursor:pointer;
+  .char{position:relative;height:88%;max-height:820px;aspect-ratio:640/900;margin-bottom:3%;cursor:pointer;
     transform-origin:50% 100%;animation:breathe 3.2s ease-in-out infinite;user-select:none;-webkit-user-select:none}
   .char img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;visibility:hidden;pointer-events:none;
     -webkit-user-drag:none}
