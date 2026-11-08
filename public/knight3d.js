@@ -254,28 +254,34 @@ export function makeFace() {
   const FW = 1000, FH = 600, cv = document.createElement('canvas'); cv.width = FW; cv.height = FH;
   const g = cv.getContext('2d'), tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
   const st = { eyes: 'open', mouth: 'closed', tex, set(e, m) { if (e) st.eyes = e; if (m) st.mouth = m; draw(); } };
-  const GLOW = '#7ff3ff', EY = 230, EX = [300, 700], MY = 430;
+  const GLOW = '#7ff3ff', EY = 235, EX = [325, 675], MY = 440;
   function glow(fn, w = 26) { g.save(); g.strokeStyle = GLOW; g.fillStyle = GLOW; g.lineCap = 'round'; g.lineJoin = 'round'; g.shadowColor = GLOW; g.shadowBlur = 40; g.lineWidth = w; fn(); g.restore(); }
+  // cute look: big soft oval eyes with a little shine, gentle curves instead of hard bars
+  function oval(x, y, rx, ry) { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); }
   function eye(x, kind) {
     const s = x < FW / 2 ? 1 : -1;
+    if (kind === 'open' || kind === 'angry') {
+      glow(() => { g.globalAlpha = 0.9; oval(x, EY, 62, 88); });
+      g.save(); g.fillStyle = 'rgba(0,0,0,0.85)'; oval(x - 20, EY - 38, 12, 15); oval(x + 24, EY + 34, 6, 7);   // shine spots (left dark = additive "hole")
+      if (kind === 'angry') { g.beginPath(); g.moveTo(x - 110 * s, EY - 120); g.lineTo(x + 90 * s, EY - 120); g.lineTo(x + 90 * s, EY - 10); g.closePath(); g.fill(); }
+      g.restore(); return;
+    }
     glow(() => {
       g.beginPath();
-      if (kind === 'closed') { g.moveTo(x - 95, EY + 10); g.lineTo(x + 95, EY + 10); g.lineWidth = 14; }
-      else if (kind === 'happy') { g.arc(x, EY + 60, 95, 1.2 * Math.PI, 1.8 * Math.PI); }
-      else if (kind === 'x') { g.moveTo(x - 60, EY - 60); g.lineTo(x + 60, EY + 60); g.moveTo(x + 60, EY - 60); g.lineTo(x - 60, EY + 60); }
-      else if (kind === 'angry') { g.moveTo(x - 100 * s, EY - 30); g.lineTo(x + 100 * s, EY + 25); }
-      else { g.moveTo(x - 100, EY); g.lineTo(x + 100, EY); g.lineWidth = 46; }   // open: a soft bar
+      if (kind === 'closed') g.arc(x, EY - 10, 62, 0.15 * Math.PI, 0.85 * Math.PI);            // sleepy ‿
+      else if (kind === 'happy') g.arc(x, EY + 45, 64, 1.15 * Math.PI, 1.85 * Math.PI);       // smiling ^
+      else if (kind === 'x') { g.moveTo(x - 50, EY - 50); g.lineTo(x + 50, EY + 50); g.moveTo(x + 50, EY - 50); g.lineTo(x - 50, EY + 50); }
       g.stroke();
-    }, kind === 'open' ? 46 : 26);
+    }, 24);
   }
-  // voice line: a short flat line at rest, a little waveform while speaking
+  // voice line: a small smile at rest, a little waveform while speaking
   const WAVE = { closed: [0], mid: [0.35, 0.7, 0.45, 0.8, 0.4], wide: [0.6, 1, 0.75, 1, 0.65], o: [0.5, 0.6, 0.5], frown: [0] };
   function mouth(kind) {
     const a = WAVE[kind] || [0], n = a.length, mx = FW / 2;
     glow(() => {
-      if (n === 1) { g.beginPath(); if (kind === 'frown') g.arc(mx, MY + 60, 70, 1.25 * Math.PI, 1.75 * Math.PI); else { g.moveTo(mx - 90, MY); g.lineTo(mx + 90, MY); } g.stroke(); return; }
-      const step = 44; a.forEach((h, i) => { const x = mx + (i - (n - 1) / 2) * step; g.beginPath(); g.moveTo(x, MY - h * 70); g.lineTo(x, MY + h * 70); g.stroke(); });
-    }, 20);
+      if (n === 1) { g.beginPath(); if (kind === 'frown') g.arc(mx, MY + 50, 55, 1.25 * Math.PI, 1.75 * Math.PI); else g.arc(mx, MY - 40, 55, 0.25 * Math.PI, 0.75 * Math.PI); g.stroke(); return; }
+      const step = 40; a.forEach((h, i) => { const x = mx + (i - (n - 1) / 2) * step; g.beginPath(); g.moveTo(x, MY - h * 60); g.lineTo(x, MY + h * 60); g.stroke(); });
+    }, 18);
   }
   function draw() { g.clearRect(0, 0, FW, FH); EX.forEach(x => eye(x, st.eyes)); mouth(st.mouth); tex.needsUpdate = true; }
   draw();
