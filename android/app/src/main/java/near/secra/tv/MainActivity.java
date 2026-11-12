@@ -1,0 +1,82 @@
+package near.secra.tv;
+
+import android.Manifest;
+import android.app.Activity;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.view.KeyEvent;
+import android.view.WindowManager;
+import android.webkit.PermissionRequest;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+
+// SECRA for Android TV: the same attested web page, full screen. No keys or wallet live in this app:
+// payments go through the agent wallet in the TEE, and the owner's phone signs the 24-hour permission (QR pairing).
+public class MainActivity extends Activity {
+  private WebView web;
+  private PermissionRequest pendingMic;
+
+  @Override protected void onCreate(Bundle state) {
+    super.onCreate(state);
+    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    web = new WebView(this);
+    setContentView(web);
+    WebSettings s = web.getSettings();
+    s.setJavaScriptEnabled(true);
+    s.setDomStorageEnabled(true);
+    s.setDatabaseEnabled(true);
+    s.setMediaPlaybackRequiresUserGesture(false);
+    s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+    s.setUserAgentString(s.getUserAgentString() + " SECRA-TV/1.0");
+    final String host = Uri.parse(BuildConfig.START_URL).getHost();
+    web.setWebViewClient(new WebViewClient() {
+      @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
+        return r.getUrl().getHost() == null || !r.getUrl().getHost().equals(host);   // stay on our own site
+      }
+    });
+    web.setWebChromeClient(new WebChromeClient() {
+      @Override public void onPermissionRequest(PermissionRequest req) {
+        runOnUiThread(() -> {
+          boolean wantsMic = false;
+          for (String r : req.getResources()) if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) wantsMic = true;
+          if (!wantsMic || !host.equals(req.getOrigin().getHost())) { req.deny(); return; }
+          if (hasMic()) req.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+          else { pendingMic = req; askMic(); }
+        });
+      }
+    });
+    if (!hasMic()) askMic();
+    if (state != null) web.restoreState(state); else web.loadUrl(BuildConfig.START_URL);
+  }
+
+  private boolean hasMic() { return Build.VERSION.SDK_INT < 23 || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED; }
+  private void askMic() { if (Build.VERSION.SDK_INT >= 23) requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 1); }
+
+  @Override public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+    if (pendingMic != null) {
+      if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) pendingMic.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+      else pendingMic.deny();
+      pendingMic = null;
+    }
+  }
+
+  // Back on the remote: close the open window on the page first, then go back, then leave the app
+  @Override public boolean onKeyDown(int keyCode, KeyEvent e) {
+    if (keyCode == KeyEvent.KEYCODE_BACK) {
+      web.evaluateJavascript("(function(){var x=document.getElementById('tvX');if(x){x.click();return 1;}"
+          + "var m=[].slice.call(document.querySelectorAll('.modal:not(.hidden)'));if(m.length){m[m.length-1].classList.add('hidden');return 1;}return 0;})()",
+        v -> { if (!"1".equals(v)) { if (web.canGoBack()) web.goBack(); else finish(); } });
+      return true;
+    }
+    return super.onKeyDown(keyCode, e);
+  }
+
+  @Override protected void onSaveInstanceState(Bundle out) { super.onSaveInstanceState(out); web.saveState(out); }
+  @Override protected void onPause() { super.onPause(); web.onPause(); }
+  @Override protected void onResume() { super.onResume(); web.onResume(); }
+}

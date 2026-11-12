@@ -1,0 +1,17 @@
+plugins { id 'com.android.application' }
+// The page the TV app opens. Default: the Phala (TEE) deployment; the CI also builds a dev variant.
+def startUrl = project.findProperty('startUrl') ?: 'https://4f6208e0cb5e85944797f12cb210582e54a2107f-3000.dstack-pha-prod9.phala.network/?tv=1'
+android {
+  namespace 'near.secra.tv'
+  compileSdk 34
+  defaultConfig {
+    applicationId 'near.secra.tv'
+    minSdk 21
+    targetSdk 34
+    versionCode 1
+    versionName '1.0'
+    buildConfigField 'String', 'START_URL', "\"${startUrl}\""
+  }
+  buildFeatures { buildConfig true }
+  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}

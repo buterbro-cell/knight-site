@@ -6,6 +6,18 @@
 import { NearConnector } from './vendor/near-connect/hot-connect.es.js';
 
 let connector = null, account = null;
+// TV mode (the Android TV app opens the page with ?tv=1): no wallet on the screen; the owner's phone signs the
+// 24-hour agent permission and hands the session over through a QR code (lib/pair.js on the server)
+let tv = false; try { tv = /[?&]tv=1\b/.test(location.search) || localStorage.getItem('secra.tv') === '1'; if (tv) localStorage.setItem('secra.tv', '1'); } catch (e) {}
+export const isTV = () => tv;
+let pairHook = null;
+export const setPairHook = f => { pairHook = f; };
+async function pairTV() {
+  if (!pairHook) throw new Error('no pairing on this page');
+  const j = await pairHook();   // { token, owner, expiresAt } from the phone
+  session = j; try { localStorage.setItem('sirnear.agentSession', JSON.stringify(j)); } catch (e) {}
+  account = j.owner; emit(); return j.token;
+}
 const listeners = new Set();
 const emit = () => listeners.forEach(f => { try { f(account); } catch (e) {} });
 
@@ -19,15 +31,17 @@ function conn() {
 }
 
 export async function restore() {
+  if (tv) { account = session && Date.now() < session.expiresAt - 60e3 ? session.owner : null; emit(); return account; }
   try { const w = await conn().wallet(); const a = await w.getAccounts(); account = (a[0] && a[0].accountId) || null; } catch (e) { account = null; }
   emit(); return account;
 }
 export async function connect() {
+  if (tv) { await pairTV(); return account; }
   await conn().connect();
   if (!account) await restore();
   return account;
 }
-export async function disconnect() { try { await conn().disconnect(); } catch (e) {} account = null; emit(); }
+export async function disconnect() { if (tv) { session = null; try { localStorage.removeItem('sirnear.agentSession'); } catch (e) {} account = null; emit(); return; } try { await conn().disconnect(); } catch (e) {} account = null; emit(); }
 export const getAccount = () => account;
 export const onChange = f => { listeners.add(f); return () => listeners.delete(f); };
 
@@ -137,6 +151,7 @@ let session = null;
 try { session = JSON.parse(localStorage.getItem('sirnear.agentSession') || 'null'); } catch (e) {}
 export async function agentSession() {
   if (session && session.owner === account && Date.now() < session.expiresAt - 60e3) return session.token;
+  if (tv) return pairTV();
   // one signature (an empty NEAR Intents login) opens both sessions
   const c = await (await fetch('api/pay/auth-challenge?account=' + encodeURIComponent(account), { cache: 'no-store' })).json();
   if (c && c.message) {
@@ -179,6 +194,11 @@ export async function agentSetLimits(perAction, perDay) {
   const s = await w.signMessage({ message, recipient: 'sir-near', nonce, network: 'mainnet' });
   const r = await fetch('api/agent/limits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: s.accountId || account, publicKey: s.publicKey, signature: s.signature, message, nonce: btoa(String.fromCharCode(...nonce)) }) });
   const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.message || j.error || ('HTTP ' + r.status)); return j;
+}
+// Phone side of TV pairing: sign (or reuse) the 24-hour permission here and hand it to the TV that showed the QR
+export async function givePair(code) {
+  const token = await agentSession();
+  return post('api/pair/give', { code }, { 'X-Agent-Session': token });
 }
 export const agentPay = proposal => agentPost('api/agent/pay', { proposal });
 export const agentDca = body => agentPost('api/agent/dca', body);

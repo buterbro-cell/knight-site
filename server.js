@@ -22,6 +22,7 @@ const { parseChatInput } = require('./lib/input');
 const { createLimiter } = require('./lib/ratelimit');
 const pay = require('./lib/pay');
 const agentWallet = require('./lib/agentwallet');
+const pair = require('./lib/pair');
 // standing orders (DCA) run from the agent wallet; the only data kept between requests, encrypted (lib/dca.js)
 const dca = require('./lib/dca').create({ agentWallet });
 if (agentWallet.mode() !== 'off') dca.start();
@@ -643,6 +644,24 @@ const server = http.createServer(async (req, res) => {
   }
   if (url.pathname === '/api/pay/status') {
     try { return send(res, 200, await pay.status(String(url.searchParams.get('depositAddress') || ''), { bearer: String(req.headers['x-intents-session'] || '') || undefined })); } catch (e) { return send(res, 400, { error: e.message }); }
+  }
+
+  // ---- TV pairing (lib/pair.js): the phone signs the 24-hour agent permission and hands the session to the TV
+  if (url.pathname.startsWith('/api/pair/')) {
+    try {
+      if (url.pathname === '/api/pair/new') { if (req.method !== 'POST') return send(res, 405, { error: 'post' }); if (allow(req, 'pay')) return send(res, 429, { error: 'too_often' }); return send(res, 200, pair.create()); }
+      if (url.pathname === '/api/pair/peek') return send(res, 200, pair.peek(url.searchParams.get('code')));
+      if (url.pathname === '/api/pair/take') return send(res, 200, pair.take(url.searchParams.get('code')));
+      if (url.pathname === '/api/pair/give') {
+        if (req.method !== 'POST') return send(res, 405, { error: 'post' });
+        const b = JSON.parse((await readBody(req, 2e3)).toString('utf8') || '{}');
+        const sess = String(req.headers['x-agent-session'] || '');
+        const owner = agentWallet.checkToken(sess);
+        if (!owner) return send(res, 401, { error: 'session_expired', reason: agentWallet.tokenProblem(sess) });
+        return send(res, 200, pair.give(b.code, sess, owner));
+      }
+      return send(res, 404, { error: 'not_found' });
+    } catch (e) { return send(res, 400, { error: e.message }); }
   }
 
   // ---- Full mode: the agent's own wallet, key only inside this TEE (lib/agentwallet.js)
