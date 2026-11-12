@@ -135,6 +135,8 @@ flowchart LR
 - **Notifications** for scheduled purchases and limit orders.
 - **Agent-to-agent:** the agent hires other agents and pays for APIs, data and compute.
 - **On-chain limits for the agent wallet** (a policy contract), on top of the limits enforced in the TEE.
+- **Mobile apps.** Today SECRA is an installable web app (PWA). Next: Android in Google Play as a thin wrapper (TWA) around the same page, then iOS. The privacy chain stays the same, because the app shows the same attested page.
+- **Smart TV (Android TV / Google TV, then Tizen and webOS)** for clinic waiting rooms and bank branches. Visitors ask by voice through the remote's microphone. Payments are signed on the visitor's phone by scanning a QR code, so no wallet or key is ever on the TV. A lighter 2D character is used on weak TV chips.
 - **Bring-your-own relay:** a business runs the open-source relay in its own TEE and the assistant verifies it the same way it verifies ours.
 
 ## Private payments (NEAR Intents, confidential)
