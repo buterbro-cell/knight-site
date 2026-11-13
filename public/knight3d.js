@@ -27,14 +27,17 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
   host.appendChild(canvas);
   const R = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: DBG.has('shot') });
   R.setPixelRatio(Math.min(devicePixelRatio, 2));
-  R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 1.05;
+  R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = num('exp', 1.0);
   R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap;
   const S = new THREE.Scene();
   S.environment = new THREE.PMREMGenerator(R).fromScene(new RoomEnvironment(), 0.04).texture;
-  S.add(new THREE.HemisphereLight(0xcfe0ff, 0x1a2a55, 0.9));
-  const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(1.2, 3, 3); key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
+  // lit like the promo video: soft cool fill, a key from the front-right, strong cyan rims on both sides of the silhouette
+  S.add(new THREE.HemisphereLight(0xd6e6ff, 0x101c40, num('hemi', 0.75)));
+  const key = new THREE.DirectionalLight(0xf4f8ff, num('key', 1.9)); key.position.set(1.2, 3, 3); key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
   Object.assign(key.shadow.camera, { left: -1.6, right: 1.6, top: 2.2, bottom: -0.6 }); S.add(key);
-  const rim = new THREE.DirectionalLight(0x7fb4ff, 1.6); rim.position.set(-2, 2, -2); S.add(rim);
+  const rim = new THREE.DirectionalLight(0x7fe0ff, num('rim', 3.2)); rim.position.set(-2.2, 1.8, -2); S.add(rim);
+  const rim2 = new THREE.DirectionalLight(0x9fc8ff, num('rim', 3.2) * 0.8); rim2.position.set(2.2, 1.6, -2); S.add(rim2);
+  const fill = new THREE.DirectionalLight(0x8fb8ff, 0.5); fill.position.set(-1.5, 0.4, 2.5); S.add(fill);
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(4, 3), new THREE.ShadowMaterial({ opacity: 0.32 }));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; S.add(floor);
   const C = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50);
@@ -57,7 +60,7 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
   const knight = K.scene; knight.scale.setScalar(MODEL_SCALE); S.add(knight);
   const bone = n => { let b = null; knight.traverse(o => { if (o.name === n) b = o; }); return b; };
   let body = null;
-  knight.traverse(o => { if (o.isMesh) { o.castShadow = true; if (o.material) o.material.envMapIntensity = 1.2; } });
+  knight.traverse(o => { if (o.isMesh) { o.castShadow = true; if (o.material) { o.material.envMapIntensity = num('env', 1.0); glowStripes(o.material); } } });
   knight.traverse(o => { if (o.isSkinnedMesh) { body = o; o.frustumCulled = false; } });
 
   // ---------- animation ----------
@@ -146,7 +149,10 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
     const patch = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: face.tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4 }));
     const hp = head.getWorldPosition(new THREE.Vector3());
     patch.position.set(0, hp.y + FACE.y, hp.z + FACE.z); patch.renderOrder = 2;
-    patch.visible = false;   // Azure has a clean glowing visor of its own; the face canvas stays for expressions logic
+    if (body) {   // sit the eyes right on the visor surface
+      const rc = new THREE.Raycaster(new THREE.Vector3(hp.x, patch.position.y, hp.z + 5), new THREE.Vector3(0, 0, -1));
+      const hit = rc.intersectObject(body, false)[0]; if (hit) patch.position.z = hit.point.z + 0.006;
+    }
     S.add(patch); patch.updateMatrixWorld(true); head.attach(patch);
     act('Idle').stop();
   }
@@ -250,29 +256,37 @@ function pick(list, not) { const l = list.filter(x => x !== not); return l[Math.
 
 
 // Face: 1000×600 canvas drawn in code (glowing eyes + voice line), mapped onto the visor
+// the cyan seams of the armor glow on their own (emissive), so they stay bright in any light
+export function glowStripes(m) {
+  const img = m.map && m.map.image; if (!img || m.userData.glow) return; m.userData.glow = true;
+  try {
+    const W = Math.min(1024, img.width), H = Math.round(W * img.height / img.width), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d'); g.drawImage(img, 0, 0, W, H); const d = g.getImageData(0, 0, W, H), px = d.data;
+    for (let i = 0; i < px.length; i += 4) { const r = px[i], gg = px[i + 1], b = px[i + 2]; const cyan = gg > 140 && b > 170 && r < 140 && gg > r + 50;
+      if (!cyan) { px[i] = px[i + 1] = px[i + 2] = 0; } }
+    g.putImageData(d, 0, 0); const t = new THREE.CanvasTexture(cv);
+    t.flipY = m.map.flipY; t.colorSpace = THREE.SRGBColorSpace; t.wrapS = m.map.wrapS; t.wrapT = m.map.wrapT;
+    m.emissiveMap = t; m.emissive = new THREE.Color(0xffffff); m.emissiveIntensity = 1.6; m.needsUpdate = true;
+  } catch (e) { /* no glow if the texture can't be read */ }
+}
+
 export function makeFace() {
   // SECRA's face: light drawn on the dark visor — two eye bars and a voice line, all in a cyan glow
   const FW = 1000, FH = 600, cv = document.createElement('canvas'); cv.width = FW; cv.height = FH;
   const g = cv.getContext('2d'), tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
   const st = { eyes: 'open', mouth: 'closed', tex, set(e, m) { if (e) st.eyes = e; if (m) st.mouth = m; draw(); } };
-  const GLOW = '#7ff3ff', EY = 235, EX = [325, 675], MY = 440;
+  const GLOW = '#7ff3ff', EY = 300, EX = [330, 670], MY = 440;
   function glow(fn, w = 26) { g.save(); g.strokeStyle = GLOW; g.fillStyle = GLOW; g.lineCap = 'round'; g.lineJoin = 'round'; g.shadowColor = GLOW; g.shadowBlur = 40; g.lineWidth = w; fn(); g.restore(); }
-  // cute look: big soft oval eyes with a little shine, gentle curves instead of hard bars
-  function oval(x, y, rx, ry) { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); }
+  // visor eyes: two narrow glowing slits, tilted toward the middle (as in the promo video)
+  function slit(x, y, len, th, ang) { g.save(); g.translate(x, y); g.rotate(ang); g.beginPath(); g.ellipse(0, 0, len / 2, th / 2, 0, 0, Math.PI * 2); g.fill(); g.restore(); }
   function eye(x, kind) {
-    const s = x < FW / 2 ? 1 : -1;
-    if (kind === 'open' || kind === 'angry') {
-      glow(() => { g.globalAlpha = 0.9; oval(x, EY, 62, 88); });
-      g.save(); g.fillStyle = 'rgba(0,0,0,0.85)'; oval(x - 20, EY - 38, 12, 15); oval(x + 24, EY + 34, 6, 7);   // shine spots (left dark = additive "hole")
-      if (kind === 'angry') { g.beginPath(); g.moveTo(x - 110 * s, EY - 120); g.lineTo(x + 90 * s, EY - 120); g.lineTo(x + 90 * s, EY - 10); g.closePath(); g.fill(); }
-      g.restore(); return;
-    }
+    const s = x < FW / 2 ? 1 : -1;   // left eye: inner end is to the right
     glow(() => {
-      g.beginPath();
-      if (kind === 'closed') g.arc(x, EY - 10, 62, 0.15 * Math.PI, 0.85 * Math.PI);            // sleepy ‿
-      else if (kind === 'happy') g.arc(x, EY + 45, 64, 1.15 * Math.PI, 1.85 * Math.PI);       // smiling ^
-      else if (kind === 'x') { g.moveTo(x - 50, EY - 50); g.lineTo(x + 50, EY + 50); g.moveTo(x + 50, EY - 50); g.lineTo(x - 50, EY + 50); }
-      g.stroke();
+      if (kind === 'open') { g.globalAlpha = 0.95; slit(x, EY, 190, 46, 0.2 * s); }
+      else if (kind === 'angry') { slit(x, EY + 10, 190, 40, 0.42 * s); }
+      else if (kind === 'closed') { slit(x, EY + 8, 180, 12, 0.12 * s); }
+      else if (kind === 'happy') { g.beginPath(); g.arc(x, EY + 60, 92, 1.2 * Math.PI, 1.8 * Math.PI); g.stroke(); }
+      else if (kind === 'x') { g.beginPath(); g.moveTo(x - 50, EY - 50); g.lineTo(x + 50, EY + 50); g.moveTo(x + 50, EY - 50); g.lineTo(x - 50, EY + 50); g.stroke(); }
     }, 24);
   }
   // voice line: a small smile at rest, a little waveform while speaking
@@ -284,7 +298,7 @@ export function makeFace() {
       const step = 40; a.forEach((h, i) => { const x = mx + (i - (n - 1) / 2) * step; g.beginPath(); g.moveTo(x, MY - h * 60); g.lineTo(x, MY + h * 60); g.stroke(); });
     }, 18);
   }
-  function draw() { g.clearRect(0, 0, FW, FH); EX.forEach(x => eye(x, st.eyes)); mouth(st.mouth); tex.needsUpdate = true; }
+  function draw() { g.clearRect(0, 0, FW, FH); EX.forEach(x => eye(x, st.eyes)); tex.needsUpdate = true; }   // no mouth: the visor only shows eyes
   draw();
   return st;
 }
