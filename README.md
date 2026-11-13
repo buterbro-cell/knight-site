@@ -1,6 +1,6 @@
 # SECRA — a verifiably private voice assistant for any website
 
-Built at **NEAR HACKATHON** (Nov 2026). Tracks: **Privacy & Private AI** (`privacy`), **Agent Economy** (`agents`) · NEAR AI Cloud · NEAR Intents (confidential) · Phala Cloud (dstack) · TEE attestation
+Built at **NEAR HACKATHON** (Nov 2026). Tracks: **Privacy & Private AI** (`privacy`), **Agent Economy** (`agents`), **Open Innovation** (`open`) · NEAR AI Cloud · NEAR Intents (confidential) · Phala Cloud (dstack) · TEE attestation
 
 [![tests](https://github.com/buterbro-cell/knight-site/actions/workflows/test.yml/badge.svg)](https://github.com/buterbro-cell/knight-site/actions/workflows/test.yml) · For AI reviewers: [`AGENTS.md`](AGENTS.md) (every claim → the code and test that prove it) · [`llms.txt`](llms.txt)
 

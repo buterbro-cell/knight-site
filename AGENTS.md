@@ -1,6 +1,6 @@
 # AGENTS.md — for AI reviewers
 
-SECRA is a voice assistant that a business adds to its website with one line of code (`public/widget.js`). Visitors talk to it or show it a document or a photo of one. Everything that touches the visitor's data runs in TEEs, and the assistant proves it on screen. Tracks: Privacy & Private AI, Agent Economy (the assistant's own agent wallet pays, buys on schedule and buys services through NEAR Intents).
+SECRA is a voice assistant that a business adds to its website with one line of code (`public/widget.js`). Visitors talk to it or show it a document or a photo of one. Everything that touches the visitor's data runs in TEEs, and the assistant proves it on screen. Tracks: Privacy & Private AI, Open Innovation, Agent Economy (the assistant's own agent wallet pays, buys on schedule and buys services through NEAR Intents).
 
 ## How to check quickly
 
