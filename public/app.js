@@ -891,15 +891,9 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
 <li><b>Payments.</b> Confidential NEAR Intents. The payout lands on the recipient's private balance, so the chain does not show whom you paid.</li>
 <li><b>Your data.</b> Contacts and spending history stay on this device.</li></ul>
 <h3>Limits</h3><ul>
-<li>Topping up your Intents balance from your wallet is an ordinary public transaction.</li>
+<li>Payments are private. Moving money from your own wallet into your Intents balance is a regular on-chain transfer, so that one step is visible.</li>
 <li>The test server is not a TEE. The agent key is not protected there.</li>
 <li>Scheduled purchases run only while the server is up.</li></ul>
-<h3>Next</h3><ul>
-<li>Agent limits enforced by a smart contract, on top of the limits in the TEE.</li>
-<li>Notifications for scheduled purchases.</li>
-<li>Agents that hire other agents and pay them for APIs, data and compute.</li>
-<li>A business's own relay in its own TEE, verified the same way.</li>
-<li>Phone and TV apps in the stores.</li></ul>
 </div>`};
   function openInfo(){ $('pmodal').classList.remove('hidden'); $('psheet').innerHTML=`<h2>${esc(t('infoTitle'))}</h2>${INFO.en}<div class="btns"><button id="iX">Got it</button></div>`; $('psheet').scrollTop=0; $('iX').onclick=closePay; }
   if(!BIZ){ const ib=document.getElementById('ibtn'); ib.classList.remove('hidden'); ib.onclick=openInfo; ib.title=t('infoTitle'); }
@@ -1251,5 +1245,5 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     setTimeout(()=>{ if(!started) setMode('idle'); }, 2600);
   });
   // Проверяем, подключён ли сервер (иначе демо-режим)
-  fetch('api/health').then(r=>{ if(!r.ok) throw 0; return r.json(); }).then(d=>{ if(!d.ok) throw 0; if(d.tts) serverTTS=d.tts; sttServer=!!d.stt; if(sttServer) $('note').textContent=t('noteWhisper'); loadAttestation(false); }).catch(()=>{ enableDemo(); $('vbtn').classList.add('hidden'); });
+  fetch('api/health').then(r=>{ if(!r.ok) throw 0; return r.json(); }).then(d=>{ if(!d.ok) throw 0; if(d.tts) serverTTS=d.tts; sttServer=!!d.stt; loadAttestation(false); }).catch(()=>{ enableDemo(); $('vbtn').classList.add('hidden'); });
 })();
