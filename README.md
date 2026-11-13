@@ -175,7 +175,7 @@ npm test        # unit tests; GitHub Actions runs them on every push
 **A real answer you can re-check offline.** [`evidence/`](evidence) holds a signed answer from the TEE model captured on the live server (`/api/selftest?bundle=1`): the exact request and response bytes, the enclave signature, the raw attestation report and Intel's collateral. No key, no network, no trust in our server:
 
 ```bash
-node scripts/verify-bundle.js evidence/2026-11-05-deepseek-v4.1-flash.json
+node scripts/verify-bundle.js evidence/2026-11-13-phala-deepseek-v4.1-flash.json
 ```
 
 It checks the signature, the request/response hashes, the Intel TDX quotes (evaluated at capture time), the key binding, the nonce and the compose hash. CI runs it on every push, and the tests confirm that an edited answer or a different nonce fails. The NVIDIA GPU verdict needs NVIDIA's online service, so that one is in the live check (`npm run verify`).
