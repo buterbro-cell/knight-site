@@ -2,11 +2,11 @@
 # Paste this into Phala Cloud → Deploy → Docker Compose. Set NEAR_AI_KEY, DEV_KEY and ONECLICK_JWT as encrypted secrets.
 # UPDATE THE EXISTING APP IN PLACE — never re-create it: agent wallet keys are derived from this app's TEE identity.
 # For full verifiability pin the image by digest (see the GitHub Actions "image" job summary):
-#   image: ghcr.io/buterbro-cell/knight-site@sha256:870e43c6b33e206ededa861673c159f9b02e230d6c97b8499af94cdd6c1ce1f3<digest>
+#   image: ghcr.io/buterbro-cell/knight-site@sha256:627731738eb57dbc3b51765a01e5764284cb39be303629ef9dc9b242c0cc5a01<digest>
 services:
   app:
-    # built by GitHub Actions from commit 8b63a47
-    image: ghcr.io/buterbro-cell/knight-site@sha256:870e43c6b33e206ededa861673c159f9b02e230d6c97b8499af94cdd6c1ce1f3
+    # built by GitHub Actions from commit 609c367
+    image: ghcr.io/buterbro-cell/knight-site@sha256:627731738eb57dbc3b51765a01e5764284cb39be303629ef9dc9b242c0cc5a01
     restart: always
     user: root          # the dstack socket belongs to root inside the CVM
     ports:
