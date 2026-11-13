@@ -25,7 +25,10 @@ public class MainActivity extends Activity {
     super.onCreate(state);
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     web = new WebView(this);
+    web.setBackgroundColor(0xFF0A1430);
+    web.setFocusable(true); web.setFocusableInTouchMode(true);
     setContentView(web);
+    web.requestFocus();   // the remote's arrows and OK go to the page
     WebSettings s = web.getSettings();
     s.setJavaScriptEnabled(true);
     s.setDomStorageEnabled(true);
@@ -78,5 +81,5 @@ public class MainActivity extends Activity {
 
   @Override protected void onSaveInstanceState(Bundle out) { super.onSaveInstanceState(out); web.saveState(out); }
   @Override protected void onPause() { super.onPause(); web.onPause(); }
-  @Override protected void onResume() { super.onResume(); web.onResume(); }
+  @Override protected void onResume() { super.onResume(); web.onResume(); web.requestFocus(); }
 }

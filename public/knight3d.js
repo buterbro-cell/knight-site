@@ -10,6 +10,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 const ROOT = new URL('./3d/', import.meta.url).href;
 const MODEL_VER = 'e1a9e1a115';   // change when a model file changes, so browsers don't keep an old cached copy
 const DBG = new URLSearchParams(location.search);
+const TV = (() => { try { return DBG.get('tv') === '1' || localStorage.getItem('secra.tv') === '1'; } catch (e) { return false; } })();
 const num = (k, v) => (DBG.has(k) ? +DBG.get(k) : v);
 
 // ---- tuning (world units, SECRA is scaled to ~1.67 tall, faces +Z) ----
@@ -23,10 +24,16 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
   // ---------- renderer ----------
   const canvas = document.createElement('canvas');
   canvas.className = 'k3d';
-  Object.assign(canvas.style, { position: 'absolute', left: '-60%', width: '220%', top: '-30%', height: '130%', pointerEvents: 'none', opacity: '0', transition: 'opacity .4s', filter: 'drop-shadow(0 0 14px rgba(120,225,255,.28))' });
+  Object.assign(canvas.style, { position: 'absolute', left: '-60%', width: '220%', top: '-30%', height: '130%', pointerEvents: 'none', opacity: '0', transition: 'opacity .4s' });
+  if (!TV) canvas.style.filter = 'drop-shadow(0 0 14px rgba(120,225,255,.28))';   // TV chips: no CSS filter over WebGL
   host.appendChild(canvas);
   const R = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: DBG.has('shot') });
-  R.setPixelRatio(Math.min(devicePixelRatio, 2));
+  R.setPixelRatio(TV ? 1 : Math.min(devicePixelRatio, 2));
+  // diagnostics for weak devices (shown on the TV screen by app.js when something is wrong)
+  const DIAG = window.__k3d = { gl: '', err: '', frames: 0 };
+  try { const g = R.getContext(), e = g.getExtension('WEBGL_debug_renderer_info'); DIAG.gl = String(e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER)) + ' · tex ' + g.getParameter(g.MAX_TEXTURE_SIZE); } catch (e) { DIAG.gl = 'gl? ' + e; }
+  R.debug.onShaderError = (g, prog, vs, fs) => { DIAG.err = ('shader: ' + (g.getProgramInfoLog(prog) || '') + ' | ' + (g.getShaderInfoLog(vs) || '') + ' | ' + (g.getShaderInfoLog(fs) || '')).slice(0, 400); };
+  canvas.addEventListener('webglcontextlost', () => { DIAG.err = 'webgl context lost'; });
   R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = DBG.get('tm') === 'a' ? THREE.ACESFilmicToneMapping : THREE.NeutralToneMapping; R.toneMappingExposure = num('exp', 1.0);
   R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap;
   const S = new THREE.Scene();
@@ -249,7 +256,7 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
       if (mode === 'listen' && !talkingNow && curName === IDLE && now - lastNod > 4500) { lastNod = now; play('Head_Nod_Yes', { loop: false, fade: 0.3 }); }
     }
     if (now > blinkAt && face.eyes === 'open' && !overlay) { face.set('closed'); setTimeout(() => face.eyes === 'closed' && !overlay && face.set('open'), 130); blinkAt = now + 2200 + Math.random() * 3500; }
-    R.render(S, C);
+    R.render(S, C); DIAG.frames++;
   });
   if (DBG.has('rotY')) knight.rotation.y = +DBG.get('rotY') * Math.PI / 180;
   layout(); applyBase(true);

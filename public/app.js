@@ -79,7 +79,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   const $ = id => document.getElementById(id);
   const charEl=$('char'), bubble=$('bubble'), statusEl=$('status'), stage=$('stage'), glow=$('glow');
   // With WebGL2 the 3D knight loads; hide the old still pictures from the very first frame (no flash)
-  if(window.__use3d) stage.classList.add('k3d');
+  if(window.__use3d && !/[?&]tv=1\b/.test(location.search)) stage.classList.add('k3d');   // on TV the pictures stay until 3D is ready
   const startBtn=$('start'), row=$('row'), mic=$('mic'), kbd=$('kbd'), hush=$('hush'), form=$('form'), q=$('q');
   const frames={}; charEl.querySelectorAll('img').forEach(i=>frames[i.dataset.f]=i);
   let current='idle';
@@ -1271,9 +1271,39 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     else if(kind==='annoyed') speak(L.annoyed[Math.floor(Math.random()*L.annoyed.length)]);
     else if(kind==='poke' && Math.random()<0.5) speak(L.poke[Math.floor(Math.random()*L.poke.length)]);
   }
-  if(window.__use3d) import('./knight3d.js?v=14').then(m=>m.createKnight(charEl,{onReact})).then(k=>{
+  if(window.__use3d) import('./knight3d.js?v=15').then(m=>m.createKnight(charEl,{onReact})).then(k=>{
     K3D=k; window.__knight=k; stage.classList.add('k3d'); k.mode(mode); setTimeout(layoutBg,50);
-  }).catch(e=>{ console.warn('3D knight failed, showing pictures',e); stage.classList.remove('k3d'); });
+  }).catch(e=>{ console.warn('3D knight failed, showing pictures',e); window.__k3dFail=String(e&&e.message||e); stage.classList.remove('k3d'); });
+  // TV: weak chips can fail quietly. Fall back to pictures and show what went wrong, so a photo of the screen is enough to fix it.
+  if(IS_TV){
+    const errs=[]; window.addEventListener('error',e=>errs.push(String(e.message||e).slice(0,160)));
+    window.addEventListener('unhandledrejection',e=>errs.push(String(e.reason&&e.reason.message||e.reason).slice(0,160)));
+    const d=document.createElement('div'); d.style.cssText='position:fixed;left:10px;bottom:8px;z-index:99;max-width:60%;font:12px/1.35 monospace;color:#ffd27f;background:rgba(0,0,0,.6);padding:6px 8px;border-radius:8px;white-space:pre-wrap;display:none';
+    document.body.appendChild(d); let n=0;
+    const tick=()=>{ n++; const k=window.__k3d||{}, c=document.querySelector('canvas.k3d'); const ok=!!window.__knight&&k.frames>5&&!k.err;
+      if(k.err&&stage.classList.contains('k3d')){ stage.classList.remove('k3d'); if(c) c.style.display='none'; }   // 3D broken on this chip → pictures
+      const bad=!!k.err||!!window.__k3dFail||errs.length||(!ok&&n>=24);   // slow loading alone is not an error
+      d.style.display=bad?'block':'none';
+      if(bad) d.textContent='SECRA TV diag\n'+(navigator.userAgent.match(/Chrome\/[\d.]+/)||['Chrome ?'])[0]+' · '+innerWidth+'x'+innerHeight+' dpr '+devicePixelRatio+'\nGL: '+(k.gl||'-')+'\n3D: '+(window.__knight?'loaded':'not loaded')+' frames '+(k.frames||0)+(window.__k3dFail?' FAIL '+window.__k3dFail:'')+(k.err?'\n'+k.err:'')+(errs.length?'\nJS: '+errs.slice(-3).join(' | '):'');
+      if(n<40) setTimeout(tick,2500); };
+    setTimeout(tick,2500);
+    // remote control: arrows move between visible buttons, OK presses
+    const vis=e=>{ const r=e.getBoundingClientRect(); return r.width>4&&r.height>4&&getComputedStyle(e).visibility!=='hidden'&&!e.disabled&&e.offsetParent!==null; };
+    const pool=()=>{ const ms=[...document.querySelectorAll('.modal:not(.hidden),.sheet:not(.hidden)')].filter(vis); const root=ms.length?ms[ms.length-1]:document;
+      return [...root.querySelectorAll('button,a[href],input,textarea,select,[tabindex]')].filter(vis); };
+    document.addEventListener('keydown',e=>{
+      const dir={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key]; const a=document.activeElement;
+      if(!dir){ if((e.key==='Enter'||e.keyCode===23||e.keyCode===66)&&a&&a.tagName==='BUTTON'){ e.preventDefault(); a.click(); } return; }
+      if(a&&/INPUT|TEXTAREA/.test(a.tagName)&&(dir[0]!==0)) return;
+      const els=pool(); if(!els.length) return; e.preventDefault();
+      if(!a||!els.includes(a)){ (els.find(x=>x.id==='start'||x.id==='mic')||els[0]).focus(); return; }
+      const r=a.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2; let best=null,bs=1e9;
+      for(const x of els){ if(x===a) continue; const q=x.getBoundingClientRect(), dx=q.left+q.width/2-cx, dy=q.top+q.height/2-cy; const along=dx*dir[0]+dy*dir[1]; if(along<8) continue;
+        const across=Math.abs(dx*dir[1])+Math.abs(dy*dir[0]); const sc=along+across*2.5; if(sc<bs){ bs=sc; best=x; } }
+      if(best) best.focus();
+    },true);
+    setTimeout(()=>{ const b=$('start'); if(b&&vis(b)) b.focus(); },800);
+  }
 
   // ---------------- Старт ----------------
   applyLang();
