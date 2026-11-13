@@ -1,6 +1,6 @@
 # SECRA — a verifiably private voice assistant for any website
 
-**NEAR HACKATHON · Tracks: Privacy & Private AI (`privacy`), Open Innovation (`open`)** · NEAR AI Cloud · Phala Cloud (dstack) · TEE attestation
+Built at **NEAR HACKATHON** (Nov 2026). Tracks: **Privacy & Private AI** (`privacy`), **Agent Economy** (`agents`) · NEAR AI Cloud · NEAR Intents (confidential) · Phala Cloud (dstack) · TEE attestation
 
 [![tests](https://github.com/buterbro-cell/knight-site/actions/workflows/test.yml/badge.svg)](https://github.com/buterbro-cell/knight-site/actions/workflows/test.yml) · For AI reviewers: [`AGENTS.md`](AGENTS.md) (every claim → the code and test that prove it) · [`llms.txt`](llms.txt)
 
@@ -9,8 +9,9 @@
 
 | | |
 |---|---|
-| 🌐 **Live demo** | https://4f6208e0cb5e85944797f12cb210582e54a2107f-3000.dstack-pha-prod9.phala.network |
-| 🏥🏦 **Demo businesses** | `/demo/?s=clinic` · `/demo/?s=bank` |
+| 🌐 **Live demo** (personal agent, English) | https://4f6208e0cb5e85944797f12cb210582e54a2107f-3000.dstack-pha-prod9.phala.network — kept online at least until Nov 25, 2026 |
+| 🏥🏦 **Demo businesses** | `/demo/?s=clinic` · `/demo/?s=bank` (or the **+** button in the header) |
+| 📺 **Android TV app** | [`tv-latest` release](https://github.com/buterbro-cell/knight-site/releases/tag/tv-latest) → `secra-tv.apk` (sideload) |
 | 🛡️ **Server attestation (Phala Trust Center)** | https://trust.phala.com/app/a8fa8d779fbe978b9ed7ffda75e01abc952f7ee9 |
 | 🧪 **Live self-test** | `/api/selftest` — the minimal verify script, run on the deployed server |
 
@@ -34,6 +35,20 @@
    → Phala's independent report for our server: TEE hardware verified, source code (compose) verified, network end-to-end encrypted, OS verified.
 8. **Don't trust our site at all:** `git clone`, put your own key in `.env`, run `npm run verify` — it talks to NEAR AI directly with its own random nonce.
 
+**Agent Economy (main page, needs a NEAR mainnet wallet and ~$2; NEAR Intents has no testnet, see HACKATHON.md Q-007):**
+
+9. Open the live demo → **Say hi to SECRA** → **Wallet** → connect HOT or Meteor.
+   → The header shows your account. **Wallet** again opens the **agent wallet**: its own address, a key that exists only inside our TEE, limits $10 per action and $25 per day.
+10. In the agent window top it up with 1–2 USDT (one wallet signature, which also opens a 24-hour session).
+    → The balance appears on the agent's **private** NEAR Intents balance.
+11. Say or type **send 0.2 USDT to <your account>** → answer **yes**.
+    → The agent spells the recipient back, then pays with **no wallet popup and no gas**: it signs the intent with its TEE key. The payout lands on the recipient's private balance.
+12. Say **buy NEAR for 0.1 dollars every hour, six times** → **yes**.
+    → The first purchase runs at once; the plan is listed in the agent window and keeps running on schedule. Restart the server: the plan is still there (encrypted at rest with a TEE-derived key).
+13. Open the clinic (**+**) → **Document** → upload any text as *your own* results → **⚡ From agent wallet**.
+    → The agent pays the clinic 1 USDT for the private review by itself; the server unlocks the answer only after it checks that payment.
+14. **Send everything back to me** in the agent window → one tap, no signature (it can only pay you).
+
 ---
 
 ## The problem
@@ -55,15 +70,16 @@ flowchart LR
 
 - 🎙️ **Voice → text:** Whisper Large v3 in a NEAR AI TEE.
 - 🧠 **Answers:** `deepseek-ai/DeepSeek-V4.1-Flash-1017`, hosted by NEAR AI in a TEE (*Private TEE*).
-- 🔊 **Text → voice:** Piper, inside our TEE relay — same voice on every device.
+- 🔊 **Text → voice:** Piper, inside our TEE relay — the only voice SECRA speaks with; browser voices are never used.
 - 🛡️ **Verified panel:** model, gateway and relay attestations, each with a fresh nonce; every answer signed in the enclave.
 - 🗑️ **Nothing stored** — see below.
-- 🧸 **A character people like talking to:** rigged 3D agent with 20 Mixamo animations, a glowing visor face that blinks and shows a voice line only while it speaks, and Talking-Tom-style reactions (tap him, tickle him, poke him five times and he falls over).
+- 🧸 **A character people like talking to:** a rigged 3D agent in blue armour with 21 Mixamo animations (idle, talking, waving, thinking, clapping, dancing, falling and getting up), glowing eyes on the visor that blink and react, and Talking-Tom-style reactions (tap him, tickle him, poke him five times and he falls over).
+- 📱📺 **Phone, desktop and TV:** an installable web app (PWA) with a fixed one-screen layout, and an Android TV app (`android/`). The TV has no wallet: it shows a QR code, the owner approves the 24-hour agent session on the phone, and the TV can then pay through the agent wallet.
 
 ## Add it to a website — one line
 
 ```html
-<script src="https://<assistant-host>/widget.js" data-biz="clinic" data-lang="en" async></script>
+<script src="https://<assistant-host>/widget.js" data-biz="clinic" async></script>
 ```
 
 - `public/widget.js` adds a button in the corner. The assistant opens in an **iframe from our origin**, so the host page **cannot read** the conversation — not the voice, not the documents, not the answers.
@@ -107,7 +123,7 @@ flowchart LR
 - No database, no content logs, no conversation files. **One exception, created only by the owner of an agent wallet:** standing orders (DCA, "buy NEAR for 1 USDT every day") — owner account, tokens, amount, period, runs left, the last results. They are kept in one file encrypted with AES-256-GCM under a key derived from the TEE root (`lib/dca.js`), so the file is unreadable outside this attested app; no questions, answers or balances go there. `test/privacy.test.js` enforces that no other code writes files. Questions, answers, documents and audio live only in local variables of one request handler.
 - No answer cache, no TTS cache, no conversation history on the server — the browser keeps the last few turns.
 - Documents are read **in the browser** (PDF via pdf.js) and sent only together with the question. Photos and screenshots are shrunk in the browser (≤ 1344 px JPEG) and go as an image straight to the TEE model (DeepSeek V4.1 Flash reads images natively) — never stored.
-- **No cloud fallbacks in the browser:** voice input goes only to Whisper in the TEE (the browser's own speech recognition — Google / Apple — is never used); voice output falls back only to voices that run **on the device**.
+- **No cloud fallbacks in the browser:** on the web and phone, voice input goes only to Whisper in the TEE (the browser's own speech recognition is never used); voice output is only Piper in our TEE. If Piper is unavailable, SECRA answers in text.
 - In memory, without user content: salted IP hashes with timestamps for rate limiting (salt changes on every restart), aggregate token counters for the owner's `/dev.html`, the latest attestation results.
 - Web search is **off** by default (it would send a query outside the TEE).
 
@@ -129,15 +145,15 @@ flowchart LR
 - **Cost:** one conversation is ~1–2 cents of model usage on NEAR AI; one TEE relay serves many businesses (each is a JSON profile).
 - **Checking installs:** the official-install badge (above); for self-hosted relays the operator — or anyone — checks the relay's attestation and that its compose pins the published image digest.
 
-## Roadmap — not built yet
+## Not built yet
 
-- **Voice transactions in your own wallet:** confirmed by voice, with no tap.
-- **Notifications** for scheduled purchases and limit orders.
-- **Agent-to-agent:** the agent hires other agents and pays for APIs, data and compute.
+- **Agent-to-agent:** the agent hiring other agents and paying them for APIs, data and compute. Today it pays one service (the clinic's paid review) by itself.
 - **On-chain limits for the agent wallet** (a policy contract), on top of the limits enforced in the TEE.
-- **Mobile apps.** Today SECRA is an installable web app (PWA). Next: Android in Google Play as a thin wrapper (TWA) around the same page, then iOS. The privacy chain stays the same, because the app shows the same attested page.
-- **Smart TV (Android TV / Google TV, then Tizen and webOS)** for clinic waiting rooms and bank branches. Visitors ask by voice through the remote's microphone. Payments are signed on the visitor's phone by scanning a QR code, so no wallet or key is ever on the TV. A lighter 2D character is used on weak TV chips. The TV app for Android TV is already built (`android/`, CI release `tv-latest`); next: the paired phone as the TV's microphone, so speech still goes only to the TEE.
+- **Notifications** for scheduled purchases and limit orders.
+- **The paired phone as the TV's microphone**, so speech on the TV also goes only to the TEE.
+- **Store apps:** Android in Google Play as a thin wrapper (TWA) around the same attested page, then iOS; Tizen and webOS for TVs.
 - **Bring-your-own relay:** a business runs the open-source relay in its own TEE and the assistant verifies it the same way it verifies ours.
+- **A more natural voice** (an open TTS model such as Kokoro inside the TEE), once the relay has the memory for it.
 
 ## Private payments (NEAR Intents, confidential)
 
@@ -156,7 +172,14 @@ flowchart LR
 | **Home-screen app** | Installable (PWA): own icon, full screen. The service worker caches nothing. |
 | **Full mode** (personal agent) | An **agent wallet** whose key exists only inside our TEE (Phala dstack `GetKey`, one per owner, never stored). You top it up with a small budget (the top-up is itself a confidential payment onto the agent's private Intents balance); the agent then pays on your voice command **without a wallet popup and without gas** — it signs intents with its TEE key — within the owner's limits (default $10 per action, $25 per day). Only you can command it: a NEP-413 message signed by a full-access key of your account opens a 24-hour session on your device. "Send everything back to me" is one tap, needs no signature (it can only pay you) and lands on your private Intents balance. |
 
-Not covered and stated plainly: the top-up of your Intents balance from your wallet is a public transaction; amounts and timing are visible to NEAR Intents; the full-mode daily counter resets on restart; a new attested version of the relay derives the same agent keys. Demo limits: $50 per wallet-signed action. Details: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) rows 11–14.
+Not covered and stated plainly: the top-up of your Intents balance from your wallet is a public transaction; amounts and timing are visible to NEAR Intents; a new attested version of the relay derives the same agent keys; scheduled purchases run only while the server is up. Demo limits: $50 per wallet-signed action. Details: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) rows 11–14.
+
+## Android TV
+
+- `android/`: a small Java WebView app (minSdk 21) that opens the same attested page full screen in TV mode. GitHub Actions (`.github/workflows/tv-apk.yml`) builds it and publishes `secra-tv.apk` (Phala) in the [`tv-latest`](https://github.com/buterbro-cell/knight-site/releases/tag/tv-latest) release.
+- **Install:** copy the APK to a USB stick, allow unknown sources on the TV, open it with a file manager. Arrows and OK on the remote move between buttons; Back closes windows.
+- **Payments without a wallet on the TV:** **Wallet** shows a QR code and a 4-digit check code. The owner scans it, checks the digits, connects the wallet on the phone and signs the usual 24-hour agent permission; the phone hands that session to the TV (`lib/pair.js`: in memory only, single use, 10 minutes). The TV then pays through the agent wallet within its limits; keys never reach the TV.
+- **Voice on the TV:** OK on the microphone button opens the TV's built-in voice input and the recognised text goes to SECRA. That step runs on the TV, outside our TEE; answers and payments run as everywhere else.
 
 ## Check it without a NEAR AI key
 
@@ -254,6 +277,9 @@ Full output: [`docs/verify-output.txt`](docs/verify-output.txt).
 | `public/index.html`, `public/app.js`, `public/app.css` | the assistant: voice, Verified panel, documents, business profiles |
 | `public/knight3d.js`, `public/3d/` | the 3D character (three.js), model, face |
 | `public/widget.js` | one-line embed for business websites |
+| `public/glass.css`, `public/fonts/` | the glass interface; Inter served from our origin (OFL) |
+| `lib/dca.js`, `lib/store.js` | scheduled purchases and limit orders; owner data encrypted at rest with a TEE-derived key |
+| `lib/pair.js`, `android/`, `.github/workflows/tv-apk.yml` | TV pairing (QR) and the Android TV app |
 | `public/biz/*.json` | business profiles (clinic, bank) |
 | `public/demo/index.html` | fictional clinic and bank websites with the assistant embedded |
 | `public/samples/` | fictional documents |
@@ -261,11 +287,10 @@ Full output: [`docs/verify-output.txt`](docs/verify-output.txt).
 
 ## Built during the hackathon, and with what
 
-- All code in this repository was written during NEAR HACKATHON (first commit Nov 1, 2026); full history in git.
-- Written with an AI coding agent (Claude Code); the team designed the product, the character and its animations.
-- Libraries: three.js (3D), pdf.js (PDF reading in the browser, vendored), `@phala/dcap-qvl-node` (Intel TDX quote verification), `ethers` v5 (signature recovery), Piper TTS (voice). 3D character generated with Tripo and animated with Adobe Mixamo; backgrounds AI-generated.
-- License: MIT (`LICENSE`).
+- **Timing:** the window runs from the announcement on 2026-10-19 to 2026-11-14 (HACKATHON.md Q-001). The first commit of this repository is 2026-11-01; every commit is inside the window. There is no pre-hackathon code, so there is no `pre-hackathon` tag.
+- **AI-assisted:** the code, tests and this README were written with an AI coding agent (Claude Code) directed by the team; the team designed the product, the character and its animations, and tested it on real devices.
+- **Libraries and assets (Q-005):** three.js (3D), pdf.js (PDF reading in the browser), NEAR Connect (wallets), qrcode-generator, `@phala/dcap-qvl-node` (Intel TDX quote verification), `ethers` v5 (signature recovery), Piper TTS with the *Ryan* voice, Inter font (OFL). The 3D character was generated with Meshy, rigged and animated with Adobe Mixamo; backgrounds are AI-generated. Vendored code keeps its license next to it.
+- **NEAR pieces used:** NEAR AI Cloud (TEE model, Whisper, attestation, per-answer signatures), NEAR Intents 1Click with Confidential Intents (payments, swaps, cross-chain deposits and payouts), NEAR accounts and NEP-413 signatures (owner sessions and limits), NEAR Connect (wallets).
+- **License:** MIT (`LICENSE`).
 
 All businesses, people and documents in this repository are fictional.
-
-Built for **NEAR HACKATHON** (Nov 1–14, 2026), track **Privacy & Private AI**.

@@ -387,7 +387,7 @@ async function askModelStream(messages, res, { system = SYSTEM_PROMPT + SYSTEM_P
           // Deterministic single confirmation: the browser keeps this exact proposal and runs it on the user's next "yes"
           // (or a tap) — the model is not asked again, so it cannot loop or change the amount or the address.
           const c = contacts.find(x => x.account === prop.to);
-          const ru = /[а-яё]/i.test(lastUserText(messages));
+          const ru = false;   // English only
           const who = c ? `${c.name} (${prop.to})` : `${prop.to}${prop.toChain && prop.toChain !== 'near' ? ' — ' + (pay.CHAINS[prop.toChain] || {}).name : ''}`;
           const q = ru ? `Отправляю ${prop.amount} ${prop.token} → ${who}. Верно? Скажи «да».` : `Sending ${prop.amount} ${prop.token} → ${who}. Correct? Say "yes".`;
           begin(); res.write(CONFIRM_MARK + JSON.stringify({ ...prop, question: q }) + CONFIRM_MARK);

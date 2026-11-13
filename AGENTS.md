@@ -24,7 +24,8 @@ SECRA is a voice assistant that a business adds to its website with one line of 
 | Documents and photos are attached to the current question only, treated as data (anti-prompt-injection rule), images limited to jpeg/png/webp ≤ 1.4 MB | `lib/input.js` | `test/input.test.js` |
 | Photos are read by the TEE model itself (DeepSeek V4.1 Flash, native vision) and shrunk in the browser first | `public/app.js` `imageData()`, `lib/input.js` | manual: demo → Document → "Photo of a blood test" |
 | PDFs are read in the browser with pdf.js served from our origin, with no third-party CDN | `public/app.js` `pdfText()`, `public/vendor/pdfjs/` | — |
-| Voice: speech-to-text by Whisper in a NEAR AI TEE; the browser's cloud speech services are never used; spoken answers use on-device voices or our Piper TTS | `server.js` `transcribe()`, `/api/tts`; `public/app.js` (no `webkitSpeechRecognition`, `localService` voices only) | — |
+| Voice on the web and phone: speech-to-text by Whisper in a NEAR AI TEE; the browser's speech services are never used; spoken answers only by Piper in our TEE relay (no browser voices; text if Piper is down) | `server.js` `transcribe()`, `/api/tts`; `public/app.js` `speak()` (no `webkitSpeechRecognition`, no `speechSynthesis.speak` call path) | — |
+| TV app: the TV holds no wallet; a QR pairs it with the owner's phone, which signs the 24-hour agent session and hands it over (in memory, single use, 10 min). On the TV, speech is recognised by the TV's own voice input, outside our TEE | `lib/pair.js`, `server.js` `/api/pair/*`, `public/app.js` `tvPair()`, `android/` | `test/pair.test.js` |
 | The host page cannot read the conversation (iframe from our origin, no `postMessage` to the host) | `public/widget.js`, `public/app.js` | — |
 | Official-install badge: iframe referrer vs the business profile's domains | `public/app.js` `showOfficial()`, `public/biz/*.json` | — |
 | Business profiles are public JSON (the exact instructions the assistant follows) and run without tools | `public/biz/clinic.json`, `public/biz/bank.json`; `server.js` (`tools: false` for profiles) | — |
@@ -37,9 +38,9 @@ SECRA is a voice assistant that a business adds to its website with one line of 
 | Recurring purchases and limit orders from the agent wallet, through the same limits | `lib/dca.js`, `server.js` (`schedule_purchase`) | `test/dca.test.js` |
 | NEAR transactions and NEP-413 without SDKs, byte-identical to near-api-js | `lib/near.js` | `test/near-tx.test.js` (CI), `test/near.test.js` |
 
-## Not built (stated as such in README → Roadmap)
+## Not built (stated as such in README → Not built yet)
 
-Bring-your-own relay; voice transactions signed in the user's own wallet without a tap.
+Agent-to-agent hiring; an on-chain policy contract for the agent wallet; notifications; the phone as the TV's microphone; store apps; bring-your-own relay.
 
 ## Known limits
 

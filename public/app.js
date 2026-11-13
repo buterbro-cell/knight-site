@@ -4,7 +4,7 @@
 const APP_SRC = (document.currentScript && document.currentScript.src) || location.href;
 (() => {
   'use strict';
-  // ---------------- Тексты ----------------
+  // ---------------- Texts ----------------
   const T = {
     en: {
       title:'SECRA', subtitle:'Private AI agent on NEAR', start:'Say hi to SECRA',
@@ -45,7 +45,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   else if('serviceWorker' in navigator && !BIZ){ try{ navigator.serviceWorker.register('sw.js'); }catch(e){} }
   const t = k => T[lang][k];
 
-  // ---------------- Элементы ----------------
+  // ---------------- Elements ----------------
   const $ = id => document.getElementById(id);
   const charEl=$('char'), bubble=$('bubble'), statusEl=$('status'), stage=$('stage'), glow=$('glow');
   // With WebGL2 the 3D knight loads; hide the old still pictures from the very first frame (no flash)
@@ -62,18 +62,18 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   // The old video knight was replaced by the 3D knight (knight3d.js); without WebGL2 the still pictures stay.
   const VID={on:false,state:'idle',want(){}};
 
-  // ---------------- Состояния персонажа ----------------
+  // ---------------- Character states ----------------
   let mode='idle'; // idle | wave | listen | think | talk
   function baseClip(){ return (mode==='listen'||mode==='think')?'listen':'idle'; }
   function setMode(m){
     mode=m; if(K3D) K3D.mode(m);
     charEl.className='char'+(m==='idle'?'':' '+m);
-    if(VID.on && m!=='talk') VID.want(baseClip()); // «говорит» включает только настоящая речь
+    if(VID.on && m!=='talk') VID.want(baseClip()); // talking starts only with real speech
     stage.classList.toggle('listening', m==='listen'); glow.style.opacity = m==='listen'?1:0;
     if(m==='idle'||m==='listen'||m==='think') show('idle');
     if(m==='wave') show('wave');
   }
-  // Моргание
+  // Blinking
   (function blinkLoop(){
     setTimeout(()=>{
       if((mode==='idle'||mode==='listen'||mode==='think') && current==='idle'){
@@ -84,7 +84,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     }, 2200+Math.random()*3800);
   })();
 
-  // Движение рта во время речи
+  // Mouth movement while speaking
   let mouthTimer=null, kick=0;
   function mouthStart(){
     mouthStop();
@@ -99,7 +99,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   }
   function mouthStop(){ clearTimeout(mouthTimer); mouthTimer=null; if(mode==='talk'||current.startsWith('talk')) show('idle'); }
 
-  // ---------------- Пузырь ----------------
+  // ---------------- Speech bubble ----------------
   function say(text, opts={}){
     bubble.classList.toggle('user', !!opts.user);
     const dots='<span class="dots"><span></span><span></span><span></span></span>';
@@ -123,10 +123,9 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   const hideBubble=()=>{ bubble.classList.remove('show','open'); bexp.classList.remove('show'); };
   const setStatus=s=>statusEl.textContent=s||'';
 
-  // ---------------- Озвучка ----------------
-  // 1) голос браузера (бесплатно); 2) если браузер не умеет (Telegram, приложения) — голос с сервера;
-  // 3) если и сервера нет — SECRA «говорит» текстом в пузыре.
-  let serverTTS={ru:false,en:false}, audioCtx=null, curSource=null;
+  // ---------------- Voice output ----------------
+  // Only Piper in our TEE server speaks (see speak()); without it SECRA answers in the bubble as text.
+    let serverTTS={ru:false,en:false}, audioCtx=null, curSource=null;
   function unlockAudio(){
     try{
       if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC) audioCtx=new AC(); }
@@ -142,11 +141,11 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     const buf=await r.arrayBuffer();
     return await new Promise((res,rej)=>audioCtx.decodeAudioData(buf,res,rej));
   }
-  // Проигрывает звук и двигает ртом в такт громкости
+  // Plays the audio and moves the mouth with its loudness
   function playBuffer(buffer,id){
     return new Promise(resolve=>{
       const src=audioCtx.createBufferSource(); src.buffer=buffer;
-      src.playbackRate.value=1.0; // естественный голос, без ускорения
+      src.playbackRate.value=1.0; // natural pace, no speed-up
       const an=audioCtx.createAnalyser(); an.fftSize=512; const data=new Uint8Array(an.fftSize);
       src.connect(an); an.connect(audioCtx.destination);
       curSource=src; let raf=0, last=0;
@@ -171,7 +170,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       let buf; try{ buf=await next; }catch(e){ return false; }
       if(id!==speakId) return true;
       const more=await Promise.race([hasNext(src,i+1,id), new Promise(r=>setTimeout(()=>r(null),0))]);
-      if(more) next=fetchAudio(chunks[i+1]); // заранее готовим следующую фразу
+      if(more) next=fetchAudio(chunks[i+1]); // fetch the next phrase ahead of time
       else next=null;
       scrollBubble(chunks,i);
       if(waveFirst && i===0){ charEl.className='char wave'; show('wave'); await playBufferStill(buf); }
@@ -180,10 +179,10 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       if(!next){ if(!await hasNext(src,i+1,id)) return true; next=fetchAudio(chunks[i+1]); }
     }
   }
-  function playBufferStill(buffer){ // для приветствия: машет рукой, рот не трогаем
+  function playBufferStill(buffer){ // greeting: waves, mouth untouched
     return new Promise(resolve=>{ const s=audioCtx.createBufferSource(); s.buffer=buffer; s.playbackRate.value=1.0; s.connect(audioCtx.destination); curSource=s; s.onended=()=>{ if(curSource===s) curSource=null; resolve(); }; s.start(0); });
   }
-  function speakSilent(src,id,waveFirst){ // звука нет совсем — анимируем по длине текста
+  function speakSilent(src,id,waveFirst){ // no sound at all: animate for the length of the text
     const chunks=src.chunks;
     return new Promise(resolve=>{
       let i=0;
@@ -219,7 +218,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     return out;
   }
   let speakId=0;
-  // Источник фраз: для готового текста — сразу все, для потокового ответа — пополняется на лету
+  // Phrase source: all at once for a ready text, filled on the fly for a streamed answer
   function makeSource(chunks=[],done=false){
     const src={chunks,done,w:[],
       push(c){ if(c&&c.trim()){ src.chunks.push(c.trim()); src.wake(); } },
@@ -228,7 +227,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       next(){ return new Promise(r=>src.w.push(r)); }};
     return src;
   }
-  // Ждём следующую фразу: true — есть, false — ответ закончился
+  // Wait for the next phrase: true = there is one, false = the answer ended
   async function hasNext(src,i,id){ while(i>=src.chunks.length && !src.done && id===speakId) await src.next(); return id===speakId && i<src.chunks.length; }
   const waitVoices=()=>new Promise(r=>{ if(!synth||voices.length) return r(); let n=0; const iv=setInterval(()=>{ loadVoices(); if(voices.length||++n>8){ clearInterval(iv); r(); } },100); });
   function scrollBubble(chunks,i){ const before=chunks.slice(0,i).join(' ').length, total=chunks.join(' ').length||1; bubble.scrollTop=(before/total)*(bubble.scrollHeight-bubble.clientHeight); }
@@ -262,7 +261,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       const next=async()=>{
         clearTimeout(watchdog);
         if(!await hasNext(src,i,id)) return resolve();
-        const waving = waveFirst && i===0; // первая фраза приветствия — машет рукой
+        const waving = waveFirst && i===0; // first greeting phrase: wave
         scrollBubble(chunks,i);
         const u=new SpeechSynthesisUtterance(chunks[i++]);
         u.lang=t('speech'); u.voice=voice;
@@ -274,14 +273,14 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
         u.onend=()=>{ uttActive=false; if(id!==speakId) return resolve(); mouthStop(); setTimeout(next,120); };
         u.onerror=()=>{ uttActive=false; if(id!==speakId) return resolve(); mouthStop(); next(); };
         synth.speak(u);
-        // страховка: если браузер так и не начал говорить — анимируем по длине текста
+        // safety net: if speech never started, animate for the length of the text
         watchdog=setTimeout(()=>{ if(id===speakId && !started && !synth.speaking){ if(!waving) mouthStart(); setTimeout(()=>{ if(id===speakId){ mouthStop(); next(); } }, Math.min(8000,500+u.text.length*55)); } }, 1500);
       };
       next();
     });
   }
   function stopSpeaking(){ speakId++; uttActive=false; silentTalk=false; if(synth) synth.cancel(); if(curSource){ try{curSource.stop();}catch(e){} curSource=null; } mouthStop(); if(mode==='talk') setMode('idle'); }
-  // Рот в живой анимации двигается ровно пока звучит речь: замолчал — закрыл, продолжил — открыл
+  // The mouth moves exactly while speech plays
   let uttActive=false, silentTalk=false;
   setInterval(()=>{
     const talking = uttActive || !!curSource || silentTalk;
@@ -291,7 +290,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     else if(VID.state==='talk') VID.want(baseClip());
   },80);
 
-  // ---------------- Общение с сервером ----------------
+  // ---------------- Talking to the server ----------------
   let demo=false;
   const history=[];
   let typedAsk=false, pendingPay=null;
@@ -324,7 +323,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
         if(r.status===404||r.status===405) throw new Error('no-server');
         if(myAsk!==askId) return;
         if(r.ok && (r.headers.get('content-type')||'').includes('text/plain') && r.body){
-          // Потоковый ответ: начинаем говорить, как только пришла первая фраза
+          // Streamed answer: start speaking as soon as the first phrase arrives
           answer=await streamAnswer(r,myAsk);
           clearTimeout(dotsTimer);
         } else {
@@ -338,7 +337,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     clearTimeout(dotsTimer);
     if(myAsk!==askId) return;
     if(demo) { await new Promise(r=>setTimeout(r,300)); answer=demoAnswer(question); }
-    if(typeof answer==='object' && answer){ // уже озвучивается потоком
+    if(typeof answer==='object' && answer){ // already being spoken as it streams
       history.push({role:'assistant',content:answer.text});
       if(history.length>12) history.splice(0,history.length-12);
       await answer.done; return;
@@ -353,7 +352,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     const src=makeSource(); src.fullText='';
     let pending='', full='', speaking=null, id=null, searching=false, proofBuf=null, payBuf=null, payMk='\u0003';
     const flush=(final)=>{
-      // Режем на фразы: первая — как можно раньше (после первого знака препинания), дальше — по предложениям
+      // Split into phrases: the first as early as possible, then by sentence
       while(true){
         const minLen=src.chunks.length?40:8;
         const m=pending.slice(minLen).search(/[.!?…](\s|$)/);
@@ -379,7 +378,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       }
       const pm=piece.indexOf('\u0002');   // after this mark the server sends the signature check of the answer
       if(pm>=0){ proofBuf=piece.slice(pm+1); piece=piece.slice(0,pm); }
-      if(piece.includes('\u0007')){ // SECRA пошёл искать информацию
+      if(piece.includes('\u0007')){ // SECRA went to look something up
         piece=piece.split('\u0007').join('');
         if(!searching){ searching=true;
           if(!src.chunks.length && !pending.trim()){ const f=t('searchFiller'); full+=f+' '; src.push(f); }
@@ -399,21 +398,21 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   }
   function enableDemo(){ demo=true; $('demo').classList.add('show'); }
 
-  // Заготовленные ответы для демо-режима (когда нет сервера)
+  // Pre-written answers for demo mode (no server)
   function demoAnswer(qs){
-    const s=qs.toLowerCase(), ru=lang==='ru';
+    const s=qs.toLowerCase();
     const has=(...w)=>w.some(x=>s.includes(x));
-    if(has('tee','ти и','анклав','enclave','сейф')) return ru?'TEE — это как запечатанный сейф внутри процессора и видеокарты. Даже владелец сервера не может заглянуть внутрь, а железо выдаёт подписанное доказательство, что всё честно. Клянусь своим щитом!':'A TEE is like a sealed safe inside the processor and GPU. Even the server owner cannot look inside, and the hardware signs a proof that everything is legit. On my shield!';
-    if(has('приват','privacy','private','данн','видит','sees')) return ru?'В NEAR AI Cloud нейросеть работает внутри защищённой среды TEE: вопросы расшифровываются только внутри неё, и их не видит никто, даже сама NEAR. А проверить это может любой — по криптографической аттестации.':'In NEAR AI Cloud the model runs inside a TEE: your questions are decrypted only inside it, and nobody, not even NEAR, can see them. Anyone can verify this with cryptographic attestation.';
-    if(has('intent','интент')) return ru?'NEAR Intents — это когда ты говоришь, что хочешь получить, например обменять биткоин на доллары, а исполнители соревнуются, кто сделает это выгоднее. Работает с десятками блокчейнов.':'With NEAR Intents you say what you want, like swapping bitcoin for dollars, and solvers compete to do it best. It works across dozens of chains.';
-    if(has('signature','подпис')) return ru?'Chain Signatures позволяют аккаунту NEAR подписывать транзакции в других сетях: Bitcoin, Ethereum, Solana и не только. Ключ разделён между многими узлами, и ни у одного нет его целиком.':'Chain Signatures let a NEAR account sign transactions on other chains like Bitcoin, Ethereum and Solana. The key is split across many nodes, and no single node holds it.';
-    if(has('near','нир','блокчейн','blockchain')) return ru?'NEAR — быстрый блокчейн с шардингом: блоки примерно каждые 0,6 секунды, а финальность около секунды. Адреса там человеческие, вроде alice.near, а комиссии — доли цента.':'NEAR is a fast sharded blockchain: blocks every 0.6 seconds and finality in about a second. Addresses are human-readable like alice.near, and fees are fractions of a cent.';
-    if(has('кто ты','тебя зовут','who are you','your name')) return ru?'Я Секра, приватный агент на NEAR! Охраняю приватность и рассказываю про технологии NEAR простыми словами.':"I'm SECRA, your private agent on NEAR! I guard privacy and explain NEAR tech in plain words.";
-    if(has('привет','здравств','hello','hi ','hey')) return ru?'И тебе привет! Спроси меня про NEAR, приватность или TEE.':'Hello to you too! Ask me about NEAR, privacy or TEEs.';
-    return ru?'Это демо-версия, тут у меня только заготовки. На настоящем сайте я отвечу на любой вопрос с помощью нейросети NEAR AI. Попробуй спросить про TEE или приватность!':"This is a demo with pre-written answers. On the real site I answer anything using NEAR AI. Try asking about TEEs or privacy!";
+    if(has('tee','ти и','анклав','enclave','сейф')) return 'A TEE is like a sealed safe inside the processor and GPU. Even the server owner cannot look inside, and the hardware signs a proof that everything is legit. On my shield!';
+    if(has('приват','privacy','private','данн','видит','sees')) return 'In NEAR AI Cloud the model runs inside a TEE: your questions are decrypted only inside it, and nobody, not even NEAR, can see them. Anyone can verify this with cryptographic attestation.';
+    if(has('intent','интент')) return 'With NEAR Intents you say what you want, like swapping bitcoin for dollars, and solvers compete to do it best. It works across dozens of chains.';
+    if(has('signature','подпис')) return 'Chain Signatures let a NEAR account sign transactions on other chains like Bitcoin, Ethereum and Solana. The key is split across many nodes, and no single node holds it.';
+    if(has('near','нир','блокчейн','blockchain')) return 'NEAR is a fast sharded blockchain: blocks every 0.6 seconds and finality in about a second. Addresses are human-readable like alice.near, and fees are fractions of a cent.';
+    if(has('кто ты','тебя зовут','who are you','your name')) return "I'm SECRA, your private agent on NEAR! I guard privacy and explain NEAR tech in plain words.";
+    if(has('привет','здравств','hello','hi ','hey')) return 'Hello to you too! Ask me about NEAR, privacy or TEEs.';
+    return "This is a demo with pre-written answers. On the real site I answer anything using NEAR AI. Try asking about TEEs or privacy!";
   }
 
-  // ---------------- Распознавание голоса ----------------
+  // ---------------- Speech recognition ----------------
   let recognizing=false;
 
 
@@ -1088,7 +1087,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   }
   function stopRecording(){ if(recState&&!recState.stopped){ recState.stopped=true; try{recState.mr.stop();}catch(e){} } }
 
-  // ---------------- Кнопки ----------------
+  // ---------------- Buttons ----------------
   function showText(on){ form.classList.toggle('show',on); if(on) setTimeout(()=>q.focus(),50); }
   // PRIVACY: voice input goes only to Whisper inside the NEAR AI TEE. The browser's own speech recognition
   // (Chrome sends audio to Google, Safari to Apple) is never used; without recording we ask for text instead.
@@ -1096,7 +1095,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   const TVV=IS_TV && !!window.SecraTV && typeof window.SecraTV.listen==='function';
   window.__tvHeard=txt=>{ txt=String(txt||'').trim(); if(txt) ask(txt); else setStatus(t('readyTv')); };
   mic.addEventListener('click',()=>{
-    if(TVV){ stopSpeaking(); setStatus(t('listening')); try{ window.SecraTV.listen(lang==='ru'?'ru-RU':'en-US'); }catch(e){ showText(true); } return; }
+    if(TVV){ stopSpeaking(); setStatus(t('listening')); try{ window.SecraTV.listen('en-US'); }catch(e){ showText(true); } return; }
     if(canRecord()){ recognizing?stopRecording():startRecording(); return; }
     showText(true); setStatus(t('privMic'));
   });
@@ -1122,12 +1121,12 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     if(started) return; started=true;
     startBtn.classList.add('hidden'); row.classList.remove('hidden');
     if(TVV) setTimeout(()=>{ try{ mic.focus(); }catch(e){} },300); else if(!canRecord()) showText(true);
-    // Приветствие голосом: на первой фразе машет рукой, дальше говорит
+    // Spoken greeting: waves on the first phrase, then talks
     speak(t('greetRest'),{intro:t('hello')});
   }
   startBtn.addEventListener('click',begin);
 
-  // ---------------- Язык ----------------
+  // ---------------- Language (English only) ----------------
   function applyLang(){
     document.documentElement.lang=lang;
     $('title').firstChild.textContent=t('title'); $('subtitle').textContent=t('subtitle');
@@ -1139,20 +1138,20 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
 
 
 
-  // ---------------- Фон: светящийся круг ровно под ногами SECRA ----------------
+  // ---------------- Background: the glowing ring right under SECRA's feet ----------------
   const bgImg=$('bgimg'), appEl=document.querySelector('.app');
-  let RING={x:0.5,y:0.858}; // где на картинке фона находится круг (доли ширины и высоты); профиль бизнеса может задать свой фон
+  let RING={x:0.5,y:0.858}; // where the ring is in the background picture (fractions of width and height); a business profile can set its own
   function layoutBg(){
     if(!bgImg.naturalWidth) return;
     const app=appEl.getBoundingClientRect(), ch=charEl.getBoundingClientRect();
     const W=app.width, iw=bgImg.naturalWidth, ih=bgImg.naturalHeight;
     const feetY=ch.bottom-app.top-ch.height*0.025, feetX=ch.left-app.left+ch.width*0.5;
     const H=app.height;
-    let sc=feetY/(ih*RING.y);           // масштаб по высоте: круг всегда одного размера относительно SECRA
+    let sc=feetY/(ih*RING.y);           // scale by height: the ring stays the same size relative to SECRA
     if(iw*sc<W) sc=W/iw;               // always cover the full width: no empty sides on phones
     const w=iw*sc, h=ih*sc;
     bgImg.style.width=w+'px'; bgImg.style.height=h+'px';
-    // если фон уже экрана — края не нужно растворять
+    // if the background is narrower than the screen, no edge fade
     const m=w>W*1.02?'none':''; bgImg.style.webkitMaskImage=m; bgImg.style.maskImage=m;
     bgImg.style.top=(feetY-h*RING.y)+'px';
     bgImg.style.left=(feetX-w*RING.x+w/2)+'px';
@@ -1184,8 +1183,8 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     const ok=host && (host===location.hostname || (PROFILE.domains||[]).some(d=>host===d||host.endsWith('.'+d)));
     let el=$('official'); if(!el){ el=document.createElement('div'); el.id='official'; $('subtitle').after(el); }
     el.className='official '+(ok?'ok':'warn');
-    el.textContent= ok ? (lang==='ru'?'✓ Официальный помощник на ':'✓ Official assistant on ')+host
-                       : (lang==='ru'?'⚠ Этот сайт не в списке сайтов ':'⚠ This site is not listed for ')+pick(PROFILE.name);
+    el.textContent= ok ? '✓ Official assistant on '+host
+                       : '⚠ This site is not listed for '+pick(PROFILE.name);
   }
   const profileReady = window.__profileReady = BIZ ? fetch('biz/'+BIZ+'.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(p=>{ PROFILE=p; applyProfile(); }).catch(()=>{}) : Promise.resolve();
   // Background: the business's own room (biz/<id>.json → background), otherwise the default data-center hall
@@ -1237,14 +1236,14 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     setTimeout(()=>{ const b=$('start'); if(b&&vis(b)) b.focus(); },800);
   }
 
-  // ---------------- Старт ----------------
+  // ---------------- Start ----------------
   applyLang();
-  // Пока посетитель не нажал кнопку, браузер не разрешает говорить вслух — просто машем и показываем приветствие
+  // Until the visitor taps, the browser does not allow sound: wave and show the greeting
   Promise.all(Object.values(frames).map(i=>i.decode?i.decode().catch(()=>{}):0).concat([profileReady])).then(()=>{
     applyLang();
     setMode('wave'); say(t('hello'));
     setTimeout(()=>{ if(!started) setMode('idle'); }, 2600);
   });
-  // Проверяем, подключён ли сервер (иначе демо-режим)
+  // Is the server there? (otherwise demo mode)
   fetch('api/health').then(r=>{ if(!r.ok) throw 0; return r.json(); }).then(d=>{ if(!d.ok) throw 0; if(d.tts) serverTTS=d.tts; sttServer=!!d.stt; loadAttestation(false); }).catch(()=>{ enableDemo(); $('vbtn').classList.add('hidden'); });
 })();
