@@ -623,7 +623,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       let c; try{ c=await (await fetch('api/pair/new',{method:'POST'})).json(); if(!c.code) throw new Error(c.error||'pair'); }catch(e){ $('tvS').innerHTML=`<div class="sub">${esc(t('payErr')+e.message)}</div><div class="btns"><button id="tvX">${esc(t('payCancel'))}</button></div>`; $('tvX').onclick=()=>end(new Error(t('payDeclined'))); return; }
       const link=new URL('./?pair='+c.code,location.href).href.replace(/[?&]tv=1/,'');
       let svg=''; try{ const qr=(await import('./vendor/qrcode/qrcode.mjs')).default(0,'M'); qr.addData(link); qr.make(); svg=qr.createSvgTag({cellSize:6,margin:3,scalable:true}); }catch(e){}
-      $('tvS').innerHTML=`<h2>${esc(t('tvTitle'))}</h2><div style="background:#fff;border-radius:14px;width:min(62vh,300px);margin:12px auto;padding:6px">${svg}</div>
+      $('tvS').innerHTML=`<h2>${esc(t('tvTitle'))}</h2><div style="background:#fff;border-radius:14px;width:min(44vh,300px);margin:8px auto;padding:6px">${svg}</div>
         <div class="sub" style="word-break:normal">${esc(t('tvScan'))}</div><div class="big">${esc(t('tvCheck'))}: ${esc(c.check)}</div><div class="pay-st">${esc(t('tvWait'))}</div>
         <div class="btns"><button id="tvX">${esc(t('payCancel'))}</button></div>`;
       $('tvX').onclick=()=>end(new Error(t('payDeclined'))); setTimeout(()=>{ try{ $('tvX').focus(); }catch(e){} },50);
