@@ -44,6 +44,10 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   // installable as an app on the home screen (the service worker caches nothing)
   else if('serviceWorker' in navigator && !BIZ){ try{ navigator.serviceWorker.register('sw.js'); }catch(e){} }
   const t = k => T[lang][k];
+  // A random id for this tab only (no cookie, nothing personal). The TEE gateway hides visitors' addresses, so the server
+  // uses it to keep rate limits per visitor instead of one shared limit for everyone.
+  const VISITOR=(()=>{ try{ let v=sessionStorage.getItem('secra.v'); if(!v){ v=Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join(''); sessionStorage.setItem('secra.v',v); } return v; }catch(e){ return Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join(''); } })();
+  { const f0=window.fetch.bind(window); window.fetch=(u,o={})=>{ try{ const url=new URL(typeof u==='string'?u:u.url,location.href); if(url.origin===location.origin){ const h=new Headers(o.headers||(typeof u!=='string'&&u.headers)||{}); h.set('X-Visitor',VISITOR); o={...o,headers:h}; } }catch(e){} return f0(u,o); }; }
 
   // ---------------- Elements ----------------
   const $ = id => document.getElementById(id);
@@ -137,8 +141,8 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   document.addEventListener('keydown',unlockAudio,{passive:true});   // TV remote: OK is a key press, not a tap
   async function fetchAudio(text){
     const r=await fetch('api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,lang})});
-    if(!r.ok) throw new Error('tts '+r.status);
-    const buf=await r.arrayBuffer();
+    if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error('tts '+r.status+(j.reason?' '+j.reason:'')); }
+    const buf=await r.arrayBuffer(); if(buf.byteLength<45) throw new Error('tts empty');
     return await new Promise((res,rej)=>audioCtx.decodeAudioData(buf,res,rej));
   }
   // Plays the audio and moves the mouth with its loudness
@@ -167,7 +171,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     if(!await hasNext(src,0,id)) return true;
     let next=fetchAudio(chunks[0]);
     for(let i=0;;i++){
-      let buf; try{ buf=await next; }catch(e){ return false; }
+      let buf; try{ buf=await next; }catch(e){ console.warn('voice:',e&&e.message); window.__ttsErr=String(e&&e.message||e); return false; }
       if(id!==speakId) return true;
       const more=await Promise.race([hasNext(src,i+1,id), new Promise(r=>setTimeout(()=>r(null),0))]);
       if(more) next=fetchAudio(chunks[i+1]); // fetch the next phrase ahead of time
@@ -246,12 +250,14 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     // PRIVACY: replies are voiced only by Piper inside our TEE server. The browser's own voices are never used
     // (some report a cloud voice as on-device); if Piper is unavailable the agent answers in text.
     let ok=false;
+    voiceless=false;
+    if(!serverTTS[lang]) window.__ttsErr='no voice on the server'; else if(!audioCtx) window.__ttsErr='audio blocked by the browser, tap the page';
     if(serverTTS[lang] && audioCtx){ ok=await speakServer(src,id,!!intro); }
-    if(!ok && id===speakId){ voiceless=true; setStatus(t('noVoice')); await speakSilent(src,id,!!intro); }
+    if(!ok && id===speakId){ voiceless=true; setStatus(t('noVoice')+(window.__ttsErr?' ('+window.__ttsErr.slice(0,80)+')':'')); await speakSilent(src,id,!!intro); }
     if(id!==speakId) return;
     mouthStop(); setMode(after);
     if(face){ show(face); setTimeout(()=>current===face&&show('idle'),900); }
-    setStatus(voiceless?t('noVoice'):t('ready'));
+    setStatus(voiceless?t('noVoice')+(window.__ttsErr?' ('+window.__ttsErr.slice(0,80)+')':''):t('ready')); if(!voiceless) window.__ttsErr='';
   }
   let voiceless=false;
   function speakBrowser(src,id,waveFirst,voice){

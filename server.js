@@ -124,7 +124,10 @@ try {
 
 // ---------- Abuse protection (salted IP hashes + timestamps only, see lib/ratelimit.js) ----------
 // Behind a proxy (Phala dstack gateway, Northflank) the visitor's address comes in a forwarding header
-const clientIp = req => (TRUST_PROXY && ((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || String(req.headers['x-real-ip'] || '').trim())) || req.socket.remoteAddress;
+const fwdIp = req => (TRUST_PROXY && ((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || String(req.headers['x-real-ip'] || '').trim())) || '';
+// Phala's gateway passes TLS straight into the enclave, so every visitor arrives from the gateway's address. Then the page's
+// random per-tab id (X-Visitor, never stored, only hashed with a per-process salt like an IP) keeps budgets per visitor.
+const clientIp = req => { const ip = fwdIp(req); if (ip) return ip; const v = String(req.headers['x-visitor'] || ''); return /^[A-Za-z0-9_-]{16,40}$/.test(v) ? 'v:' + v : req.socket.remoteAddress; };
 // Separate budgets per action, so voice playback or re-checking the proof never eats the question quota.
 // Per visitor per window: questions PER_USER_LIMIT, speech-to-text 2x, voice playback 15x (one request per sentence), proof checks 10.
 const BUDGET = { chat: PER_USER_LIMIT, stt: PER_USER_LIMIT * 2, tts: PER_USER_LIMIT * 15, verify: 10, selftest: 6, pay: 150, poll: 2000 };   // poll: balance and status reads while a payment settles
@@ -436,6 +439,7 @@ const { spawn } = require('child_process');
 const PIPER_DIR = process.env.PIPER_DIR || path.join(__dirname, 'piper');
 const PIPER_BIN = path.join(PIPER_DIR, 'piper', 'piper');
 const VOICES = { ru: path.join(PIPER_DIR, 'ru.onnx'), en: path.join(PIPER_DIR, 'en.onnx') };
+let lastTts = null;   // the last voice synthesis: time, ok, duration, size or error (no text)
 const ttsReady = l => fs.existsSync(PIPER_BIN) && fs.existsSync(VOICES[l]);
 let ttsActive = 0; const ttsQueue = []; const TTS_PARALLEL = Number(process.env.TTS_PARALLEL || 2);
 const ttsSlot = () => new Promise(res => { if (ttsActive < TTS_PARALLEL) { ttsActive++; res(); } else ttsQueue.push(res); });
@@ -445,10 +449,12 @@ async function synthesize(text, l) {
   try {
     return await new Promise((resolve, reject) => {
       const p = spawn(PIPER_BIN, ['-m', VOICES[l], '-f', '-', '-q', '--length_scale', '0.95'], { cwd: path.dirname(PIPER_BIN) });
-      const out = []; const timer = setTimeout(() => { p.kill('SIGKILL'); reject(new Error('timeout')); }, 30e3);
+      const out = [], err = []; const timer = setTimeout(() => { p.kill('SIGKILL'); reject(new Error('timeout')); }, 30e3);
       p.stdout.on('data', d => out.push(d));
+      p.stderr.on('data', d => { if (err.length < 20) err.push(d); });
       p.on('error', e => { clearTimeout(timer); reject(e); });
-      p.on('close', code => { clearTimeout(timer); code === 0 ? resolve(Buffer.concat(out)) : reject(new Error('piper code ' + code)); });
+      p.on('close', (code, sig) => { clearTimeout(timer); const wav = Buffer.concat(out), why = Buffer.concat(err).toString('utf8').replace(/\s+/g, ' ').slice(-300);
+        if (code === 0 && wav.length > 44) resolve(wav); else reject(new Error('piper ' + (code === 0 ? 'gave no audio' : 'exit ' + code + (sig ? ' ' + sig : '')) + (why ? ': ' + why : ''))); });
       p.stdin.end(text.replace(/\s+/g, ' '));
     });
   } finally { ttsRelease(); }
@@ -745,6 +751,13 @@ const server = http.createServer(async (req, res) => {
     return res.end(JSON.stringify({ model: attestation.model, nonce: attestation.nonce, checkedAt: attestation.checkedAt, signing_algo: 'ecdsa', report: attestation.raw }, null, 2));
   }
 
+  if (url.pathname === '/api/tts/check') {
+    if (allow(req, 'verify')) return send(res, 429, { error: 'too_often' });
+    if (!ttsReady('en')) return send(res, 200, { ok: false, error: 'piper or the English voice is missing in this build' });
+    const t0 = Date.now();
+    try { const wav = await synthesize('Hello, I am SECRA.', 'en'); lastTts = { at: new Date().toISOString(), ok: true, ms: Date.now() - t0, bytes: wav.length }; return send(res, 200, { ok: true, ms: Date.now() - t0, bytes: wav.length, wavHeader: wav.slice(0, 4).toString('latin1') }); }
+    catch (e) { lastTts = { at: new Date().toISOString(), ok: false, ms: Date.now() - t0, error: e.message }; return send(res, 200, { ok: false, ms: Date.now() - t0, error: e.message }); }
+  }
   if (url.pathname === '/api/tts' && req.method === 'POST') {
     let body;
     try { body = JSON.parse((await readBody(req, 20e3)).toString('utf8')); } catch { return send(res, 400, { error: 'bad_request' }); }
@@ -753,8 +766,9 @@ const server = http.createServer(async (req, res) => {
     if (!text) return send(res, 400, { error: 'empty' });
     if (!ttsReady(l)) return send(res, 503, { error: 'no_tts' });
     if (allow(req, 'tts')) return send(res, 429, { error: 'user_limit' });
-    try { const wav = await synthesize(text, l); res.writeHead(200, { 'Content-Type': 'audio/wav', 'Content-Length': wav.length, 'Cache-Control': 'no-store' }); return res.end(wav); }
-    catch (e) { console.error('TTS error:', e.message); return send(res, 502, { error: 'tts_error' }); }
+    const t0 = Date.now();
+    try { const wav = await synthesize(text, l); lastTts = { at: new Date().toISOString(), ok: true, ms: Date.now() - t0, bytes: wav.length }; res.writeHead(200, { 'Content-Type': 'audio/wav', 'Content-Length': wav.length, 'Cache-Control': 'no-store' }); return res.end(wav); }
+    catch (e) { lastTts = { at: new Date().toISOString(), ok: false, ms: Date.now() - t0, error: e.message }; console.error('TTS error:', e.message); return send(res, 502, { error: 'tts_error', reason: e.message }); }
   }
 
   // /dev page data (aggregate numbers only), protected by DEV_KEY
@@ -786,7 +800,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/health') return send(res, 200, {
     ok: true, key: !!KEY, model: MODEL, modelChecked, stt: !!sttModel, sttModel, lastStt, lastError, lastReject, tools: toolsOn, webSearch: webSearchEnabled,
     verifierLibs: libsReady(), attestationOk: attestation?.ok ?? null, models: availableModels,
-    tts: { ru: ttsReady('ru'), en: ttsReady('en') }, storesUserData: false, keepsAtRest: 'only what an agent-wallet owner set: standing orders and limits (with the day spending) — encrypted with a TEE key', relayInTee: relay.inTee(), mem: memInfo(), visitorIpSeen: !!(req.headers['x-forwarded-for'] || req.headers['x-real-ip']),
+    tts: { ru: ttsReady('ru'), en: ttsReady('en') }, lastTts, storesUserData: false, keepsAtRest: 'only what an agent-wallet owner set: standing orders and limits (with the day spending) — encrypted with a TEE key', relayInTee: relay.inTee(), mem: memInfo(), visitorIpSeen: !!(req.headers['x-forwarded-for'] || req.headers['x-real-ip']),
   });
 
   // Static files
