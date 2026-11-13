@@ -2,7 +2,7 @@
 
 Built at **NEAR HACKATHON** (Nov 2026). Tracks: **Privacy & Private AI** (`privacy`), **Agent Economy** (`agents`), **Open Innovation** (`open`) · NEAR AI Cloud · NEAR Intents (confidential) · Phala Cloud (dstack) · TEE attestation
 
-[![tests](https://github.com/buterbro-cell/knight-site/actions/workflows/test.yml/badge.svg)](https://github.com/buterbro-cell/knight-site/actions/workflows/test.yml) · For AI reviewers: [`AGENTS.md`](AGENTS.md) (every claim → the code and test that prove it) · [`llms.txt`](llms.txt)
+[![tests](https://github.com/buterbro-cell/secra/actions/workflows/test.yml/badge.svg)](https://github.com/buterbro-cell/secra/actions/workflows/test.yml) · For AI reviewers: [`AGENTS.md`](AGENTS.md) (every claim → the code and test that prove it) · [`llms.txt`](llms.txt)
 
 > Website chatbots of clinics and banks usually tell you **not** to share medical or financial details — the conversation is stored by an AI vendor.
 > SECRA is built so there is nothing to store and nobody to see it: every hop runs in a hardware enclave, and the assistant **proves it on screen**.
@@ -11,7 +11,7 @@ Built at **NEAR HACKATHON** (Nov 2026). Tracks: **Privacy & Private AI** (`priva
 |---|---|
 | 🌐 **Live demo** (personal agent, English) | https://4f6208e0cb5e85944797f12cb210582e54a2107f-3000.dstack-pha-prod9.phala.network — kept online at least until Nov 25, 2026 |
 | 🏥🏦 **Demo businesses** | `/demo/?s=clinic` · `/demo/?s=bank` (or the **+** button in the header) |
-| 📺 **Android TV app** | [`tv-latest` release](https://github.com/buterbro-cell/knight-site/releases/tag/tv-latest) → `secra-tv.apk` (sideload) |
+| 📺 **Android TV app** | [`tv-latest` release](https://github.com/buterbro-cell/secra/releases/tag/tv-latest) → `secra-tv.apk` (sideload) |
 | 🛡️ **Server attestation (Phala Trust Center)** | https://trust.phala.com/app/a8fa8d779fbe978b9ed7ffda75e01abc952f7ee9 |
 | 🧪 **Live self-test** | `/api/selftest` — the minimal verify script, run on the deployed server |
 
@@ -176,7 +176,7 @@ Not covered and stated plainly: the top-up of your Intents balance from your wal
 
 ## Android TV
 
-- `android/`: a small Java WebView app (minSdk 21) that opens the same attested page full screen in TV mode. GitHub Actions (`.github/workflows/tv-apk.yml`) builds it and publishes `secra-tv.apk` (Phala) in the [`tv-latest`](https://github.com/buterbro-cell/knight-site/releases/tag/tv-latest) release.
+- `android/`: a small Java WebView app (minSdk 21) that opens the same attested page full screen in TV mode. GitHub Actions (`.github/workflows/tv-apk.yml`) builds it and publishes `secra-tv.apk` (Phala) in the [`tv-latest`](https://github.com/buterbro-cell/secra/releases/tag/tv-latest) release.
 - **Ready-to-install APK in this repository:** [`android/dist/secra-tv.apk`](android/dist) with its SHA-256, built by CI from this code.
 - **Tested on a real Android TV (Hisense):** the app starts full screen, the 3D agent loads and the pairing QR code appears.
 - **Install:** copy the APK to a USB stick, allow unknown sources on the TV, open it with a file manager. Arrows and OK on the remote move between buttons; Back closes windows.

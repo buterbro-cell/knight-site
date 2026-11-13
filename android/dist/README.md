@@ -2,7 +2,7 @@
 
 `secra-tv.apk` opens the live SECRA deployment on Phala Cloud in TV mode. It was built by GitHub Actions
 (`.github/workflows/tv-apk.yml`) from commit `39c684a` of this repository; the same file is in the
-[`tv-latest`](https://github.com/buterbro-cell/knight-site/releases/tag/tv-latest) release. Check it:
+[`tv-latest`](https://github.com/buterbro-cell/secra/releases/tag/tv-latest) release. Check it:
 
 ```bash
 sha256sum -c SHA256SUMS
