@@ -897,6 +897,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
 </div>`};
   function openInfo(){ $('pmodal').classList.remove('hidden'); $('psheet').innerHTML=`<h2>${esc(t('infoTitle'))}</h2>${INFO.en}<div class="btns"><button id="iX">Got it</button></div>`; if(!(payCfg&&payCfg.agentWallet==='dev')) $('psheet').querySelectorAll('[data-dev]').forEach(e=>e.remove());   // shown only where it is true
     $('psheet').scrollTop=0; $('iX').onclick=closePay; }
+  if(!BIZ&&!EMBED&&!IS_TV) document.getElementById('cbtn').classList.remove('hidden');   // the clinic demo: a business site with SECRA in the corner
   if(!BIZ){ const ib=document.getElementById('ibtn'); ib.classList.remove('hidden'); ib.onclick=openInfo; ib.title=t('infoTitle'); }
   // ---- top up from another chain (BNB, Ethereum, Solana, Tron…): a one-time deposit address from NEAR Intents
   const toUnitsStr=(a,dec)=>{ const [i,f='']=String(a).split('.'); return (BigInt(i||'0')*10n**BigInt(dec)+BigInt((f+'0'.repeat(dec)).slice(0,dec)||'0')).toString(); };

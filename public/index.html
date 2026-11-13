@@ -42,7 +42,7 @@
   /* bright business rooms (clinic): keep the header readable */
   html.embed header{margin:0 -16px;padding:10px 16px 14px 62px;width:calc(100% + 32px);max-width:none;background:linear-gradient(180deg,rgba(6,12,32,.72),rgba(6,12,32,0))}
 </style>
-<link rel="stylesheet" href="glass.css?v=1">
+<link rel="stylesheet" href="glass.css?v=2">
 </head>
 <body>
 <div class="app">
@@ -53,6 +53,7 @@
   <header>
     <div class="brand" id="title">SECRA<small id="subtitle">Private AI agent on NEAR</small></div>
     <div class="hdr-right">
+      <a class="vbtn ibtn hidden" id="cbtn" href="demo/?s=clinic" aria-label="Open the clinic demo" title="Clinic demo"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></a>
       <button class="vbtn ibtn hidden" id="ibtn" aria-label="About the agent">?</button>
       <button class="vbtn wbtn hidden" id="wbtn" aria-label="Wallet"><span id="wtext">Wallet</span></button>
       <button class="vbtn wait" id="vbtn" aria-label="TEE check"><span class="dot"></span><span id="vtext">TEE…</span></button>
