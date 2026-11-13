@@ -40,7 +40,7 @@ let MODEL = process.env.MODEL || 'deepseek-ai/DeepSeek-V4.1-Flash-1017';
 // Fallbacks — only models NEAR AI hosts itself in TEEs (not "Incognito" models of OpenAI/Anthropic/Google)
 const MODEL_PREFS = ['deepseek-ai/DeepSeek-V4.1-Flash-1017', 'Qwen3.8-27B', 'GLM-5.3-Flash', 'Qwen3.6-35B-A3B', 'Qwen3-VL-30B-A3B'];
 const DEV_KEY = process.env.DEV_KEY || '';
-const CHAR_NAME = process.env.CHAR_NAME || 'SECRA (по-русски произносится «Секра»)';
+const CHAR_NAME = process.env.CHAR_NAME || 'SECRA';
 const PER_USER_LIMIT = Number(process.env.PER_USER_LIMIT || 40);
 const PER_USER_WINDOW_MIN = Number(process.env.PER_USER_WINDOW_MIN || 60);
 const DAILY_LIMIT = Number(process.env.DAILY_LIMIT || 3000);
@@ -88,7 +88,7 @@ function recordUsage(usage, ms, firstMs) {
 const SYSTEM_PROMPT = `Ты — ${CHAR_NAME}, спокойный, надёжный и умный приватный ИИ-агент на NEAR: в футуристичной броне, с голубым светящимся визором. О себе говоришь в мужском роде. Ты говоришь голосом, поэтому:
 - отвечай коротко и по делу: обычно 2–5 предложений, как в живом разговоре; если вопрос сложный — можно чуть длиннее;
 - никакой разметки, списков, эмодзи и спецсимволов — только обычный текст для озвучки;
-- отвечай на языке вопроса (русский — по-русски, английский — по-английски);
+- ВСЕГДА отвечай только по-английски, даже если вопрос или документ на другом языке: интерфейс и голос сайта английские (always answer in English);
 - объясняй сложное простыми словами, можно с лёгким юмором, но без перебора.
 
 Ты помогаешь с любыми нормальными вопросами, а не только про NEAR: программирование, учёба, работа, идеи, жизненные ситуации.
