@@ -2,6 +2,10 @@ package near.secra.tv;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Intent;
+import android.speech.RecognizerIntent;
+import android.webkit.JavascriptInterface;
+import java.util.ArrayList;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -53,8 +57,34 @@ public class MainActivity extends Activity {
         });
       }
     });
+    web.addJavascriptInterface(new Object() {
+      // the page asks for one spoken phrase; the TV's voice input (remote microphone) returns it as text
+      @JavascriptInterface public void listen(final String lang) {
+        runOnUiThread(() -> {
+          try {
+            Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang == null || lang.length() > 12 ? "en-US" : lang);
+            i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+            startActivityForResult(i, 7);
+          } catch (Exception e) { heard(""); }
+        });
+      }
+    }, "SecraTV");
     if (!hasMic()) askMic();
     if (state != null) web.restoreState(state); else web.loadUrl(BuildConfig.START_URL);
+  }
+
+  private void heard(String text) {
+    String js = org.json.JSONObject.quote(text == null ? "" : text);
+    web.evaluateJavascript("window.__tvHeard&&window.__tvHeard(" + js + ")", null);
+    web.requestFocus();
+  }
+  @Override protected void onActivityResult(int code, int result, Intent data) {
+    super.onActivityResult(code, result, data);
+    if (code != 7) return;
+    ArrayList<String> r = result == RESULT_OK && data != null ? data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS) : null;
+    heard(r != null && !r.isEmpty() ? r.get(0) : "");
   }
 
   private boolean hasMic() { return Build.VERSION.SDK_INT < 23 || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED; }
