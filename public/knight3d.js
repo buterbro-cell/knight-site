@@ -8,12 +8,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const ROOT = new URL('./3d/', import.meta.url).href;
-const MODEL_VER = '9c7a316455';   // change when a model file changes, so browsers don't keep an old cached copy
+const MODEL_VER = 'c806b64049';   // change when a model file changes, so browsers don't keep an old cached copy
 const DBG = new URLSearchParams(location.search);
 const num = (k, v) => (DBG.has(k) ? +DBG.get(k) : v);
 
 // ---- tuning (world units, SECRA is scaled to ~1.67 tall, faces +Z) ----
-const MODEL_SCALE = 1.67;   // the Tripo/Mixamo model is 1.0 tall
+const MODEL_SCALE = 1.88;   // the Meshy/Mixamo model is ~0.89 tall → ~1.67 on stage
 // glowing visor face: eyes + voice line drawn on a curved patch over the dark visor
 const FACE = { w: num('fw', 0.2), y: num('fy', 0.12), z: num('fz', 0.12), cx: num('cx', 6), cy: num('cy', 4) };
 // chibi body is wide: push the upper arms away from the torso in every animation (like Mixamo's "arm space")
@@ -146,6 +146,7 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
     const patch = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: face.tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4 }));
     const hp = head.getWorldPosition(new THREE.Vector3());
     patch.position.set(0, hp.y + FACE.y, hp.z + FACE.z); patch.renderOrder = 2;
+    patch.visible = false;   // Azure has a clean glowing visor of its own; the face canvas stays for expressions logic
     S.add(patch); patch.updateMatrixWorld(true); head.attach(patch);
     act('Idle').stop();
   }
