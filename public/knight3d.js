@@ -147,11 +147,25 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
     const geo = new THREE.PlaneGeometry(FACE.w, FACE.w * 0.6, 30, 18), p = geo.attributes.position;
     for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i); p.setZ(i, -x * x * FACE.cx - y * y * FACE.cy); }
     const patch = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: face.tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+    // place the eyes in the head's own frame, so they stay centred on the visor whichever way the head turns
+    const hq = head.getWorldQuaternion(new THREE.Quaternion());
     const hp = head.getWorldPosition(new THREE.Vector3());
-    patch.position.set(0, hp.y + FACE.y, hp.z + FACE.z); patch.renderOrder = 2;
+    const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(hq);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(hq);
+    const centre = hp.clone().addScaledVector(up, FACE.y);
+    patch.quaternion.copy(hq); patch.position.copy(centre).addScaledVector(fwd, FACE.z); patch.renderOrder = 2;
     if (body) {   // sit the eyes right on the visor surface
-      const rc = new THREE.Raycaster(new THREE.Vector3(hp.x, patch.position.y, hp.z + 5), new THREE.Vector3(0, 0, -1));
-      const hit = rc.intersectObject(body, false)[0]; if (hit) patch.position.z = hit.point.z + 0.006;
+      const rc = new THREE.Raycaster(centre.clone().addScaledVector(fwd, 0.6), fwd.clone().negate());
+      const hit = rc.intersectObject(body, false)[0];
+      if (hit) patch.position.copy(hit.point).addScaledVector(fwd, 0.006);
+      // hug the curved visor: push every vertex of the eye patch onto the visor surface
+      patch.updateMatrixWorld(true); const v = new THREE.Vector3(), back = fwd.clone().negate(), r2 = new THREE.Raycaster();
+      for (let i = 0; i < p.count; i++) {
+        v.set(p.getX(i), p.getY(i), 0); patch.localToWorld(v);
+        r2.set(v.clone().addScaledVector(fwd, 0.6), back); const h2 = r2.intersectObject(body, false)[0];
+        if (h2) { const l = patch.worldToLocal(h2.point.clone().addScaledVector(fwd, 0.005)); p.setZ(i, l.z); }
+      }
+      p.needsUpdate = true; geo.computeBoundingSphere();
     }
     S.add(patch); patch.updateMatrixWorld(true); head.attach(patch);
     act('Idle').stop();
@@ -233,7 +247,7 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
       } else if (face.mouth !== 'closed' && face.eyes !== 'happy') face.set(null, 'closed');
       if (mode === 'listen' && !talkingNow && curName === IDLE && now - lastNod > 4500) { lastNod = now; play('Head_Nod_Yes', { loop: false, fade: 0.3 }); }
     }
-    if (now > blinkAt && face.eyes === 'open') { face.set('closed'); setTimeout(() => face.eyes === 'closed' && !overlay && face.set('open'), 130); blinkAt = now + 2200 + Math.random() * 3500; }
+    if (now > blinkAt && face.eyes === 'open' && !overlay) { face.set('closed'); setTimeout(() => face.eyes === 'closed' && !overlay && face.set('open'), 130); blinkAt = now + 2200 + Math.random() * 3500; }
     R.render(S, C);
   });
   if (DBG.has('rotY')) knight.rotation.y = +DBG.get('rotY') * Math.PI / 180;
@@ -275,16 +289,16 @@ export function makeFace() {
   const FW = 1000, FH = 600, cv = document.createElement('canvas'); cv.width = FW; cv.height = FH;
   const g = cv.getContext('2d'), tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
   const st = { eyes: 'open', mouth: 'closed', tex, set(e, m) { if (e) st.eyes = e; if (m) st.mouth = m; draw(); } };
-  const GLOW = '#7ff3ff', EY = 300, EX = [340, 660], MY = 440;
+  const GLOW = '#7ff3ff', EY = 300, EX = [365, 635], MY = 440;
   function glow(fn, w = 26) { g.save(); g.strokeStyle = GLOW; g.fillStyle = GLOW; g.lineCap = 'round'; g.lineJoin = 'round'; g.shadowColor = GLOW; g.shadowBlur = 40; g.lineWidth = w; fn(); g.restore(); }
   // visor eyes: two narrow glowing slits, tilted toward the middle (as in the promo video)
   function slit(x, y, len, th, ang) { g.save(); g.translate(x, y); g.rotate(ang); g.beginPath(); g.ellipse(0, 0, len / 2, th / 2, 0, 0, Math.PI * 2); g.fill(); g.restore(); }
   function eye(x, kind) {
     const s = x < FW / 2 ? 1 : -1;   // left eye: inner end is to the right
     glow(() => {
-      if (kind === 'open') { slit(x, EY, 185, 84, 0.3 * s); }
-      else if (kind === 'angry') { slit(x, EY + 10, 185, 64, 0.5 * s); }
-      else if (kind === 'closed') { slit(x, EY + 8, 175, 14, 0.3 * s); }
+      if (kind === 'open') { slit(x, EY, 160, 74, 0.3 * s); }
+      else if (kind === 'angry') { slit(x, EY + 10, 160, 56, 0.5 * s); }
+      else if (kind === 'closed') { slit(x, EY + 8, 150, 12, 0.3 * s); }
       else if (kind === 'happy') { g.beginPath(); g.arc(x, EY + 60, 92, 1.2 * Math.PI, 1.8 * Math.PI); g.stroke(); }
       else if (kind === 'x') { g.beginPath(); g.moveTo(x - 50, EY - 50); g.lineTo(x + 50, EY + 50); g.moveTo(x + 50, EY - 50); g.lineTo(x - 50, EY + 50); g.stroke(); }
     }, 24);
