@@ -892,10 +892,11 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
 <li><b>Your data.</b> Contacts and spending history stay on this device.</li></ul>
 <h3>Limits</h3><ul>
 <li>Payments are private. Moving money from your own wallet into your Intents balance is a regular on-chain transfer, so that one step is visible.</li>
-<li>The test server is not a TEE. The agent key is not protected there.</li>
+<li data-dev>This is the test server. It does not run in a TEE, so the agent key is not protected here.</li>
 <li>Scheduled purchases run only while the server is up.</li></ul>
 </div>`};
-  function openInfo(){ $('pmodal').classList.remove('hidden'); $('psheet').innerHTML=`<h2>${esc(t('infoTitle'))}</h2>${INFO.en}<div class="btns"><button id="iX">Got it</button></div>`; $('psheet').scrollTop=0; $('iX').onclick=closePay; }
+  function openInfo(){ $('pmodal').classList.remove('hidden'); $('psheet').innerHTML=`<h2>${esc(t('infoTitle'))}</h2>${INFO.en}<div class="btns"><button id="iX">Got it</button></div>`; if(!(payCfg&&payCfg.agentWallet==='dev')) $('psheet').querySelectorAll('[data-dev]').forEach(e=>e.remove());   // shown only where it is true
+    $('psheet').scrollTop=0; $('iX').onclick=closePay; }
   if(!BIZ){ const ib=document.getElementById('ibtn'); ib.classList.remove('hidden'); ib.onclick=openInfo; ib.title=t('infoTitle'); }
   // ---- top up from another chain (BNB, Ethereum, Solana, Tron…): a one-time deposit address from NEAR Intents
   const toUnitsStr=(a,dec)=>{ const [i,f='']=String(a).split('.'); return (BigInt(i||'0')*10n**BigInt(dec)+BigInt((f+'0'.repeat(dec)).slice(0,dec)||'0')).toString(); };
