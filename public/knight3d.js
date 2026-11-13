@@ -15,7 +15,7 @@ const num = (k, v) => (DBG.has(k) ? +DBG.get(k) : v);
 // ---- tuning (world units, SECRA is scaled to ~1.67 tall, faces +Z) ----
 const MODEL_SCALE = 1.88;   // the Meshy/Mixamo model is ~0.89 tall → ~1.67 on stage
 // glowing visor face: eyes + voice line drawn on a curved patch over the dark visor
-const FACE = { w: num('fw', 0.2), y: num('fy', 0.12), z: num('fz', 0.12), cx: num('cx', 6), cy: num('cy', 4) };
+const FACE = { w: num('fw', 0.24), y: num('fy', 0.13), z: num('fz', 0.12), cx: num('cx', 3), cy: num('cy', 4) };
 // chibi body is wide: push the upper arms away from the torso in every animation (like Mixamo's "arm space")
 const ARM_OUT = num('arm', 0) * Math.PI / 180, ARM_AXIS = DBG.get('armax') || 'x';
 
@@ -275,16 +275,16 @@ export function makeFace() {
   const FW = 1000, FH = 600, cv = document.createElement('canvas'); cv.width = FW; cv.height = FH;
   const g = cv.getContext('2d'), tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
   const st = { eyes: 'open', mouth: 'closed', tex, set(e, m) { if (e) st.eyes = e; if (m) st.mouth = m; draw(); } };
-  const GLOW = '#7ff3ff', EY = 300, EX = [330, 670], MY = 440;
+  const GLOW = '#7ff3ff', EY = 300, EX = [340, 660], MY = 440;
   function glow(fn, w = 26) { g.save(); g.strokeStyle = GLOW; g.fillStyle = GLOW; g.lineCap = 'round'; g.lineJoin = 'round'; g.shadowColor = GLOW; g.shadowBlur = 40; g.lineWidth = w; fn(); g.restore(); }
   // visor eyes: two narrow glowing slits, tilted toward the middle (as in the promo video)
   function slit(x, y, len, th, ang) { g.save(); g.translate(x, y); g.rotate(ang); g.beginPath(); g.ellipse(0, 0, len / 2, th / 2, 0, 0, Math.PI * 2); g.fill(); g.restore(); }
   function eye(x, kind) {
     const s = x < FW / 2 ? 1 : -1;   // left eye: inner end is to the right
     glow(() => {
-      if (kind === 'open') { g.globalAlpha = 0.95; slit(x, EY, 190, 46, 0.2 * s); }
-      else if (kind === 'angry') { slit(x, EY + 10, 190, 40, 0.42 * s); }
-      else if (kind === 'closed') { slit(x, EY + 8, 180, 12, 0.12 * s); }
+      if (kind === 'open') { slit(x, EY, 185, 84, 0.3 * s); }
+      else if (kind === 'angry') { slit(x, EY + 10, 185, 64, 0.5 * s); }
+      else if (kind === 'closed') { slit(x, EY + 8, 175, 14, 0.3 * s); }
       else if (kind === 'happy') { g.beginPath(); g.arc(x, EY + 60, 92, 1.2 * Math.PI, 1.8 * Math.PI); g.stroke(); }
       else if (kind === 'x') { g.beginPath(); g.moveTo(x - 50, EY - 50); g.lineTo(x + 50, EY + 50); g.moveTo(x + 50, EY - 50); g.lineTo(x - 50, EY + 50); g.stroke(); }
     }, 24);

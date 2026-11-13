@@ -34,7 +34,7 @@
 
   var btn = document.createElement('button');
   btn.className = 'snw-btn'; btn.type = 'button';
-  btn.innerHTML = '<img alt="" src="' + origin + '/img/idle.webp?v=secra7"><span>' + label + '<small>🔒 ' + (lang === 'ru' ? 'проверяемо приватно' : 'verifiably private') + '</small></span>';
+  btn.innerHTML = '<img alt="" src="' + origin + '/img/idle.webp?v=secra8"><span>' + label + '<small>🔒 ' + (lang === 'ru' ? 'проверяемо приватно' : 'verifiably private') + '</small></span>';
   var panel = document.createElement('div'); panel.className = 'snw-panel';
   var close = document.createElement('button'); close.className = 'snw-x'; close.type = 'button'; close.textContent = '✕'; close.setAttribute('aria-label', 'Close');
   panel.appendChild(close);
