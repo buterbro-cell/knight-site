@@ -993,7 +993,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     sh.innerHTML=`<h2>${esc(t('agTitle'))}</h2><div class="pay-st">…</div>`;
     const w=await loadWallet();
     const draw=async(msg)=>{
-      let i; try{ i=await w.agentInfo(); }catch(e){ sh.innerHTML=`<h2>${esc(t('agTitle'))}</h2><div class="sub">${esc(t('agOff'))}</div><div class="btns"><button id="aX">OK</button></div>`; $('aX').onclick=closePay; return; }
+      let i; try{ i=await w.agentInfo(); }catch(e){ const m=String(e&&e.message||''); const why=/agent_wallet_needs_tee/.test(m)?t('agOff'):/too_often/.test(m)?'Too many requests from this device. Wait a minute and open it again.':'The agent wallet did not answer ('+(m||'network')+'). Try again in a moment.'; sh.innerHTML=`<h2>${esc(t('agTitle'))}</h2><div class="sub">${esc(why)}</div><div class="btns"><button id="aX">OK</button></div>`; $('aX').onclick=closePay; return; }
       const L=i.limits||{};
       sh.innerHTML=`<h2>${esc(t('agTitle'))}</h2><div class="sub" style="word-break:normal">${esc(t('agWhat'))}</div>${i.mode==='dev'?`<div class="pay-priv" style="color:#fcd57a;background:rgba(251,191,36,.12)">${esc(t('agDev'))}</div>`:''}
         <div class="pay-row"><span>${esc(t('agAccount'))}</span><b>${esc(fmtAcct(i.account))}</b></div>

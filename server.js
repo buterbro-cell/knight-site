@@ -127,7 +127,7 @@ try {
 const clientIp = req => (TRUST_PROXY && ((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || String(req.headers['x-real-ip'] || '').trim())) || req.socket.remoteAddress;
 // Separate budgets per action, so voice playback or re-checking the proof never eats the question quota.
 // Per visitor per window: questions PER_USER_LIMIT, speech-to-text 2x, voice playback 15x (one request per sentence), proof checks 10.
-const BUDGET = { chat: PER_USER_LIMIT, stt: PER_USER_LIMIT * 2, tts: PER_USER_LIMIT * 15, verify: 10, selftest: 6, pay: 30 };
+const BUDGET = { chat: PER_USER_LIMIT, stt: PER_USER_LIMIT * 2, tts: PER_USER_LIMIT * 15, verify: 10, selftest: 6, pay: 150, poll: 2000 };   // poll: balance and status reads while a payment settles
 const limiter = createLimiter({ budget: BUDGET, defaultLimit: PER_USER_LIMIT, windowMin: PER_USER_WINDOW_MIN, dailyLimit: DAILY_LIMIT });
 setInterval(limiter.sweep, 60e3).unref();
 const allow = (req, kind = 'chat') => limiter.allow(clientIp(req), kind);
@@ -639,7 +639,7 @@ const server = http.createServer(async (req, res) => {
     try { return send(res, 200, await pay.submit(b)); } catch (e) { return send(res, 400, { error: e.message }); }
   }
   if (url.pathname === '/api/pay/balances') {
-    if (allow(req, 'pay')) return send(res, 429, { error: 'too_often' });
+    if (allow(req, 'poll')) return send(res, 429, { error: 'too_often' });
     try { return send(res, 200, await pay.balances(String(url.searchParams.get('account') || ''))); } catch (e) { return send(res, 400, { error: e.message }); }
   }
   if (url.pathname === '/api/pay/status') {
@@ -666,7 +666,7 @@ const server = http.createServer(async (req, res) => {
 
   // ---- Full mode: the agent's own wallet, key only inside this TEE (lib/agentwallet.js)
   if (url.pathname.startsWith('/api/agent/')) {
-    if (allow(req, 'pay')) return send(res, 429, { error: 'too_often' });
+    if (allow(req, req.method === 'GET' ? 'poll' : 'pay')) return send(res, 429, { error: 'too_often' });
     if (agentWallet.mode() === 'off') return send(res, 503, { error: 'agent_wallet_needs_tee', mode: 'off' });
     try {
       if (url.pathname === '/api/agent/info') return send(res, 200, await agentWallet.info(String(url.searchParams.get('owner') || '')));
