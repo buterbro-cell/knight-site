@@ -23,22 +23,23 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
   // ---------- renderer ----------
   const canvas = document.createElement('canvas');
   canvas.className = 'k3d';
-  Object.assign(canvas.style, { position: 'absolute', left: '-60%', width: '220%', top: '-30%', height: '130%', pointerEvents: 'none', opacity: '0', transition: 'opacity .4s' });
+  Object.assign(canvas.style, { position: 'absolute', left: '-60%', width: '220%', top: '-30%', height: '130%', pointerEvents: 'none', opacity: '0', transition: 'opacity .4s', filter: 'drop-shadow(0 0 14px rgba(120,225,255,.28))' });
   host.appendChild(canvas);
   const R = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: DBG.has('shot') });
   R.setPixelRatio(Math.min(devicePixelRatio, 2));
-  R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = num('exp', 1.0);
+  R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = DBG.get('tm') === 'a' ? THREE.ACESFilmicToneMapping : THREE.NeutralToneMapping; R.toneMappingExposure = num('exp', 1.0);
   R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap;
   const S = new THREE.Scene();
   S.environment = new THREE.PMREMGenerator(R).fromScene(new RoomEnvironment(), 0.04).texture;
+  // neutral tone mapping + matte armor keep the soft pastel look of the promo video
   // lit like the promo video: soft cool fill, a key from the front-right, strong cyan rims on both sides of the silhouette
-  S.add(new THREE.HemisphereLight(0xd6e6ff, 0x101c40, num('hemi', 0.75)));
-  const key = new THREE.DirectionalLight(0xf4f8ff, num('key', 1.9)); key.position.set(1.2, 3, 3); key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
+  S.add(new THREE.HemisphereLight(0xe6f6ff, 0x35556f, num('hemi', 2.4)));
+  const key = new THREE.DirectionalLight(0xf4f8ff, num('key', 0.7)); key.position.set(1.2, 3, 3); key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
   Object.assign(key.shadow.camera, { left: -1.6, right: 1.6, top: 2.2, bottom: -0.6 }); S.add(key);
-  const rim = new THREE.DirectionalLight(0x7fe0ff, num('rim', 3.2)); rim.position.set(-2.2, 1.8, -2); S.add(rim);
-  const rim2 = new THREE.DirectionalLight(0x9fc8ff, num('rim', 3.2) * 0.8); rim2.position.set(2.2, 1.6, -2); S.add(rim2);
+  const rim = new THREE.DirectionalLight(0x7fe0ff, num('rim', 1.2)); rim.position.set(-2.2, 1.8, -2); S.add(rim);
+  const rim2 = new THREE.DirectionalLight(0x9fc8ff, num('rim', 1.2) * 0.8); rim2.position.set(2.2, 1.6, -2); S.add(rim2);
   const fill = new THREE.DirectionalLight(0x8fb8ff, 0.5); fill.position.set(-1.5, 0.4, 2.5); S.add(fill);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(4, 3), new THREE.ShadowMaterial({ opacity: 0.32 }));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(4, 3), new THREE.ShadowMaterial({ opacity: 0.4 }));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; S.add(floor);
   const C = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50);
   C.position.set(0, 0.9, 10); C.lookAt(0, 0.9, 0);
@@ -60,7 +61,7 @@ export async function createKnight(host, { onReact = () => {} } = {}) {
   const knight = K.scene; knight.scale.setScalar(MODEL_SCALE); S.add(knight);
   const bone = n => { let b = null; knight.traverse(o => { if (o.name === n) b = o; }); return b; };
   let body = null;
-  knight.traverse(o => { if (o.isMesh) { o.castShadow = true; if (o.material) { o.material.envMapIntensity = num('env', 1.0); glowStripes(o.material); } } });
+  knight.traverse(o => { if (o.isMesh) { o.castShadow = true; if (o.material) { const m = o.material; m.envMapIntensity = num('env', 0.4); m.metalness = num('met', 0); m.roughness = num('rough', 1); glowStripes(m); m.emissiveIntensity = num('emi', 2.2); } } });
   knight.traverse(o => { if (o.isSkinnedMesh) { body = o; o.frustumCulled = false; } });
 
   // ---------- animation ----------
