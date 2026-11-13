@@ -22,7 +22,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
       tickle:['Ha-ha-ha! That tickles!','Hey, careful with the armor!','Ouch! I am an agent, not a drum!'],
       note:'Voice input is unavailable right now — please type your question. Answers come from a model in NEAR AI secure enclaves; this server stores no conversations.',
       demoNote:'Demo mode: no server connected, answers are pre-written. On the real site NEAR AI answers.',
-      noVoice:'Voice is off: in this browser speech would go through a cloud service, which is not private. Answers are shown as text.', privMic:'This browser cannot record audio for private transcription. Please type your question — nothing goes to third-party services.',
+      noVoice:'The voice is unavailable right now. Answers are shown as text.', privMic:'This browser cannot record audio for private transcription. Please type your question — nothing goes to third-party services.',
       searchFiller:'One moment, let me check.', searching:'Looking up fresh info…',
       vWait:'TEE…', vOk:'TEE ✓', vFail:'TEE ✗', vTitle:'Privacy verification', vOkBig:'✅ Verified: answers are computed by a model inside a Trusted Execution Environment', vFailBig:'❌ Verification failed',
       vIntro:'This site’s server requested a NEAR AI attestation report with a fresh random nonce and verified it as the NEAR AI verification docs describe. An old or forged report cannot pass.',
@@ -135,6 +135,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     }catch(e){}
   }
   document.addEventListener('pointerdown',unlockAudio,{passive:true});
+  document.addEventListener('keydown',unlockAudio,{passive:true});   // TV remote: OK is a key press, not a tap
   async function fetchAudio(text){
     const r=await fetch('api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,lang})});
     if(!r.ok) throw new Error('tts '+r.status);
@@ -243,14 +244,11 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
     setMode('talk'); setStatus(t('speaking'));
     await waitVoices();
     if(id!==speakId) return;
-    // One voice on every device: the server voice (Piper) comes first, the browser voice is only a fallback
+    // PRIVACY: replies are voiced only by Piper inside our TEE server. The browser's own voices are never used
+    // (some report a cloud voice as on-device); if Piper is unavailable the agent answers in text.
     let ok=false;
     if(serverTTS[lang] && audioCtx){ ok=await speakServer(src,id,!!intro); }
-    if(!ok && id===speakId){
-      const voice=synth?pickVoice():null;
-      if(voice) await speakBrowser(src,id,!!intro,voice);
-      else { voiceless=true; setStatus(t('noVoice')); await speakSilent(src,id,!!intro); }
-    }
+    if(!ok && id===speakId){ voiceless=true; setStatus(t('noVoice')); await speakSilent(src,id,!!intro); }
     if(id!==speakId) return;
     mouthStop(); setMode(after);
     if(face){ show(face); setTimeout(()=>current===face&&show('idle'),900); }
@@ -887,6 +885,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
 <h3>Where it runs</h3><ul>
 <li><b>Answers.</b> DeepSeek V4.1 Flash in a TEE on NEAR AI Cloud (Intel TDX + NVIDIA). Every answer is signed inside the enclave. Tap TEE ✓ to check the proof yourself.</li>
 <li><b>Voice.</b> ${(IS_TV&&window.SecraTV)?"On TV, the TV's built-in voice input turns your speech into text. Answers come from the model in the enclave.":"Whisper, also inside a TEE. Your browser's cloud speech recognition is never used."}</li>
+<li><b>Its voice.</b> Replies are spoken by Piper inside our TEE server. The text never goes to a cloud voice service.</li>
 <li><b>Server.</b> Runs in Intel TDX on Phala and attests itself. It stores no conversations. It stores the scheduled orders you create, encrypted.</li>
 <li><b>Payments.</b> Confidential NEAR Intents. The payout lands on the recipient's private balance, so the chain does not show whom you paid.</li>
 <li><b>Your data.</b> Contacts and spending history stay on this device.</li></ul>
