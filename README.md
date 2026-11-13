@@ -177,6 +177,8 @@ Not covered and stated plainly: the top-up of your Intents balance from your wal
 ## Android TV
 
 - `android/`: a small Java WebView app (minSdk 21) that opens the same attested page full screen in TV mode. GitHub Actions (`.github/workflows/tv-apk.yml`) builds it and publishes `secra-tv.apk` (Phala) in the [`tv-latest`](https://github.com/buterbro-cell/knight-site/releases/tag/tv-latest) release.
+- **Ready-to-install APK in this repository:** [`android/dist/secra-tv.apk`](android/dist) with its SHA-256, built by CI from this code.
+- **Tested on a real Android TV (Hisense):** the app starts full screen, the 3D agent loads and the pairing QR code appears.
 - **Install:** copy the APK to a USB stick, allow unknown sources on the TV, open it with a file manager. Arrows and OK on the remote move between buttons; Back closes windows.
 - **Payments without a wallet on the TV:** **Wallet** shows a QR code and a 4-digit check code. The owner scans it, checks the digits, connects the wallet on the phone and signs the usual 24-hour agent permission; the phone hands that session to the TV (`lib/pair.js`: in memory only, single use, 10 minutes). The TV then pays through the agent wallet within its limits; keys never reach the TV.
 - **Voice on the TV:** OK on the microphone button opens the TV's built-in voice input and the recognised text goes to SECRA. That step runs on the TV, outside our TEE; answers and payments run as everywhere else.
