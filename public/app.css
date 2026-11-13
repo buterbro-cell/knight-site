@@ -150,10 +150,6 @@
   /* TV (Android TV app, remote control): clear focus ring for the D-pad, bigger tap targets */
   body.tv :focus-visible, body.tv button:focus{outline:4px solid #7ff3ff !important;outline-offset:3px;box-shadow:0 0 18px rgba(127,243,255,.6)}
   body.tv .sheet{width:min(100%,720px);font-size:18px}
-  /* TV: the speech bubble sits beside the agent, not over him; windows always fit the screen */
-  body.tv .stage{max-width:none}
-  body.tv .bubble{left:auto;right:4%;top:14%;width:28%;max-width:none;max-height:62%;transform:scale(.92);transform-origin:top right}
-  body.tv .bubble.show{transform:scale(1)}
-  body.tv .bubble.open{max-height:80%}
+  /* TV: windows always fit the screen (the side bubble comes from the wide-screen rule in glass.css) */
   body.tv .sheet{max-height:96vh}
   body.tv .sheet h2{margin:0 0 4px}

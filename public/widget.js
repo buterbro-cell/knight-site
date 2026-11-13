@@ -13,16 +13,16 @@
   var me = document.currentScript || document.querySelector('script[src*="widget.js"]');
   var origin = new URL(me.src, location.href).origin;
   var biz = (me.getAttribute('data-biz') || '').replace(/[^a-z0-9_-]/gi, '');
-  var lang = me.getAttribute('data-lang') || (navigator.language || 'en').slice(0, 2);
-  var label = me.getAttribute('data-label') || (lang === 'ru' ? 'Приватный помощник' : 'Private assistant');
+  var lang = 'en';   // English only
+  var label = me.getAttribute('data-label') || 'Private assistant';
   var src = origin + '/?embed=1' + (biz ? '&biz=' + biz : '') + '&lang=' + (lang === 'ru' ? 'ru' : 'en');
   var idle = new URLSearchParams(location.search).get('idle'); if (idle) src += '&idle=' + encodeURIComponent(idle);   // demo/testing only
 
   var css = document.createElement('style');
   css.textContent =
     '.snw-btn{position:fixed;right:18px;bottom:18px;z-index:2147483000;display:flex;align-items:center;gap:10px;border:0;cursor:pointer;' +
-    'background:#0d1a3d;color:#fff;border-radius:999px;padding:6px 16px 6px 6px;font:600 15px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;' +
-    'box-shadow:0 8px 28px rgba(9,20,60,.35)}' +
+    'background:linear-gradient(180deg,rgba(40,58,110,.78),rgba(13,24,58,.86));color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:6px 16px 6px 6px;font:600 15px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;' +
+    '-webkit-backdrop-filter:blur(16px) saturate(1.6);backdrop-filter:blur(16px) saturate(1.6);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 8px 28px rgba(9,20,60,.35)}' +
     '.snw-btn img{width:48px;height:48px;border-radius:50%;object-fit:cover;object-position:50% 18%;background:#1d3b8a}' +
     '.snw-btn small{display:block;font-weight:500;opacity:.75;font-size:12px}' +
     '.snw-panel{position:fixed;right:18px;bottom:18px;z-index:2147483001;width:400px;height:min(720px,calc(100vh - 36px));border-radius:22px;overflow:hidden;' +
@@ -34,7 +34,7 @@
 
   var btn = document.createElement('button');
   btn.className = 'snw-btn'; btn.type = 'button';
-  btn.innerHTML = '<img alt="" src="' + origin + '/img/idle.webp?v=secra10"><span>' + label + '<small>🔒 ' + (lang === 'ru' ? 'проверяемо приватно' : 'verifiably private') + '</small></span>';
+  btn.innerHTML = '<img alt="" src="' + origin + '/img/idle.webp?v=secra10"><span>' + label + '<small>' + 'verifiably private' + '</small></span>';
   var panel = document.createElement('div'); panel.className = 'snw-panel';
   var close = document.createElement('button'); close.className = 'snw-x'; close.type = 'button'; close.textContent = '✕'; close.setAttribute('aria-label', 'Close');
   panel.appendChild(close);

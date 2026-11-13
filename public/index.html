@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SECRA — приватный ИИ-агент на NEAR</title>
-<meta name="description" content="SECRA — голосовой ИИ-агент на NEAR: отвечает в защищённой среде и платит приватно через NEAR Intents">
-<link rel="stylesheet" href="app.css?v=secra12">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>SECRA: private AI agent on NEAR</title>
+<meta name="description" content="SECRA is a voice AI agent on NEAR. It answers inside a secure enclave and pays privately through NEAR Intents.">
+<link rel="stylesheet" href="app.css?v=secra13">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0a1638">
 <link rel="apple-touch-icon" href="icons/apple-180.png">
@@ -36,13 +36,13 @@
   #psheet .pay-row button{padding:6px 10px;flex:none}
   #psheet svg{display:block;width:100%;height:auto}.pay-st a{color:#93c5fd}
   html.embed header{padding-left:46px}
-  html.embed #note{display:none}
   .official{display:inline-block;margin-top:3px;font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px}
   .official.ok{background:rgba(52,211,153,.18);color:#7ef0c0}
   .official.warn{background:rgba(251,191,36,.18);color:#fcd57a}
   /* bright business rooms (clinic): keep the header readable */
   html.embed header{margin:0 -16px;padding:10px 16px 14px 62px;width:calc(100% + 32px);max-width:none;background:linear-gradient(180deg,rgba(6,12,32,.72),rgba(6,12,32,0))}
 </style>
+<link rel="stylesheet" href="glass.css?v=1">
 </head>
 <body>
 <div class="app">
@@ -51,14 +51,11 @@
   <div class="shade"></div>
   <div class="stars"></div>
   <header>
-    <div class="brand" id="title">SECRA<small id="subtitle">Приватный ИИ на NEAR AI</small></div>
+    <div class="brand" id="title">SECRA<small id="subtitle">Private AI agent on NEAR</small></div>
     <div class="hdr-right">
       <button class="vbtn ibtn hidden" id="ibtn" aria-label="About the agent">?</button>
-      <button class="vbtn wbtn hidden" id="wbtn" aria-label="Кошелёк"><span id="wtext">Кошелёк</span></button>
-      <button class="vbtn wait" id="vbtn" aria-label="Проверка TEE"><span class="dot"></span><span id="vtext">TEE…</span></button>
-      <div class="lang" role="group" aria-label="Язык">
-        <button data-l="ru" class="on">RU</button><button data-l="en">EN</button>
-      </div>
+      <button class="vbtn wbtn hidden" id="wbtn" aria-label="Wallet"><span id="wtext">Wallet</span></button>
+      <button class="vbtn wait" id="vbtn" aria-label="TEE check"><span class="dot"></span><span id="vtext">TEE…</span></button>
     </div>
   </header>
 
@@ -78,32 +75,31 @@
   </div>
 
   <div class="controls">
-    <div class="status"><span id="status"></span> <span class="badge" id="demo">ДЕМО</span></div>
+    <div class="status"><span id="status"></span> <span class="badge" id="demo">DEMO</span></div>
     <div class="proof hidden" id="proof"></div>
-    <div class="docchip hidden" id="docchip"><span id="docicon">📄</span> <span id="docname"></span><button id="docx" aria-label="Убрать документ">✕</button></div>
-    <button class="start" id="start">Поздороваться с SECRA</button>
+    <div class="docchip hidden" id="docchip"><span id="docicon">📄</span> <span id="docname"></span><button id="docx" aria-label="Remove document">✕</button></div>
+    <button class="start" id="start">Say hi to SECRA</button>
     <div class="row hidden" id="row">
-      <button class="small doc" id="docbtn" aria-label="Загрузить документ">
+      <button class="small doc" id="docbtn" aria-label="Attach a document">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-7M9 14l3-3 3 3"/></svg>
-        <span class="lb" id="lbDoc">Документ</span>
+        <span class="lb" id="lbDoc">Document</span>
       </button>
-      <button class="small" id="kbd" aria-label="Написать текстом">
+      <button class="small" id="kbd" aria-label="Type instead">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
-        <span class="lb" id="lbKbd">Текст</span>
+        <span class="lb" id="lbKbd">Text</span>
       </button>
-      <button class="mic" id="mic" aria-label="Задать вопрос голосом">
+      <button class="mic" id="mic" aria-label="Ask by voice">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>
       </button>
-      <button class="small" id="hush" aria-label="Замолчать">
+      <button class="small" id="hush" aria-label="Mute">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m23 9-6 6M17 9l6 6"/></svg>
-        <span class="lb" id="lbHush">Тише</span>
+        <span class="lb" id="lbHush">Mute</span>
       </button>
     </div>
     <form class="text" id="form" autocomplete="off">
-      <input id="q" maxlength="400" placeholder="Напиши вопрос…" enterkeyhint="send">
-      <button type="submit" id="sendBtn">Спросить</button>
+      <input id="q" maxlength="400" placeholder="Type a question…" enterkeyhint="send">
+      <button type="submit" id="sendBtn">Ask</button>
     </form>
-    <div class="note" id="note"></div>
   </div>
 </div>
 
@@ -113,7 +109,7 @@
 <div class="modal hidden" id="pmodal"><div class="sheet" id="psheet"></div></div>
 <!-- Document picker -->
 <div class="modal hidden" id="dmodal"><div class="sheet">
-  <h2 id="dTitle">Документ</h2>
+  <h2 id="dTitle">Document</h2>
   <div class="sub" id="dSub"></div>
   <button class="opt" id="dUpload"><span id="dUploadT"></span><small id="dUploadS"></small></button>
   <h3 id="dSamplesT"></h3>
@@ -126,7 +122,7 @@
   <input type="file" id="dFile" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.txt,.csv,.md,.json,.pdf,text/plain,text/csv,application/pdf" hidden>
 </div></div>
 
-<div class="drop hidden" id="drop"><div id="dropT">Отпусти файл — SECRA разберёт</div></div>
+<div class="drop hidden" id="drop"><div id="dropT">Drop the file and SECRA will read it</div></div>
 
 <script src="app.js"></script>
 </body>
