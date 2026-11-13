@@ -1259,7 +1259,7 @@ const APP_SRC = (document.currentScript && document.currentScript.src) || locati
   // Background: the business's own room (biz/<id>.json → background), otherwise the default data-center hall
   profileReady.then(()=>{
     const b=PROFILE&&PROFILE.background;
-    if(b&&b.src){ RING={x:b.ringX??0.5,y:b.ringY??0.858}; bgImg.src=b.src; } else bgImg.src='img/bg.webp';
+    if(b&&b.src){ RING={x:b.ringX??0.5,y:b.ringY??0.858}; bgImg.src=b.src; } else bgImg.src='img/bg.webp?v=2';
   });
 
   // ---------------- 3D SECRA ----------------

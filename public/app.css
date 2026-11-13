@@ -14,7 +14,7 @@
   .bgimg{position:absolute;left:50%;top:0;transform:translateX(-50%);max-width:none;pointer-events:none;opacity:0;transition:opacity .6s}
   .bgimg.on{opacity:1}
   .bgimg{-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
-  .bgblur{position:absolute;inset:-40px;background:url(img/bg.webp) center/cover;filter:blur(24px) brightness(.55);opacity:0;transition:opacity .6s;pointer-events:none}
+  .bgblur{position:absolute;inset:-40px;background:url(img/bg.webp?v=2) center/cover;filter:blur(24px) brightness(.55);opacity:0;transition:opacity .6s;pointer-events:none}
   .app.hasbg .bgblur{opacity:1}
   .shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(6,12,30,.55) 0%,rgba(6,12,30,0) 22%,rgba(6,12,30,0) 70%,rgba(6,12,30,.65) 86%,#0a1430 100%)}
   .app.hasbg .stars{display:none}
